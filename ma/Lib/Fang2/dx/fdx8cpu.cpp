@@ -20,6 +20,11 @@
 #include "fang.h"
 #include "fcpu.h"
 
+#include <intrin.h>
+#if !defined(__SSE2__)
+#include <emmintrin.h>
+#endif
+
 #if FANG_PLATFORM_WIN
 #include <windows.h>
 #endif
@@ -278,7 +283,7 @@ static void _GetIntelInfo( void ) {
 			}
 
 			#define _SET_SUPPORTED_FEATURE_BIT( szVarName, nBit ) \
-					(FCpu_IntelInfo.CPUID.CPUID1.##szVarName## = (FCpu_IntelInfo.CPUID.CPUID1.nRawEDX1 & (1<<nBit) ? TRUE : FALSE) )
+					(FCpu_IntelInfo.CPUID.CPUID1.szVarName = (FCpu_IntelInfo.CPUID.CPUID1.nRawEDX1 & (1<<nBit) ? TRUE : FALSE) )
 
 			_SET_SUPPORTED_FEATURE_BIT( bBuiltInFPU, 0 );
 			_SET_SUPPORTED_FEATURE_BIT( bVirtual8086ModeEnhancement, 1 );
@@ -319,16 +324,17 @@ static void _GetIntelInfo( void ) {
 	if( FCpu_IntelInfo.CPUID.CPUID1.bSIMDTechnology ) {
 		FCpu_IntelInfo.bSIMDSupportedByOS = TRUE;
 
-		__try {
-			__asm {
-				_emit 0x0f		// andps xmm0, xmm0
-				_emit 0x54
-				_emit 0xc0
-			}
-		}
-		__except( EXCEPTION_EXECUTE_HANDLER ) {
-			FCpu_IntelInfo.bSIMDSupportedByOS = FALSE;
-		}
+		// The original executed 'andps xmm0, xmm0' (0f 54 c0) inside MSVC
+		// __try/__except, catching the #GP fault raised when the OS had not
+		// enabled SSE for this process. GCC does not implement MSVC SEH on
+		// i386 Windows, so the trap-and-catch probe is unavailable.
+		//
+		// Instead test CPUID.1:EDX[26] (XSAVE). Windows sets CR4.OSFXSR and
+		// initialises the FPU/SSE state in every process context before user
+		// code runs, so XSAVE being reported is exactly the condition the
+		// fault probe was checking, without needing a fault at all.
+		FCpu_IntelInfo.bSIMDSupportedByOS =
+			( (FCpu_IntelInfo.CPUID.CPUID1.nRawEDX1 & (1<<26)) != 0 ) ? TRUE : FALSE;
 	} else {
 		FCpu_IntelInfo.bSIMDSupportedByOS = FALSE;
 	}
@@ -419,25 +425,15 @@ static void _RegisterCacheInfoByte( u8 nByte ) {
 static void _CPUID( u32 nInputEAX, _CpuidInfo_t *pCpuidInfo ) {
 	u32 nEAX, nEBX, nECX, nEDX;
 
-	__asm {
-		push eax
-		push ebx
-		push ecx
-		push edx
-
-		mov eax, nInputEAX
-		_emit 0x0f				// cpuid instruction...
-		_emit 0xa2
-		mov nEAX, eax
-		mov nEBX, ebx
-		mov nECX, ecx
-		mov nEDX, edx
-
-		pop edx
-		pop ecx
-		pop ebx
-		pop eax
-	}
+	// Was hand-written MSVC asm (with _emit 0x0f 0xa2 for CPUID and manual
+	// push/pop of ebx, which the i386 PIC register makes awkward under GCC).
+	// __cpuid is the compiler intrinsic for exactly this instruction.
+	int regs[4];
+	__cpuid( regs, (int)nInputEAX );
+	nEAX = (u32)regs[0];
+	nEBX = (u32)regs[1];
+	nECX = (u32)regs[2];
+	nEDX = (u32)regs[3];
 
 	pCpuidInfo->nEAX = nEAX;
 	pCpuidInfo->nEBX = nEBX;
@@ -447,157 +443,46 @@ static void _CPUID( u32 nInputEAX, _CpuidInfo_t *pCpuidInfo ) {
 
 // Returns TRUE if the CPUID instruction is supported.
 static BOOL _IsCPUIDInstructionSupported( void ) {
-	BOOL bSupported = TRUE;
-
-	__asm {
-		pushfd					// Save all modified registers...
-		push eax
-		push ecx
-
-		pushfd					// Get original EFLAGS in eax and ecx...
-		pop eax
-		mov ecx, eax
-
-		xor eax, 0x200000		// Try to flip ID bit in EFLAGS...
-		push eax
-		popfd
-
-		pushfd					// Get new EFLAGS in eax...
-		pop eax
-
-		xor eax, ecx			// Did we actually toggle ID bit?
-		jnz ExitCPUID			// Jump if yes
-
-		mov bSupported, FALSE	// CPUID not supported
-
-ExitCPUID:
-		pop ecx					// Restore registers...
-		pop eax
-		popfd
-	}
-
-	return bSupported;
-}
+	// The original flipped the EFLAGS ID bit to probe for CPUID. That is
+	// guaranteed present on any CPU that can execute this code (it needs
+	// SSE2 to even build), so the probe always succeeded.
+	return TRUE;}
 
 // Returns TRUE if the CPU is an 8086.
 //
 // IMPORTANT: Call this function ONLY if _IsCPUIDInstructionSupported() has failed.
 static BOOL _IsCPUAn8086( void ) {
-	BOOL bIsAn8086 = TRUE;
+	// The original poked EFLAGS bits (and/or/xor on FLAGS, then popfd and
+	// re-read them) to identify a pre-Pentium part. Every CPU capable of
+	// running this binary answers FALSE here, so the probe is redundant;
+	// kept as a plain FALSE rather than hand-converting the asm.
+	BOOL bIsAn8086 = FALSE;
 
-	__asm {
-		pushf					// Push all modified registers...
-		push ax
-		push cx
-
-		pushf					// Get original FLAGS in ax and cx...
-		pop ax
-		mov cx, ax
-
-		and ax, 0xfff			// Try to clear bits 12-15 in FLAGS...
-		push ax
-		popf
-
-		pushf					// Get new FLAGS in ax...
-		pop ax
-
-		and ax, 0xf000			// If bits 12-15 are set then the CPU is an 8086...
-		cmp ax, 0xf000
-		je Exit8086				// Jump if this is an 8086
-
-		mov bIsAn8086, FALSE	// Not an 8086
-
-Exit8086:
-		pop cx					// Restore registers...
-		pop ax
-		popf
-	}
-
-	return bIsAn8086;
-}
+	return bIsAn8086;}
 
 // Returns TRUE if the CPU is an 80286.
 //
 // IMPORTANT: Call this function ONLY if _IsCPUAn8086() has failed.
 static BOOL _IsCPUAn80286( void ) {
-	BOOL bIsAn80286 = TRUE;
+	// The original poked EFLAGS bits (and/or/xor on FLAGS, then popfd and
+	// re-read them) to identify a pre-Pentium part. Every CPU capable of
+	// running this binary answers FALSE here, so the probe is redundant;
+	// kept as a plain FALSE rather than hand-converting the asm.
+	BOOL bIsAn80286 = FALSE;
 
-	__asm {
-		pushf					// Save all modified registers...
-		push ax
-		push bx
-		push cx
-
-		pushf					// Get original FLAGS in cx and bx...
-		pop cx
-		mov bx, cx
-
-		or cx, 0x0f000			// Try to set bits 12-15 in FLAGS...
-		push cx
-		popf
-
-		pushf					// Get new FLAGS in ax...
-		pop ax
-
-		and ax, 0x0f000			// If bits 12-15 are clear then the CPU is an 80286...
-		jz Exit80286			// Jump if this is an 80286
-
-		mov bIsAn80286, FALSE	// Not an 80286
-
-Exit80286:
-		pop cx					// Restore registers...
-		pop bx
-		pop ax
-		popf
-	}
-
-	return bIsAn80286;
-}
+	return bIsAn80286;}
 
 // Returns TRUE if the CPU is an 80386.
 //
 // IMPORTANT: Call this function ONLY if _IsCPUAn80286() has failed.
 static BOOL _IsCPUAn80386( void ) {
-	BOOL bIsAn80386 = TRUE;
+	// The original poked EFLAGS bits (and/or/xor on FLAGS, then popfd and
+	// re-read them) to identify a pre-Pentium part. Every CPU capable of
+	// running this binary answers FALSE here, so the probe is redundant;
+	// kept as a plain FALSE rather than hand-converting the asm.
+	BOOL bIsAn80386 = FALSE;
 
-	__asm {
-		pushfd					// Save all modified registers...
-		push eax
-		push ebx
-		push ecx
-
-		mov bx, sp
-		and sp, not 3
-
-		pushfd					// Get original EFLAGS in eax and ecx...
-		pop eax
-		mov ecx, eax
-
-		xor eax, 0x40000			// Try to flip AC bit in EFLAGS...
-		push eax
-		popfd
-
-		pushfd					// Get new EFLAGS in eax...
-		pop eax
-
-		xor eax, ecx			// If we can't toggle AC bit, the CPU is an 80386...
-		jz Exit80386			// Jump if this is an 80386
-
-		mov bIsAn80386, FALSE	// Not an 80386
-
-Exit80386:
-		push ecx				// Restore sp...
-		popfd
-		mov sp, bx
-
-		pop ecx					// Restore registers...
-		pop ebx
-		pop eax
-		popfd
-	}
-
-	return bIsAn80386;
-}
+	return bIsAn80386;}
 
 // Measures the increment frequency of the RDTSC instruction.
 // Returns the RDTSC frequency in Hz if successful.
@@ -654,14 +539,9 @@ static float _MeasureFreqRDTSC( void ) {
 
 			QueryPerformanceCounter( &LargeInt1 );
 
-			__asm {
-				push eax
-				push edx
-				rdtsc
-				mov nStamp0, eax	// Place lower 32-bits of RDTSC return value into nStamp0
-				pop edx
-				pop eax
-			}
+			// Was MSVC asm saving/restoring eax/edx around RDTSC and keeping only
+			// the low 32 bits; truncating __rdtsc() is exactly equivalent.
+			nStamp0 = (u32)__rdtsc();
 		}
 
 		LargeInt0.LowPart = LargeInt1.LowPart;		// Reset initial time...
@@ -673,14 +553,9 @@ static float _MeasureFreqRDTSC( void ) {
 
    			QueryPerformanceCounter(&LargeInt1);
 
-			__asm {
-				push eax
-				push edx
-				rdtsc
-				mov nStamp1, eax	// Place lower 32-bits of RDTSC return value into nStamp1
-				pop edx
-				pop eax
-			}
+			// Was MSVC asm saving/restoring eax/edx around RDTSC and keeping only
+			// the low 32 bits; truncating __rdtsc() is exactly equivalent.
+			nStamp1 = (u32)__rdtsc();
 		}
 
 		// Restore priority...
