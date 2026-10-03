@@ -1,0 +1,5 @@
+vssver.scc
+*.scc
+*.obj
+*.pdb
+*.ilk
