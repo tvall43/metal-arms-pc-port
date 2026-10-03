@@ -1,0 +1,123 @@
+cmake_minimum_required(VERSION 3.20)
+project(ma C CXX)
+
+# ---------------------------------------------------------------------------
+# This rebuilds the original Metal Arms Windows target (App/ma/win/ma_win.vcproj)
+# with mingw-w64 instead of Visual Studio .NET 2003.
+#
+#   . /workspaces/ma/tools/env.sh
+#   cmake -S . -B ../build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw-i686.cmake
+#   cmake --build ../build -j8
+# ---------------------------------------------------------------------------
+
+# The game is /MACHINE:I386 and assumes 32-bit long, 4-byte pointers and
+# PowerPC-flavoured alignment. A 64-bit target would introduce silent type bugs,
+# so refuse it outright rather than let it look like it works.
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
+  message(FATAL_ERROR
+    "ma must be built 32-bit (i686-w64-mingw32); got ${CMAKE_SIZEOF_VOID_P}-byte pointers. "
+    "Configure with -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw-i686.cmake")
+endif()
+
+# _FANGDEF_WINGC selects GameCube alignment and disables the SSE paths in
+# fmath_vec/fangalign. The original vcproj files were inconsistent: the
+# fang2win Debug library was built WITH it while ma_win was built WITHOUT it,
+# which is an ABI hazard since those macros change struct layout. Keep one
+# setting across every target here; default off matches retail semantics.
+option(MA_WINGC "GameCube alignment, no SSE (must match across all targets)" OFF)
+
+# The MFC debug shell is excluded (see cmake/gen_sources.py). Without this the
+# build still tries to link the asset browser and vidmode picker.
+option(MA_BUILD_SHELL "Build the MFC debug shell (requires MSVC; mingw cannot)" OFF)
+
+if(MA_BUILD_SHELL)
+  message(FATAL_ERROR "MA_BUILD_SHELL requires MFC and is not supported by this toolchain")
+endif()
+
+set(CMAKE_CXX_STANDARD 98)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)          # gnu++98: computed gotos, etc.
+set(CMAKE_C_STANDARD 99)
+
+add_compile_options(
+  -fpermissive                        # 2003 MSVC code; downgrade what we can
+  -Wno-deprecated-declarations
+  -Wno-unused-variable
+  -Wno-unused-but-set-variable
+  -Wno-unused-function
+  -Wno-unknown-pragmas
+  -Wno-write-strings
+  -Wno-invalid-offsetof
+  -Wno-pointer-to-int-cast
+  -Wno-int-to-pointer-cast
+  -Wno-long-long
+)
+
+include(cmake/sources_smallamx.cmake)
+include(cmake/sources_fang2win.cmake)
+include(cmake/sources_ma_win.cmake)
+
+# Definitions shared by every target. Kept uniform so the game and the engine
+# library cannot disagree about struct layout.
+add_compile_definitions(
+  WIN32
+  _WINDOWS
+  _FANGDEF_PLATFORM_WIN
+  $<$<CONFIG:Debug>:_DEBUG>
+  $<$<CONFIG:Release>:NDEBUG>
+  _FANGDEF_ENABLE_DEV_FEATURES
+)
+if(MA_WINGC)
+  add_compile_definitions(_FANGDEF_WINGC)
+endif()
+
+# ---------------------------------------------------------------------------
+# SmallAMX -- the scripting VM (Pawn-like) the game logic is scripted against.
+# Third-party C, needs <stdint.h> types that used to arrive transitively.
+# ---------------------------------------------------------------------------
+add_library(smallamx STATIC ${SMALLAMX_SOURCES})
+target_include_directories(smallamx PUBLIC Lib/SmallAMX)
+target_compile_definitions(smallamx PRIVATE AMX_NODYNAL)
+target_compile_options(smallamx PRIVATE -include stdint.h)
+
+# ---------------------------------------------------------------------------
+# Fang2 -- engine core plus the D3D8 renderer.
+# ---------------------------------------------------------------------------
+add_library(fang2win STATIC ${FANG2WIN_SOURCES})
+target_include_directories(fang2win PUBLIC
+  Lib/Fang2
+  Lib/Fang2/dx
+  Lib/SmallAMX
+  Lib/Bink
+  compat
+)
+target_include_directories(fang2win PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(fang2win PUBLIC
+  smallamx
+  d3d8                # renderer device
+  dinput8             # pad
+  dsound              # sound
+  winmm               # timers
+  msacm32             # adpcm decode (fdx8audio.cpp)
+  dxguid
+  d3dx9               # stands in for d3dx8; see compat/d3dx8.h
+  uuid
+  gdi32
+  ole32
+)
+
+# ---------------------------------------------------------------------------
+# ma_win -- the game.
+# ---------------------------------------------------------------------------
+add_executable(ma_win ${MA_WIN_SOURCES})
+target_include_directories(ma_win PRIVATE
+  App/ma
+  App/ma/win
+  App/ma/Ai
+  Lib/Fang2
+  Lib/Fang2/dx
+  Lib/SmallAMX
+  Lib/Bink
+  compat
+)
+target_link_libraries(ma_win PRIVATE fang2win)
