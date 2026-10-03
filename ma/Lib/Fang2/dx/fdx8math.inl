@@ -19,6 +19,9 @@
 
 #include "fang.h"
 
+#include <math.h>
+#include <xmmintrin.h>
+
 
 
 //---------------------------------------------------------------------------------------------
@@ -130,11 +133,12 @@ FINLINE f32 fmath_Sqrt( f32 fVal ) {
 
 	FASSERT_POS_FLOAT( fVal );
 
-	__asm {
-		rsqrtss	xmm0, fVal
-		rcpss	xmm0, xmm0
-		movss	fRetVal, xmm0
+	// Was MSVC asm: rsqrtss / rcpss / movss. Same ops as the intrinsics.
+	{
+		__m128 v = _mm_rsqrt_ss(_mm_set_ss(fVal));
+		fRetVal = _mm_cvtss_f32(_mm_rcp_ss(v));
 	}
+
 
 	FMATH_DEBUG_FCHECK( fRetVal );
 
@@ -148,10 +152,9 @@ FINLINE f32 fmath_InvSqrt( f32 fVal ) {
 
 	FASSERT_POS_FLOAT( fVal );
 
-	__asm {
-		rsqrtss	xmm0, fVal
-		movss	fRetVal, xmm0
-	}
+	// Was MSVC asm: rsqrtss / movss.
+	fRetVal = _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(fVal)));
+
 
 	FMATH_DEBUG_FCHECK( fRetVal );
 
@@ -165,10 +168,9 @@ FINLINE f32 fmath_Inv( f32 fVal ) {
 
 	FASSERT( fVal != 0.0f );
 
-	__asm {
-		rcpss	xmm0, fVal
-		movss	fRetVal, xmm0
-	}
+	// Was MSVC asm: rcpss / movss.
+	fRetVal = _mm_cvtss_f32(_mm_rcp_ss(_mm_set_ss(fVal)));
+
 
 	FMATH_DEBUG_FCHECK( fRetVal );
 
@@ -182,11 +184,13 @@ FINLINE f32 fmath_Div( f32 fNumerator, f32 fDenominator ) {
 
 	FASSERT( fDenominator != 0.0f );
 
-	__asm {
-		rcpss	xmm0, fDenominator
-		mulss	xmm0, fNumerator
-		movss	fRetVal, xmm0
+	// Was MSVC asm: rcpss / mulss / movss.
+	{
+		__m128 v = _mm_rcp_ss(_mm_set_ss(fDenominator));
+		v = _mm_mul_ss(v, _mm_set_ss(fNumerator));
+		fRetVal = _mm_cvtss_f32(v);
 	}
+
 
 	FMATH_DEBUG_FCHECK( fRetVal );
 
@@ -200,10 +204,11 @@ FINLINE s32 fmath_FloatToS32( f32 fVal ) {
 	FMATH_DEBUG_FCHECK( fVal );
 	FASSERT( fVal>(f32)(s32)0x81000000 && fVal<(f32)(s32)0x7effffff );
 
-	__asm {
-		fld fVal					; Store value in ST(0)
-		fistp nVal;					; Pop it off fp stack, convert it to an integer, and store it in nVal
-	}
+	// Was MSVC asm: fld / fistp. FISTP converts using the current FPU rounding
+	// mode (round-to-nearest by default) whereas a C cast truncates toward
+	// zero; lrintf() honours the same rounding mode FISTP did.
+	nVal = (s32)lrintf(fVal);
+
 
 	return nVal;
 }
@@ -216,10 +221,11 @@ FINLINE u32 fmath_FloatToU32( f32 fVal ) {
 	FASSERT( fVal >= 0.0f );
 	FASSERT( fVal < (f32)(u32)0xfeffffff );
 
-	__asm {
-		fld fVal					; Store value in ST(0)
-		fistp nVal;					; Pop it off fp stack, convert it to an integer, and store it in nVal
-	}
+	// Was MSVC asm: fld / fistp. FISTP converts using the current FPU rounding
+	// mode (round-to-nearest by default) whereas a C cast truncates toward
+	// zero; lrintf() honours the same rounding mode FISTP did.
+	nVal = (u32)lrintf(fVal);
+
 
 	return nVal;
 }
@@ -236,11 +242,9 @@ FINLINE f32 fmath_AcuSqrt( f32 fVal ) {
 
 	FASSERT_POS_FLOAT( fVal );
 
-	__asm {
-		fld fVal					; Store value in ST(0)
-		fsqrt						; Compute square-root and put into ST(0)
-		fstp fRetVal				; Pop value off fp stack and put into fRetValue
-	}
+	// Was MSVC asm: fld / fsqrt / fstp.
+	fRetVal = sqrtf(fVal);
+
 
 	FMATH_DEBUG_FCHECK( fRetVal );
 
@@ -268,11 +272,9 @@ FINLINE f32 fmath_AcuInvSqrt( f32 fVal ) {
 FINLINE f32 fmath_AcuSin( f32 fAngle ) {
 	f32 fRetValue;
 
-	__asm {
-		fld fAngle					; Store angle in ST(0)
-		fsin						; Compute sine and put into ST(0)
-		fstp fRetValue;				; Pop value off fp stack and put into fRetValue
-	}
+	// Was MSVC asm: fld / fsin / fstp.
+	fRetValue = sinf(fAngle);
+
 
 	return fRetValue;
 }
@@ -282,11 +284,9 @@ FINLINE f32 fmath_AcuSin( f32 fAngle ) {
 FINLINE f32 fmath_AcuCos( f32 fAngle ) {
 	f32 fRetValue;
 
-	__asm {
-		fld fAngle					; Store angle in ST(0)
-		fcos						; Compute cosine and put into ST(0)
-		fstp fRetValue;				; Pop value off fp stack and put into fRetValue
-	}
+	// Was MSVC asm: fld / fcos / fstp.
+	fRetValue = cosf(fAngle);
+
 
 	return fRetValue;
 }
@@ -296,12 +296,10 @@ FINLINE f32 fmath_AcuCos( f32 fAngle ) {
 FINLINE void fmath_AcuSinCos( f32 fAngle, f32 *pfSin, f32 *pfCos ) {
 	f32 fSinResult, fCosResult;
 
-	__asm {
-		fld fAngle					; Store angle in ST(0)
-		fsincos						; Compute sine and cosine and put into ST(1) and ST(0), respectively
-		fstp fCosResult				; Pop cosine value off fp stack and put into fCosResult
-		fstp fSinResult				; Pop sine value off fp stack and put into fSinResult
-	}
+	// Was MSVC asm: fld / fsincos / fstp.
+	fSinResult = sinf(fAngle);
+	fCosResult = cosf(fAngle);
+
 
 	*pfSin = fSinResult;
 	*pfCos = fCosResult;
@@ -312,11 +310,9 @@ FINLINE void fmath_AcuSinCos( f32 fAngle, f32 *pfSin, f32 *pfCos ) {
 FINLINE f32 fmath_AcuPositiveSin( f32 fAngle ) {
 	f32 fRetValue;
 
-	__asm {
-		fld fAngle					; Store angle in ST(0)
-		fsin						; Compute sine and put into ST(0)
-		fstp fRetValue;				; Pop value off fp stack and put into fRetValue
-	}
+	// Was MSVC asm: fld / fsin / fstp.
+	fRetValue = sinf(fAngle);
+
 
 	return 0.5f + 0.5f*fRetValue;
 }
@@ -326,11 +322,9 @@ FINLINE f32 fmath_AcuPositiveSin( f32 fAngle ) {
 FINLINE f32 fmath_AcuPositiveCos( f32 fAngle ) {
 	f32 fRetValue;
 
-	__asm {
-		fld fAngle					; Store angle in ST(0)
-		fcos						; Compute cosine and put into ST(0)
-		fstp fRetValue;				; Pop value off fp stack and put into fRetValue
-	}
+	// Was MSVC asm: fld / fcos / fstp.
+	fRetValue = cosf(fAngle);
+
 
 	return 0.5f + 0.5f*fRetValue;
 }
@@ -340,12 +334,10 @@ FINLINE f32 fmath_AcuPositiveCos( f32 fAngle ) {
 FINLINE void fmath_AcuPositiveSinCos( f32 fAngle, f32 *pfSin, f32 *pfCos ) {
 	f32 fSinResult, fCosResult;
 
-	__asm {
-		fld fAngle					; Store angle in ST(0)
-		fsincos						; Compute sine and cosine and put into ST(1) and ST(0), respectively
-		fstp fCosResult				; Pop cosine value off fp stack and put into fCosResult
-		fstp fSinResult				; Pop sine value off fp stack and put into fSinResult
-	}
+	// Was MSVC asm: fld / fsincos / fstp.
+	fSinResult = sinf(fAngle);
+	fCosResult = cosf(fAngle);
+
 
 	*pfSin = 0.5f + 0.5f*fSinResult;
 	*pfCos = 0.5f + 0.5f*fCosResult;
