@@ -12,14 +12,14 @@
 #include "gstring.h"
 #include "MeshEntity.h"
 #include "MultiplayerMgr.h"
-#include "AI\AIBrainman.h"
-#include "AI\AIBrainUtils.h"
-#include "AI\AiApi.h"
-#include "AI\AIEnviro.h"
-#include "AI\AIGameUtils.h"
-#include "AI\AIGraph.h"
-#include "AI\AIGroup.h"
-#include "AI\AIMain.h"
+#include "AI/AIBrainman.h"
+#include "AI/AIBrainUtils.h"
+#include "AI/AiApi.h"
+#include "AI/AIEnviro.h"
+#include "AI/AIGameUtils.h"
+#include "AI/AIGraph.h"
+#include "AI/AIGroup.h"
+#include "AI/AIMain.h"
 
 const u32 _kuAlarmOnMeshId = 1;
 const u32 _kuAlarmOffMeshId = 0;

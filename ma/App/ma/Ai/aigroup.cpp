@@ -29,8 +29,8 @@
 #include "AIThoughtsGround.h"
 #include "AI/AiApi.h"
 #include "AI/AIMain.h"
-#include "Ai\AINodePools.h"
-#include "AI\AIEdgeLock.h"
+#include "Ai/AINodePools.h"
+#include "AI/AIEdgeLock.h"
 
 #include "../Entity.h"
 #include "../Player.h"

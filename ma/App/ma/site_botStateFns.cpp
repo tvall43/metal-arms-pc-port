@@ -23,7 +23,7 @@
 #include "ftext.h"
 #include "gamepad.h"
 #include "meshtypes.h"
-#include "AI\AIEnviro.h"
+#include "AI/AIEnviro.h"
 #include "player.h"
 #include "eparticlepool.h"
 #include "MultiplayerMgr.h"

@@ -28,7 +28,7 @@
 #include "hud2.h"
 #include "player.h"
 #include "botpart.h"
-#include "AI\AIEnviro.h"
+#include "AI/AIEnviro.h"
 #include "MultiplayerMgr.h"
 //#include "miscdraw.h" 
 

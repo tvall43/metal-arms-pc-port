@@ -27,7 +27,7 @@
 #include "level.h"
 #include "eboomer.h"
 #include "collectable.h"
-#include "ai\\aicorrosive.h"
+#include "ai//aicorrosive.h"
 #include "BotCorrosive.h"
 #include "BotGlitch.h"
 

@@ -31,9 +31,9 @@
 #include "fvis.h"
 #include "FCheckPoint.h"
 #include "gameloop.h"
-#include "AI\AIGameutils.h" //debug render stuff
-#include "AI\AIBrain.h"
-#include "AI\AIMover.h"
+#include "AI/AIGameutils.h" //debug render stuff
+#include "AI/AIBrain.h"
+#include "AI/AIMover.h"
 #include "fdraw.h"
 
 const cchar* _kpszDamLiftDamageProfile = "RocketL1";//"DamLift"

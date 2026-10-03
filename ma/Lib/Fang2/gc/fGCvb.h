@@ -23,7 +23,7 @@
 #include "fang.h"
 #include "fmath.h"
 #include "fGCdata.h"
-#include "Dolphin\GX\GXEnum.h"
+#include "Dolphin/GX/GXEnum.h"
 
 
 #define FGCVB_MAX_ST_SETS				4

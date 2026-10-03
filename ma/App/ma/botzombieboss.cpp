@@ -31,7 +31,7 @@
 #include "fsound.h"
 #include "meshentity.h"
 #include "botpart.h"
-#include "Ai\AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "AI/AIGameUtils.h"
 #include "fworld_coll.h"
 #include "miscDraw.h"

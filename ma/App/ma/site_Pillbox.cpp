@@ -31,8 +31,8 @@
 #include "player.h"
 #include "botpart.h"
 #include "vehicle.h"
-#include "AI\AIBrainman.h"
-#include "AI\AIEnviro.h"
+#include "AI/AIBrainman.h"
+#include "AI/AIEnviro.h"
 
 static s32 _nRED_LIGHT_ID = 1;
 static s32 _nYELLOW_LIGHT_ID = 2;

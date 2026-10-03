@@ -30,17 +30,17 @@
 #include "frenderer.h"
 #include "fshadow.h"
 #if FANG_PLATFORM_GC
-	#include "gc\fgc.h"
-	#include "gc\fgcsh.h"
+	#include "gc/fgc.h"
+	#include "gc/fgcsh.h"
 #endif
 #if FANG_PLATFORM_DX
-	#include "dx\fdx8tex.h"
-	#include "dx\fdx8xfm.h"
-	#include "dx\fdx8vb.h"
+	#include "dx/fdx8tex.h"
+	#include "dx/fdx8xfm.h"
+	#include "dx/fdx8vb.h"
 #endif
 //ARG - >>>>>
 #if FANG_PLATFORM_PS2
-	#include "ps2\fps2xfm.h"
+	#include "ps2/fps2xfm.h"
 #endif
 //ARG - <<<<<
 

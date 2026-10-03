@@ -31,7 +31,7 @@
 #include "muzzleflash.h"
 #include "weapon.h"
 #include "potmark.h"
-#include "Ai\AIEnviro.h"
+#include "Ai/AIEnviro.h"
 //#include "fpad.h"
 #include "botpart.h"
 #include "gamecam.h"

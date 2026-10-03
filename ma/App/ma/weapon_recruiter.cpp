@@ -31,9 +31,9 @@
 #include "fvtxpool.h"
 #include "muzzleflash.h"
 #include "MultiplayerMgr.h"
-#include "ai\aiapi.h"
-#include "ai\aibrain.h"
-#include "ai\aimover.h"
+#include "ai/aiapi.h"
+#include "ai/aibrain.h"
+#include "ai/aimover.h"
 
 
 

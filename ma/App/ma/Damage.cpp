@@ -29,7 +29,7 @@
 #include "bot.h"
 #include "weapon.h"
 #include "gstring.h"
-#include "ai\aienviro.h"
+#include "ai/aienviro.h"
 #include "fclib.h"
 #include "MultiplayerMgr.h"
 #include "Difficulty.h"

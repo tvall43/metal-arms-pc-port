@@ -222,6 +222,12 @@ class CFSphere
 		CFSphere();
 		CFSphere( const CFVec3& rCenter, const f32 fRadius );
 
+		// Required because the union above holds a CFVec3, which has a
+		// non-trivial default constructor: under C++11 the implicit copy
+		// constructor and copy assignment would otherwise be deleted.
+		CFSphere( const CFSphere& rSphere );
+		CFSphere& operator = ( const CFSphere& rSphere );
+
 		void Zero( void );
 		void Set( const CFVec3& rCenter, const f32 fRadius );
 
@@ -261,6 +267,12 @@ FCLASS_ALIGN_PREFIX class CFSphereA
 
 		CFSphereA();
 		CFSphereA( const CFVec3A& rCenter, const f32 fRadius );
+
+		// Required because the union above holds a CFVec3A, which has a
+		// non-trivial default constructor: under C++11 the implicit copy
+		// constructor and copy assignment would otherwise be deleted.
+		CFSphereA( const CFSphereA& rSphere );
+		CFSphereA& operator = ( const CFSphereA& rSphere );
 
 		void Zero( void );
 		void Set( const CFVec3A& rCenter, const f32 fRadius );

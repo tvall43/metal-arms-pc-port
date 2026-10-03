@@ -25,7 +25,7 @@
 #define FGCDATA_FIXED_VERTEX_FORMATS		7
 
 #if FANG_PLATFORM_GC
-	#include "Dolphin\GX\GXEnum.h"
+	#include "Dolphin/GX/GXEnum.h"
 	#define FGCDATA_VARIABLE_VERTEX_FORMAT		GX_VTXFMT7
 #else
 	#define FGCDATA_VARIABLE_VERTEX_FORMAT		7

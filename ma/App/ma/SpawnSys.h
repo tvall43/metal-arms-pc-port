@@ -30,7 +30,7 @@
 
 #include "flinklist.h"
 #include "fmath.h"
-#include "AI\AIWeaponCtrl.h"
+#include "AI/AIWeaponCtrl.h"
 
 class CEntity;
 class CBot;

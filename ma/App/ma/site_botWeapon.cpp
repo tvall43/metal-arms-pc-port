@@ -34,9 +34,9 @@
 #include "MultiplayerMgr.h"
 #include "vehicle.h"
 #include "vehiclerat.h"
-#include "AI\AIGroup.h"
-#include "ai\aigameutils.h"
-#include "AI\AIBrainman.h"
+#include "AI/AIGroup.h"
+#include "ai/aigameutils.h"
+#include "AI/AIBrainman.h"
 #include "MiscDraw.h"
 
 #define _SOUND_BANK_SENTRY_GUN			"Sentry"

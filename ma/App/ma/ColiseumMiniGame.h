@@ -30,7 +30,7 @@
 
 #include "level.h"
 #include "MagnetDevice.h"
-#include "ai\aicorrosive.h"
+#include "ai/aicorrosive.h"
 
 class CBot;
 class CBotGrunt;

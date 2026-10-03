@@ -26,14 +26,14 @@
 #include "weapon.h"
 #include "MultiPlayermgr.h"
 #include "AlarmSys.h"
-#include "ai\aibrainman.h"
-#include "AI\AiApi.h"
-#include "AI\AIEnviro.h"
-#include "AI\AIGameUtils.h"
-#include "AI\AIMain.h"
-#include "AI\AIGraph.h"
-#include "AI\AIGroup.h"
-#include "AI\AIBrain.h"
+#include "ai/aibrainman.h"
+#include "AI/AiApi.h"
+#include "AI/AIEnviro.h"
+#include "AI/AIGameUtils.h"
+#include "AI/AIMain.h"
+#include "AI/AIGraph.h"
+#include "AI/AIGroup.h"
+#include "AI/AIBrain.h"
 
 #define _LOG_DISPENSER_ACTIVITY		TRUE
 #define _MIN_LIGHT_INTENSITY		0.25f

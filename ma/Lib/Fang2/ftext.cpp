@@ -187,30 +187,30 @@ static BOOL _bTempFixedWidthFont, _bTempItalicFont, _bTempOTOTexelPixelAlignment
 #if( FANG_PLATFORM_WIN )
 	static u8 _auDefaultFnt[] =
 	{
-	#include "dx\fdx8fontdata.h"
+	#include "dx/fdx8fontdata.h"
 	};
 	static u8 _auDefaultTga[] = // Lucida Sans Typewriter 10 pts.
 	{
-	#include "dx\fdx8fonttex.h"
+	#include "dx/fdx8fonttex.h"
 	};
 #elif( FANG_PLATFORM_XB )
 	static u8 _auDefaultFnt[] =
 	{
-	#include "dx\fxbfontdata.h"
+	#include "dx/fxbfontdata.h"
 	};
 	static u8 _auDefaultTga[] = // Verdana 14 pts.
 	{
-	#include "dx\fxbfonttex.h"
+	#include "dx/fxbfonttex.h"
 	};
 #elif( FANG_PLATFORM_GC )
 	#include "fGC.h"
 	static u8 FGC_ALIGN(32) _auDefaultFnt[] =
 	{
-	#include "gc\fgcfontdata.h"
+	#include "gc/fgcfontdata.h"
 	};
 	static u8 FGC_ALIGN(32) _auDefaultTga[] = // Verdana 14 pts.
 	{
-	#include "gc\fgcfonttex.h"
+	#include "gc/fgcfonttex.h"
 	};
 //ARG - >>>>>
 #elif( FANG_PLATFORM_PS2 )
@@ -218,11 +218,11 @@ static BOOL _bTempFixedWidthFont, _bTempItalicFont, _bTempOTOTexelPixelAlignment
 //ARG - same as XB at the moment
 	static u8 FPS2_ALIGN(32) _auDefaultFnt[] =
 	{
-	#include "ps2\fps2fontdata.h"
+	#include "ps2/fps2fontdata.h"
 	};
 	static u8 FPS2_ALIGN(128) _auDefaultTga[] = // Verdana 14 pts.
 	{
-	#include "ps2\fps2fonttex.h"
+	#include "ps2/fps2fonttex.h"
 	};
 
 	int _vsnprintf(char *string, int maxlen, const char *format, char *args)

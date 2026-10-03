@@ -35,7 +35,7 @@
 #include "ProTrack.h"
 #include "fsndfx.h"
 #include "meshentity.h"
-#include "Ai\AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "Hud2.h"
 #include "eparticlepool.h"
 #include "gcoll.h"

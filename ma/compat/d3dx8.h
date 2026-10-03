@@ -103,10 +103,14 @@ static inline void D3DXMatrixTranspose(D3DXMATRIX* pOut, CONST D3DXMATRIX* pM)
     *pOut = tmp;
 }
 
-// pOut = inverse(pM), via Gauss-Jordan with partial pivoting. Returns NULL if
-// pM is singular. The SDK's own routine is a cofactor expansion; both compute
-// the same mathematical inverse.
-static inline D3DXMATRIX* D3DXMatrixInverse(D3DXMATRIX* pOut, CONST D3DXMATRIX* pM, FLOAT* pDeterminant)
+// D3DX8 signature: HRESULT D3DXMatrixInverse(pOut, pDeterminant, pM).
+// NOTE the middle parameter is the determinant, not the matrix -- D3DX9
+// reordered these and changed the return type. fdx8.h:250 calls it as
+// (out, NULL, matrix), i.e. the D3DX8 form. Inverse via Gauss-Jordan
+// with partial pivoting; the SDK used a cofactor expansion, but both
+// compute the same mathematical inverse.
+static inline HRESULT D3DXMatrixInverse(D3DXMATRIX* pOut, FLOAT* pDeterminant,
+                                        CONST D3DXMATRIX* pM)
 {
     FLOAT a[4][8];
     for (int i = 0; i < 4; ++i)
@@ -117,7 +121,7 @@ static inline D3DXMATRIX* D3DXMatrixInverse(D3DXMATRIX* pOut, CONST D3DXMATRIX* 
             a[i][4 + j] = (i == j) ? 1.0f : 0.0f;
     }
 
-    // determinant via elimination; the pivot product gives det up to sign
+    // product of pivots gives the determinant up to a sign from row swaps
     FLOAT det = 1.0f;
     for (int col = 0; col < 4; ++col)
     {
@@ -128,7 +132,7 @@ static inline D3DXMATRIX* D3DXMatrixInverse(D3DXMATRIX* pOut, CONST D3DXMATRIX* 
         if (a[piv][col] == 0.0f)
         {
             if (pDeterminant) *pDeterminant = 0.0f;
-            return NULL;
+            return E_FAIL;                    // singular
         }
         if (piv != col)
         {
@@ -152,7 +156,7 @@ static inline D3DXMATRIX* D3DXMatrixInverse(D3DXMATRIX* pOut, CONST D3DXMATRIX* 
             pOut->m[i][j] = a[i][4 + j];
 
     if (pDeterminant) *pDeterminant = det;
-    return pOut;
+    return S_OK;
 }
 
 // pOut = pV / |pV|
@@ -202,7 +206,7 @@ HRESULT D3DXCreateCubeTexture(
     LPDIRECT3DDEVICE8       pDevice,
     UINT                    Width,
     UINT                    MipLevels,
-    D3DUSAGE               Usage,
+    DWORD                  Usage,
     D3DFORMAT               Format,
     D3DPOOL                 Pool,
     LPDIRECT3DCUBETEXTURE8* ppCubeTexture);

@@ -65,12 +65,12 @@
 
 #include "ColiseumMiniGame.h"
 
-#include "AI\AiApi.h"
-#include "AI\AIBrainMan.h"
-#include "AI\AIBTATable.h"
-#include "AI\AIEnviro.h"
-#include "AI\AIGameUtils.h"
-#include "AI\AIBrain.h"
+#include "AI/AiApi.h"
+#include "AI/AIBrainMan.h"
+#include "AI/AIBTATable.h"
+#include "AI/AIEnviro.h"
+#include "AI/AIGameUtils.h"
+#include "AI/AIBrain.h"
 #include "user_elliott.h"
 
 

@@ -28,7 +28,7 @@
 #include "fGCsh.h"
 //#include "fDataStreaming.h"
 
-//#include "dolphin\GD.h"
+//#include "dolphin/GD.h"
 
 class CFMeshInst;
 

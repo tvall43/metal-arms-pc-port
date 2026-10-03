@@ -34,7 +34,7 @@
 #if FANG_PLATFORM_GC
 	#include "fGCfile.h"
 #elif FANG_PLATFORM_DX
-	#include "dx\fdx8file.h"
+	#include "dx/fdx8file.h"
 //ARG - >>>>>
 #elif FANG_PLATFORM_PS2
 	#include "fps2file.h"

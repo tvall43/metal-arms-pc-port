@@ -34,12 +34,12 @@
 #include "sas_user.h"
 
 #if FANG_PLATFORM_GC
-	#include "gc\fgcanim.inl"
+	#include "gc/fgcanim.inl"
 #elif FANG_PLATFORM_DX
-	#include "dx\fdx8anim.inl"
+	#include "dx/fdx8anim.inl"
 //ARG - >>>>>
 #elif FANG_PLATFORM_PS2
-	#include "ps2\fps2anim.inl"
+	#include "ps2/fps2anim.inl"
 //ARG - <<<<<
 #else
 	#pragma message ("FANIM.CPP - Error - No animation inlines defined for this platform.\n")

@@ -21,7 +21,7 @@
 #include "Tripwire.h"
 #include "fclib.h"
 #include "entity.h"
-#include "AI\AiPatrolPath.h"
+#include "AI/AiPatrolPath.h"
 #include "gstring.h"
 #include "spawnsys.h"
 

@@ -36,7 +36,7 @@
 #include "ProTrack.h"
 #include "fsound.h"
 #include "meshentity.h"
-#include "Ai\AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "Hud2.h"
 #include "botpart.h"
 

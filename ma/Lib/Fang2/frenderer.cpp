@@ -23,7 +23,7 @@
 #include "fmath.h"
 
 #if FANG_PLATFORM_DX
-	#include "dx\\fdx8.h"
+	#include "dx//fdx8.h"
 #endif
 
 

@@ -32,7 +32,7 @@
 #include "muzzleflash.h"
 #include "weapon.h"
 #include "potmark.h"
-#include "Ai\AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "botpart.h"
 #include "gamecam.h"
 #include "fsound.h"

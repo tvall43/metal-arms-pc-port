@@ -39,7 +39,7 @@
 #include "fsound.h"
 #include "meshentity.h"
 #include "botpart.h"
-#include "Ai\AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "Hud2.h"
 #include "zipline.h"
 #include "fworld_coll.h"

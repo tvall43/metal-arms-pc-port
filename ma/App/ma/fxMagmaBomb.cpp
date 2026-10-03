@@ -32,7 +32,7 @@
 #include "Bot.h"
 #include "EBotFire.h"
 #include "MeshTypes.h"
-#include "Ai\aienviro.h"
+#include "Ai/aienviro.h"
 #include "fsound.h"
 
 BOOL		 CFXMagmaBomb::m_bSystemInitialized	= FALSE;				// TRUE if the system has been initialized

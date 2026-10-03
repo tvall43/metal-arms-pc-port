@@ -40,7 +40,7 @@
 #include "meshentity.h"
 #include "zipline.h"
 #include "botpart.h"
-#include "Ai\AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "eparticlepool.h"
 #include "collectable.h"
 #include "item.h"

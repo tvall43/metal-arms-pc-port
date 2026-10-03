@@ -29,7 +29,7 @@
 #include "muzzleflash.h"
 #include "weapon.h"
 #include "potmark.h"
-#include "ai\aienviro.h"
+#include "ai/aienviro.h"
 #include "player.h"
 #include "cambot.h"
 #include "botpart.h"

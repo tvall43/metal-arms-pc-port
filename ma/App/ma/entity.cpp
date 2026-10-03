@@ -46,7 +46,7 @@
 #include "eswitch.h"
 #include "door.h"
 #include "eboomer.h"
-#include "AI\AIBrainMan.h"
+#include "AI/AIBrainMan.h"
 #include "ai/aibuilder.h"
 #include "fscriptsystem.h"
 #include "GoodieProps.h"

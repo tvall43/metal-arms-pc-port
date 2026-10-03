@@ -38,7 +38,7 @@
 #include "weapon.h"
 #include "fsndfx.h"
 #include "eparticlepool.h"
-#include "AI\AIEnviro.h"
+#include "AI/AIEnviro.h"
 #include "bot.h"
 
 

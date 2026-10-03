@@ -36,7 +36,7 @@
 #include "fworld_coll.h"
 #include "weapon_rivet.h"
 #include "protrack.h"
-#include "Ai\AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "splat.h"
 #include "fxshockwave.h"
 #include "botpart.h"

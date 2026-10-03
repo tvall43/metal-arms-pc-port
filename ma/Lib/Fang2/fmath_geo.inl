@@ -20,6 +20,8 @@
 
 FINLINE CFSphere::CFSphere() {}
 FINLINE CFSphere::CFSphere( const CFVec3& rCenter, const f32 fRadius ) { m_Pos=rCenter; m_fRadius=fRadius; }
+FINLINE CFSphere::CFSphere( const CFSphere& rSphere ) { m_Pos=rSphere.m_Pos; m_fRadius=rSphere.m_fRadius; }
+FINLINE CFSphere& CFSphere::operator = ( const CFSphere& rSphere ) { m_Pos=rSphere.m_Pos; m_fRadius=rSphere.m_fRadius; return *this; }
 
 FINLINE void CFSphere::Zero( void ) { m_fRadius=0.0f; m_Pos.Zero(); }
 FINLINE void CFSphere::Set( const CFVec3& rCenter, const f32 fRadius ) { m_Pos=rCenter; m_fRadius=fRadius; }
@@ -54,6 +56,8 @@ FINLINE void CFSphere::BuildFromMinMaxBox( const CFVec3 &rMin, const CFVec3 &rMa
 
 FINLINE CFSphereA::CFSphereA() {}
 FINLINE CFSphereA::CFSphereA( const CFVec3A& rCenter, const f32 fRadius ) { m_Pos=rCenter; m_fRadius=fRadius; }
+FINLINE CFSphereA::CFSphereA( const CFSphereA& rSphere ) { m_Pos=rSphere.m_Pos; m_fRadius=rSphere.m_fRadius; }
+FINLINE CFSphereA& CFSphereA::operator = ( const CFSphereA& rSphere ) { m_Pos=rSphere.m_Pos; m_fRadius=rSphere.m_fRadius; return *this; }
 
 FINLINE void CFSphereA::Zero( void ) { m_fRadius=0.0f; m_Pos.Zero(); }
 FINLINE void CFSphereA::Set( const CFVec3A& rCenter, const f32 fRadius ) { m_Pos=rCenter; m_fRadius=fRadius; }

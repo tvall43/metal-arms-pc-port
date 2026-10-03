@@ -9,8 +9,8 @@
 #include "espline.h"
 #include "door.h"
 #include "player.h"
-#include "AI\AIgameutils.h"
-#include "AI\AIEnviro.h"
+#include "AI/AIgameutils.h"
+#include "AI/AIEnviro.h"
 #include "gstring.h"
 
 
