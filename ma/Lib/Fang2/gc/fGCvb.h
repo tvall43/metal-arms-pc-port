@@ -22,7 +22,7 @@
 
 #include "fang.h"
 #include "fmath.h"
-#include "fgcdata.h"
+#include "fGCdata.h"
 #include "Dolphin\GX\GXEnum.h"
 
 

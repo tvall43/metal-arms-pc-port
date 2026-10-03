@@ -25,7 +25,7 @@
 #include "fGCvid.h"
 #include "fGCtex.h"
 #include "fGCxfm.h"
-#include "fgcvb.h"
+#include "fGCvb.h"
 
 #include "fmath.h"
 #include "flinklist.h"

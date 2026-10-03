@@ -20,7 +20,7 @@
 
 #include "fcoll.h"
 #include "fmesh.h"
-#include "fkdop.h"
+#include "FkDOP.h"
 #include "fmesh_coll.h"
 #include "fworld.h"
 
@@ -34,8 +34,8 @@
 
 
 #if FANG_PLATFORM_GC
-	#include "fgcvb.h"
-	#include "fgcmesh.h"
+	#include "fGCvb.h"
+	#include "fGCmesh.h"
 #elif FANG_PLATFORM_DX
 	#include "dx\fdx8mesh.h"
 //ARG - >>>>>

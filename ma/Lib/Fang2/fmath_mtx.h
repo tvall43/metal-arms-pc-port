@@ -64,8 +64,8 @@ public:
 	union {
 		f32 a[9];
 		f32 aa[3][3];
-		struct { CFVec3 m_vX, m_vY, m_vZ; };
-		struct { CFVec3 m_vRight, m_vUp, m_vFront; };
+		CFVec3 m_vX, m_vY, m_vZ;
+		CFVec3 m_vRight, m_vUp, m_vFront;
 	};
 
 	static const CFMtx33 m_IdentityMtx;
@@ -128,9 +128,9 @@ public:
 	union {
 		f32 a[12];
 		f32 aa[4][3];
-		struct { CFMtx33 m33; };
-		struct { CFVec3 m_vX, m_vY, m_vZ; };
-		struct { CFVec3 m_vRight, m_vUp, m_vFront, m_vPos; };
+		CFMtx33 m33;
+		CFVec3 m_vX, m_vY, m_vZ;
+		CFVec3 m_vRight, m_vUp, m_vFront, m_vPos;
 	};
 
 	static const CFMtx43 m_IdentityMtx;
@@ -206,8 +206,8 @@ public:
 	union {
 		f32 a[16];
 		f32 aa[4][4];
-		struct { CFVec4 m_vX, m_vY, m_vZ; };
-		struct { CFVec4 m_vRight, m_vUp, m_vFront, m_vPos; };
+		CFVec4 m_vX, m_vY, m_vZ;
+		CFVec4 m_vRight, m_vUp, m_vFront, m_vPos;
 	};
 
 	static const CFMtx44 m_IdentityMtx;
@@ -269,9 +269,9 @@ public:
 FCLASS_ALIGN_PREFIX class CFMtx44A {
 public:
 	union {
-		struct { CFVec4A m_vX, m_vY, m_vZ, m_vP; };
-		struct { CFVec4A m_vRight, m_vUp, m_vFront, m_vPos; };
-		struct { CFMtx44 m44; };
+		CFVec4A m_vX, m_vY, m_vZ, m_vP;
+		CFVec4A m_vRight, m_vUp, m_vFront, m_vPos;
+		CFMtx44 m44;
 		f32 a[16];
 		f32 aa[4][4];
 	};
@@ -366,10 +366,10 @@ public:
 FCLASS_ALIGN_PREFIX class CFMtx43A {
 public:
 	union {
-		struct { CFVec3A m_vX, m_vY, m_vZ, m_vP; };
-		struct { CFVec3A m_vRight, m_vUp, m_vFront, m_vPos; };
-		struct { CFMtx44 m44; };
-		struct { CFMtx44A m44a; };		// (careful using this because bottom row of CFMtx43A[0-3][3] MUST always be 0)
+		CFVec3A m_vX, m_vY, m_vZ, m_vP;
+		CFVec3A m_vRight, m_vUp, m_vFront, m_vPos;
+		CFMtx44 m44;
+		CFMtx44A m44a;		// (careful using this because bottom row of CFMtx43A[0-3][3] MUST always be 0)
 		f32 a[16];
 		f32 aa[4][4];
 	};

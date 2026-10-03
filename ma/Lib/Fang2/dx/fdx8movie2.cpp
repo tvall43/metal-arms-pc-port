@@ -25,7 +25,7 @@
 #include "fdx8.h"
 #include "bink.h"
 #include "fclib.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // LOCAL DEFINES

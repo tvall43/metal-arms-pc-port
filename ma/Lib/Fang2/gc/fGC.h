@@ -21,7 +21,7 @@
 #define _FGC_H_ 1
 
 #include "fang.h"
-#include "famem.h"
+#include "fAMem.h"
 #include "fmath.h"
 #include "dolphin.h"
 

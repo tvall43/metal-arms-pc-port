@@ -19,7 +19,7 @@
 
 
 #include "fmesh_coll.h"
-#include "fGCVB.h"
+#include "fGCvb.h"
 #include "fGCmesh.h"
 
 

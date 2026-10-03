@@ -20,7 +20,7 @@
 
 #include "fang.h"
 #include "fDataStreaming.h"
-#include "famem.h"
+#include "fAMem.h"
 #include "fres.h"
 #include "fvid.h"
 #include "fdraw.h"

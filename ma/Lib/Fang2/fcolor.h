@@ -159,9 +159,7 @@ public:
 class CFColorPackedRGBA {
 public:
 	union {
-		struct {
-			CFColorPackedRGB PackedRGB;
-		};
+		CFColorPackedRGB PackedRGB;
 
 		u32 nABGR;			// Bits 31-24=A,  23-16=B,  15-8=G,  7-0=R
 
@@ -210,7 +208,7 @@ public:
 			f32 fZ;
 		};
 
-		struct { CFVec3 v3; };
+		CFVec3 v3;
 	};
 
 	FINLINE CFColorRGB() {}
@@ -277,9 +275,7 @@ public:
 class CFColorRGBA {
 public:
 	union {
-		struct {
-			CFColorRGB ColorRGB;
-		};
+		CFColorRGB ColorRGB;
 
 		f32 rgba[4];		// r[0], g[1], b[2], a[3]
 
@@ -299,7 +295,7 @@ public:
 			f32 fQ;
 		};
 
-		struct { CFVec4 v3; };
+		CFVec4 v3;
 	};
 
 	FINLINE CFColorRGBA() {}

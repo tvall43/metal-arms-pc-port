@@ -34,7 +34,7 @@
 #include "frenderer.h"
 
 #if FANG_PLATFORM_GC
-#include "fgcviewport.h"
+#include "fGCviewport.h"
 #include <wchar.h> //for _vsnwprintf
 #endif
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -203,7 +203,7 @@ static BOOL _bTempFixedWidthFont, _bTempItalicFont, _bTempOTOTexelPixelAlignment
 	#include "dx\fxbfonttex.h"
 	};
 #elif( FANG_PLATFORM_GC )
-	#include "fgc.h"
+	#include "fGC.h"
 	static u8 FGC_ALIGN(32) _auDefaultFnt[] =
 	{
 	#include "gc\fgcfontdata.h"

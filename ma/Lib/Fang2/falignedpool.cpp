@@ -17,7 +17,7 @@
 // 03/06/03 Starich     Created.
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
-#include "falignedpool.h"
+#include "falignedPool.h"
 #include "fres.h"
 
 CFAlignedPool FAlignedPool_VecPool;

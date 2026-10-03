@@ -20,7 +20,7 @@
 #include <stdio.h>
 //#include <stdlib.h>		// For malloc()
 #include <string.h>		// For strcpy()
-#include "FFile.h"
+#include "ffile.h"
 #include "FScript.h"
 #include "fres.h"
 #include "amx.h"

@@ -27,7 +27,7 @@
 #include "fmesh.h"
 #include "ftex.h"
 #include "fdata.h"
-#include "fkdop.h"
+#include "FkDOP.h"
 
 
 struct FGC_DLCont_t;

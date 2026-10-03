@@ -18,13 +18,13 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "fgc.h"
+#include "fGC.h"
 #include "ftext.h"
 #include "fdraw.h"
 #include "ftex.h"
-#include "fgctex.h"
+#include "fGCtex.h"
 #include "fvtxpool.h"
-#include "fgcxfm.h"
+#include "fGCxfm.h"
 #include "frenderer.h"
 
 extern FText_FTextPrintfLetter_t *FText_paoPrintfLetters;

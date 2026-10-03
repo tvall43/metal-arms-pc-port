@@ -28,7 +28,7 @@
 #include "floop.h"
 #include "fvis.h"
 #include "fclib.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 
 #include <xgraphics.h>
 

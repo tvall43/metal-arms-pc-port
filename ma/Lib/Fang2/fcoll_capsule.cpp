@@ -22,7 +22,7 @@
 #include "fmesh.h"
 #include "fmesh_coll.h"
 #include "fworld.h"
-#include "fkdop.h"
+#include "FkDOP.h"
 #if FMESH_COLL_ENABLE_COLLISION_DRAWS
 	#include "frenderer.h"
 	#include "fdraw.h"
@@ -30,8 +30,8 @@
 
 
 #if FANG_PLATFORM_GC
-	#include "fgcvb.h"
-	#include "fgcmesh.h"
+	#include "fGCvb.h"
+	#include "fGCmesh.h"
 #elif FANG_PLATFORM_DX
 	#include "dx\fdx8mesh.h"
 //ARG - <<<<<

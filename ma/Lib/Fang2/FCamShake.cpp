@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "fcamshake.h"
+#include "FCamShake.h"
 #include "floop.h"
 #include "fmath.h"
 #include "fxfm.h"

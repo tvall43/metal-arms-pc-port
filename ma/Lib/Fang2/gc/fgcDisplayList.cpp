@@ -17,10 +17,10 @@
 // 03/19/02	Lafleur		Created.
 //////////////////////////////////////////////////////////////////////////////////////
 
-#include "Fang.h"
-#include "FGCmesh.h"
-#include "fgcdisplaylist.h"
-#include "fdatastreaming.h"
+#include "fang.h"
+#include "fGCmesh.h"
+#include "fGCdisplaylist.h"
+#include "fDataStreaming.h"
 
 u32	FGCDL_nFastDLCalls = 0;
 u32	FGCDL_nFlushDLCalls = 0;

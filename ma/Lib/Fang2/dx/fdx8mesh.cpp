@@ -24,7 +24,7 @@
 #include "fshaders.h"
 #include "fworld.h"
 #include "fshadow.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 
 #include "fdx8.h"
 #include "fdx8shadow.h"

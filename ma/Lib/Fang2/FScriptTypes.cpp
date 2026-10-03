@@ -24,7 +24,7 @@
 #include "fmath.h"
 #include "fsndfx.h"
 #include "fanim.h"
-#include "fscriptsystem.h"
+#include "FScriptSystem.h"
 #include "FNativeUtil.h"
 
 #include "FV3OConst.h"

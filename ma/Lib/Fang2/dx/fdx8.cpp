@@ -68,7 +68,7 @@
 #include "fsndfx.h"
 #include "fparticle.h"
 #include "fRenderSort.h"
-#include "famem.h"
+#include "fAMem.h"
 #include "fwire.h"
 #include "fverlet.h"
 #include "smoketrail.h"
@@ -79,10 +79,10 @@
 #include "fvtxpool.h"
 #include "fexplosion.h"
 #include "FCheckPoint.h"
-#include "falignedpool.h"
+#include "falignedPool.h"
 #include "flightpool.h"
 #include "flightgroup.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 #include "fdecal.h"
 
 // !!Nate

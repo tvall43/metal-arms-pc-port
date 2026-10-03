@@ -21,7 +21,7 @@
 #define _FDATASTREAMING_H_ 1
 
 #include "fang.h"
-#include "famem.h"
+#include "fAMem.h"
 #include "fvid.h"
 #include "ffile.h"
 

@@ -17,7 +17,7 @@
 // 10/14/02	Lafleur		Created.
 //////////////////////////////////////////////////////////////////////////////////////
 
-#include "Fang.h"
+#include "fang.h"
 #include "fRenderSort.h"
 #include "fsh.h"
 #include "fvis.h"

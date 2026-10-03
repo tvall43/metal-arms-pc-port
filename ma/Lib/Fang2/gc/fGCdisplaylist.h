@@ -21,12 +21,12 @@
 #define _FGCDISPLAYLIST_H_ 1
 
 #if FANG_PLATFORM_GC
-#include "fgc.h"
+#include "fGC.h"
 #endif
 #include "fang.h"
-#include "fgcvb.h"
-#include "fgcsh.h"
-//#include "fdatastreaming.h"
+#include "fGCvb.h"
+#include "fGCsh.h"
+//#include "fDataStreaming.h"
 
 //#include "dolphin\GD.h"
 

@@ -25,7 +25,7 @@
 #include "ffile.h"
 #include "fmath.h"
 #if FANG_PLATFORM_GC
-	#include "fgc.h"
+	#include "fGC.h"
 #endif
 
 #if !FANG_PRODUCTION_BUILD

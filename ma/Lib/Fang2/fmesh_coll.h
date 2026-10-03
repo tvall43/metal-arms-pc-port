@@ -21,7 +21,7 @@
 #define _FMESH_COLL_H_ 1
 
 #include "fang.h"
-#include "fkdop.h"
+#include "FkDOP.h"
 #include "fcoll.h"
 
 

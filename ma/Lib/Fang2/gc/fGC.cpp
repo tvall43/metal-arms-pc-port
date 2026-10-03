@@ -62,8 +62,8 @@
 #include "fstorage.h"
 #include "fforce.h"
 #include "fstringtable.h"
-#include "fscriptsystem.h"
-#include "fmotionobj.h"
+#include "FScriptSystem.h"
+#include "FMotionObj.h"
 #include "fcamera.h"
 #include "fsndfx.h"
 #include "fparticle.h"
@@ -79,9 +79,9 @@
 #include "fsound.h"
 #include "flightgroup.h"
 #include "flightpool.h"
-#include "falignedpool.h"
+#include "falignedPool.h"
 #include "fwire.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 #include "fdecal.h"
 
 // GameCube Includes

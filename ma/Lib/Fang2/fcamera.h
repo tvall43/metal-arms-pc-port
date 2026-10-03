@@ -21,7 +21,7 @@
 
 #include "fang.h"
 #include "fxfm.h"
-#include "fcamshake.h"
+#include "FCamShake.h"
 #include "fcamstun.h"
 
 #define FCAMERA_MAX_NAME_LEN		15

@@ -21,7 +21,7 @@
 #include "fwire.h"
 #include "fmeshpool.h"
 #include "fresload.h"
-#include "fkdop.h"
+#include "FkDOP.h"
 #include "fmesh_coll.h"
 #include "fdebris.h"
 #include "fsound.h"

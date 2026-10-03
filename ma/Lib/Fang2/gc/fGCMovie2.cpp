@@ -21,8 +21,8 @@
 #define RAD_NO_LOWERCASE_TYPES
 
 #include "fmovie2.h"
-#include "fgcvid.h"
-#include "fgcfile.h"
+#include "fGCvid.h"
+#include "fGCfile.h"
 #include "fviewport.h"
 #include "frenderer.h"
 #include "fdraw.h"
@@ -32,7 +32,7 @@
 #include "bink.h"
 #include "radmem.h"
 #include "fvis.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // DEFINES

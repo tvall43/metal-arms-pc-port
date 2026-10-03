@@ -18,11 +18,11 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "fgcvid.h"
-#include "fgcshadow.h"
-#include "fgcmesh.h"
-#include "fgcxfm.h"
-#include "fgcviewport.h"
+#include "fGCvid.h"
+#include "fGCshadow.h"
+#include "fGCmesh.h"
+#include "fGCxfm.h"
+#include "fGCviewport.h"
 #include "fsh.h"
 #include "fcamera.h"
 #include "fRenderSort.h"
@@ -32,7 +32,7 @@
 #include "fdraw.h"
 
 #include "fworld.h"
-#include "fgctex.h"
+#include "fGCtex.h"
 
 #include "fshadow.h"
 #include <stdio.h>

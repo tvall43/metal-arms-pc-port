@@ -26,7 +26,7 @@
 #include "fGCviewport.h"
 #include "fGCxfm.h"
 #include "fGCdisplaylist.h"
-#include "fGCData.h"
+#include "fGCdata.h"
 #include "fGCsh.h"
 
 #include "fsh.h"
@@ -44,7 +44,7 @@
 #include "frenderer.h"
 #include "fclib.h"
 #include "fmesh_coll.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 
 #include "fdraw.h"
 #include "FkDOP.h"

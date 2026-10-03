@@ -34,9 +34,14 @@ if(MA_BUILD_SHELL)
   message(FATAL_ERROR "MA_BUILD_SHELL requires MFC and is not supported by this toolchain")
 endif()
 
-set(CMAKE_CXX_STANDARD 98)
+# C++11 is required, not cosmetic: the engine's vector/quaternion types are
+# type-punning unions whose members have non-trivial constructors (e.g.
+# CFVec4A inside CFVec3A). GCC only accepts those from -std=c++11 onward
+# ("unrestricted unions"); in C++98 mode every use is a hard error. The
+# SmallAMX interpreter also relies on computed goto, hence the GNU extensions.
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS ON)          # gnu++98: computed gotos, etc.
+set(CMAKE_CXX_EXTENSIONS ON)          # gnu++11: computed gotos, anonymous structs
 set(CMAKE_C_STANDARD 99)
 
 add_compile_options(
@@ -100,7 +105,6 @@ target_link_libraries(fang2win PUBLIC
   winmm               # timers
   msacm32             # adpcm decode (fdx8audio.cpp)
   dxguid
-  d3dx9               # stands in for d3dx8; see compat/d3dx8.h
   uuid
   gdi32
   ole32

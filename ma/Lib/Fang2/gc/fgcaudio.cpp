@@ -21,7 +21,7 @@
 #include "musyx.h"
 
 #include "fang.h"
-#include "fgc.h"
+#include "fGC.h"
 #include "floop.h"
 #include "faudio.h"
 #include "fresload.h"
@@ -29,7 +29,7 @@
 #include "ffile.h"
 #include "floop.h"
 #include "fsysinfo.h"
-#include "fgcdata.h"
+#include "fGCdata.h"
 #include "fperf.h"
 
 

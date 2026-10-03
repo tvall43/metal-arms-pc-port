@@ -23,7 +23,7 @@
 
 #include "fperf.h"
 #include "fdraw.h"
-#include "fkDOP.h"
+#include "FkDOP.h"
 #include "ftext.h"
 #include "fclib.h"
 #include "fmesh_coll.h"
@@ -39,7 +39,7 @@
 #include "fshadow.h"
 
 #if FANG_PLATFORM_GC
-	#include "fgc.h"
+	#include "fGC.h"
 #endif
 
 //////////////////////////////////////////////////////////////////////////////////////

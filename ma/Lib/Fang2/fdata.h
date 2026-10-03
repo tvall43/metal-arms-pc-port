@@ -920,7 +920,7 @@ typedef struct {
 //---------------------------------------------------------------------------------------------------------------------------
 // Platform-Specific Data:
 //---------------------------------------------------------------------------------------------------------------------------
-#include "./gc/fgcdata.h"// MASS MEDIA, THIS NEEDS TO BE HERE FOR OUR WINDOWS TOOLS, IT SHOULD NOT HURT YOU CAUSE THERE IS 
+#include "./gc/fGCdata.h"// MASS MEDIA, THIS NEEDS TO BE HERE FOR OUR WINDOWS TOOLS, IT SHOULD NOT HURT YOU CAUSE THERE IS 
 						 // NOTHING GC SPECIFIC ABOUT THIS HEADER - Mike Starich
 //ARG#if !FANG_PLATFORM_GC
 //ARG	#include "./dx/fdx8data.h"	
@@ -928,7 +928,7 @@ typedef struct {
 #if FANG_PLATFORM_DX
 	#include "./dx/fdx8data.h"
 #elif FANG_PLATFORM_GC
-	#include "./gc/fgcdata.h"
+	#include "./gc/fGCdata.h"
 //ARG - <<<<<
 #endif
 

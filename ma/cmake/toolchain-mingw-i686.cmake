@@ -25,5 +25,9 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
-add_compile_options(-m32)
+# SSE/SSE2 are baseline for any x86-64-era CPU and are already assumed by the
+# original MSVC build (it used __m128 in CFVec4A and the XMM intrinsics). Enable
+# them explicitly: GCC otherwise targets generic i686, where _mm_* intrinsics
+# are always_inline and fail with "target specific option mismatch".
+add_compile_options(-m32 -msse -msse2)
 add_link_options(-m32)

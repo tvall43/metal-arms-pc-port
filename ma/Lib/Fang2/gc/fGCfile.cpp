@@ -25,7 +25,7 @@
 #include "fdata.h"
 #include "fclib.h"
 
-#include "fgcfile.h"
+#include "fGCfile.h"
 
 
 #define _USE_TEMP_READ_BUFFER	TRUE

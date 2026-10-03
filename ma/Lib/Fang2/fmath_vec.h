@@ -122,7 +122,7 @@ public:
 class CFVec3 {
 public:
 	union {
-		struct { CFVec2 v2; };
+		CFVec2 v2;
 		struct { f32 x, y, z; };
 		f32 a[3];
 	};
@@ -235,8 +235,8 @@ public:
 class CFVec4 {
 public:
 	union {
-		struct { CFVec2 v2; };
-		struct { CFVec3 v3; };
+		CFVec2 v2;
+		CFVec3 v3;
 		struct { f32 x, y, z, w; };
 		f32 a[4];
 	};
@@ -318,12 +318,12 @@ public:
 #if FANG_PLATFORM_DX && !FANG_WINGC
 		__m128 _m;								// Private SIMD form (aligns on a 16-byte boundary and allows us to use XMM intrinsics)
 #elif FANG_PLATFORM_GC
-		struct { __vec2x32float__ _A, _B; };
+				__vec2x32float__ _A, _B;
 #endif
 		struct { f32 x, y, z, w; };				// Individual components form
-		struct { CFVec2 v2; };					// CFVec2 form
-		struct { CFVec3 v3; };					// CFVec3 form
-		struct { CFVec4 v4; };					// CFVec4 form
+		CFVec2 v2;					// CFVec2 form
+		CFVec3 v3;					// CFVec3 form
+		CFVec4 v4;					// CFVec4 form
 		f32 a[4];								// Array form
 	};
 
@@ -528,12 +528,12 @@ public:
 #if FANG_PLATFORM_DX && !FANG_WINGC
 		__m128 _m;								// Private SIMD form (aligns on a 16-byte boundary and allows us to use XMM intrinsics)
 #elif FANG_PLATFORM_GC
-		struct { __vec2x32float__ _A, _B; };
+				__vec2x32float__ _A, _B;
 #endif
 		struct { f32 x, y, z, w; };				// Individual components form (w is always 0)
-		struct { CFVec2 v2; };					// CFVec2 form
-		struct { CFVec3 v3; };					// CFVec3 form
-		struct { CFVec4A v4a; };				// CFVec4A form (careful using this because CFVec3A::w MUST always be 0)
+		CFVec2 v2;					// CFVec2 form
+		CFVec3 v3;					// CFVec3 form
+		CFVec4A v4a;				// CFVec4A form (careful using this because CFVec3A::w MUST always be 0)
 		f32 a[4];								// Array form
 	};
 

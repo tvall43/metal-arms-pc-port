@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
 #include <stdio.h>	// for sprintf
-#include "FGameData.h"
+#include "fgamedata.h"
 #include "fclib.h"
 #include "FScriptSystem.h"
 #include "FScriptTypes.h"

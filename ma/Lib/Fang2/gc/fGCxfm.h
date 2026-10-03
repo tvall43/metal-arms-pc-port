@@ -24,7 +24,7 @@
 #include "fxfm.h"
 #include "fGC.h"
 
-#include "fgcsh.h"
+#include "fGCsh.h"
 
 typedef f32 Mtx33[3][3];
 typedef f32 Mtx24[2][4];

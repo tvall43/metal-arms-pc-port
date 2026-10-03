@@ -102,7 +102,7 @@ typedef struct {
 FCLASS_ALIGN_PREFIX class CFQuatA {
 public:
 	union {
-		struct { CFVec4A v; };					// CFVec4A form
+		CFVec4A v;					// CFVec4A form
 		struct { f32 x, y, z, w; };				// Individual components form
 		f32 a[4];								// Array form
 	};
@@ -207,11 +207,9 @@ public:
 class FCLASS_ALIGN_PREFIX CFTQuatA : public CFQuatA {
 public:
 	union {
-		struct { CFVec4A m_PosScale; };
-		struct {
-			CFVec3 m_Pos;
-			f32 m_fScale;
-		};
+		CFVec4A m_PosScale;
+				CFVec3 m_Pos;
+		f32 m_fScale;
 	};
 
 	// Constructors:

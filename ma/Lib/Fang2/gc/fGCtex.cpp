@@ -35,7 +35,7 @@
 #include "fperf.h"
 #include "fvid.h"
 #include "fvis.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 
 #include "floop.h"
 

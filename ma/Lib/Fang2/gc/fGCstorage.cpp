@@ -23,7 +23,7 @@
 #include <texpalette.h>
 
 #include "fang.h"
-#include "fgc.h"
+#include "fGC.h"
 #include "fmath.h"
 #include "fres.h"
 #include "fclib.h"

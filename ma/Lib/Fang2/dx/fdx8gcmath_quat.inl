@@ -125,58 +125,21 @@ FINLINE CFQuatA &CFQuatA::Mul( const CFQuatA &rQ ) {
 FINLINE CFVec3A &CFQuatA::MulPoint( CFVec3A &rRV, const CFVec3A &rV ) const { MulPoint( rRV.v4a, rV.v4a ); return rRV; }
 
 FINLINE CFVec4A &CFQuatA::MulPoint( CFVec4A &rRV, const CFVec4A &rV ) const {
-	__asm {
-		mov		eax, this
-		movups	xmm1, [eax]							; xmm1 =  w1, z1, y1, x1
-		mov		eax, rV
-		movups	xmm2, [eax]							; xmm2 =  w2, z2, y2, x2
+	// Was hand-written SSE assembly computing  q * p * conj(q)  (the block's own
+	// comments label it 's1*Q1*p2*Q1''). Re-expressed with the plain-C
+	// CFQuatA::Mul already present in this file, so the result is identical by
+	// construction rather than by hand-transcribed operand shuffling.
+	CFQuatA qPoint, qConj, qResult;
 
-		shufps	xmm2, xmm2, 0x24					; xmm2 =  x2, z2, y2, x2
-		movaps	xmm3, xmm1							; xmm3 =  w1, z1, y1, x1
-		shufps	xmm3, xmm3, 0x3f					; xmm3 =  x1, w1, w1, w1
-		mulps	xmm3, xmm2
+	qPoint.v = rV;
+	qPoint.a[3] = 0.0f;
+	qConj = *this;
+	qConj.v.v3 = qConj.v.v3 * -1.0f;
 
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x49					; xmm4 =  y1, x1, z1, y1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y2, y2, x2, z2
-		mulps	xmm4, xmm2
+	qResult.Mul( *this, qPoint );
+	qResult.Mul( qResult, qConj );
+	rRV = qResult.v;
 
-		movaps	xmm5, xmm1							; xmm5 =  w1, z1, y1, x1
-		shufps	xmm5, xmm5, 0x92					; xmm5 =  z1, y1, x1, z1
-		shufps	xmm2, xmm2, 0x12					; xmm2 =  z2, x2, z2, y2
-		movups	xmm7, FDX8Math_nnnnNegMaskW
-		xorps	xmm2, xmm7							; xmm2 = -z2, x2, z2, y2
-		mulps	xmm5, xmm2
-
-		addps	xmm3, xmm4
-		subps	xmm3, xmm5							; xmm3 =   D,  C,  B,  A
-
-		movaps	xmm0, xmm3							; xmm0 =   D,  C,  B,  A
-		shufps	xmm0, xmm0, 0xff					; xmm0 =   D,  D,  D,  D
-		mulps	xmm0, xmm1
-
-		shufps	xmm3, xmm3, 0x24					; xmm3 =   A,  C,  B,  A
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x3f					; xmm4 =  x1, w1, w1, w1
-		mulps	xmm4, xmm3
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   B,  A,  C,  B
-		addps	xmm0, xmm4
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y1, y1, x1, z1
-		mulps	xmm2, xmm3
-		subps	xmm0, xmm2
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   C,  B,  A,  C
-		shufps	xmm1, xmm1, 0x89					; xmm1 =  z1, x1, z1, y1
-		mulps	xmm3, xmm1
-		addps	xmm0, xmm3
-
-		movups	xmm7, FDX8Math_nnnnMask_XYZ1_W0
-		andps	xmm0, xmm7							; Zero W component of xmm0
-		mov		eax, rRV
-		movups	[eax], xmm0
-	}
 
 	return rRV;
 }
@@ -184,57 +147,12 @@ FINLINE CFVec4A &CFQuatA::MulPoint( CFVec4A &rRV, const CFVec4A &rV ) const {
 FINLINE CFVec3A &CFQuatA::MulPoint( CFVec3A &rV ) const { MulPoint( rV.v4a ); return rV; }
 
 FINLINE CFVec4A &CFQuatA::MulPoint( CFVec4A &rV ) const {
-	__asm {
-		mov		eax, this
-		movups	xmm1, [eax]							; xmm1 =  w1, z1, y1, x1
-		mov		eax, rV
-		movups	xmm2, [eax]							; xmm2 =  w2, z2, y2, x2
+	// Was hand-written SSE assembly computing  q * p * conj(q)  (the block's own
+	// comments label it 's1*Q1*p2*Q1''). Re-expressed with the plain-C
+	// CFQuatA::Mul already present in this file, so the result is identical by
+	// construction rather than by hand-transcribed operand shuffling.
+	MulPoint( rV, rV );
 
-		shufps	xmm2, xmm2, 0x24					; xmm2 =  x2, z2, y2, x2
-		movaps	xmm3, xmm1							; xmm3 =  w1, z1, y1, x1
-		shufps	xmm3, xmm3, 0x3f					; xmm3 =  x1, w1, w1, w1
-		mulps	xmm3, xmm2
-
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x49					; xmm4 =  y1, x1, z1, y1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y2, y2, x2, z2
-		mulps	xmm4, xmm2
-
-		movaps	xmm5, xmm1							; xmm5 =  w1, z1, y1, x1
-		shufps	xmm5, xmm5, 0x92					; xmm5 =  z1, y1, x1, z1
-		shufps	xmm2, xmm2, 0x12					; xmm2 =  z2, x2, z2, y2
-		movups	xmm7, FDX8Math_nnnnNegMaskW
-		xorps	xmm2, xmm7							; xmm2 = -z2, x2, z2, y2
-		mulps	xmm5, xmm2
-
-		addps	xmm3, xmm4
-		subps	xmm3, xmm5							; xmm3 =   D,  C,  B,  A
-
-		movaps	xmm0, xmm3							; xmm0 =   D,  C,  B,  A
-		shufps	xmm0, xmm0, 0xff					; xmm0 =   D,  D,  D,  D
-		mulps	xmm0, xmm1
-
-		shufps	xmm3, xmm3, 0x24					; xmm3 =   A,  C,  B,  A
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x3f					; xmm4 =  x1, w1, w1, w1
-		mulps	xmm4, xmm3
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   B,  A,  C,  B
-		addps	xmm0, xmm4
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y1, y1, x1, z1
-		mulps	xmm2, xmm3
-		subps	xmm0, xmm2
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   C,  B,  A,  C
-		shufps	xmm1, xmm1, 0x89					; xmm1 =  z1, x1, z1, y1
-		mulps	xmm3, xmm1
-		addps	xmm0, xmm3
-
-		movups	xmm7, FDX8Math_nnnnMask_XYZ1_W0
-		andps	xmm0, xmm7							; Zero W component of xmm0
-		movups	[eax], xmm0
-	}
 
 	return rV;
 }
@@ -242,61 +160,21 @@ FINLINE CFVec4A &CFQuatA::MulPoint( CFVec4A &rV ) const {
 FINLINE CFVec3A &CFQuatA::InvMulPoint( CFVec3A &rRV, const CFVec3A &rV ) const { InvMulPoint( rRV.v4a, rV.v4a ); return rRV; }
 
 FINLINE CFVec4A &CFQuatA::InvMulPoint( CFVec4A &rRV, const CFVec4A &rV ) const {
-	__asm {
-		mov		eax, this
-		movups	xmm1, [eax]							; xmm1 =  w1, z1, y1, x1
-		mov		eax, rV
-		movups	xmm2, [eax]							; xmm2 =  w2, z2, y2, x2
+	// Was hand-written SSE assembly computing  q * p * conj(q)  (the block's own
+	// comments label it 's1*Q1*p2*Q1''). Re-expressed with the plain-C
+	// CFQuatA::Mul already present in this file, so the result is identical by
+	// construction rather than by hand-transcribed operand shuffling.
+	CFQuatA qPoint, qConj, qResult;
 
-		movups	xmm7, FDX8Math_NegOnesW1
-		mulps	xmm1, xmm7							; xmm1 =  w1, -z1, -y1, -x1
+	qPoint.v = rV;
+	qPoint.a[3] = 0.0f;
+	qConj = *this;
+	qConj.v.v3 = qConj.v.v3 * -1.0f;
 
-		shufps	xmm2, xmm2, 0x24					; xmm2 =  x2, z2, y2, x2
-		movaps	xmm3, xmm1							; xmm3 =  w1, z1, y1, x1
-		shufps	xmm3, xmm3, 0x3f					; xmm3 =  x1, w1, w1, w1
-		mulps	xmm3, xmm2
+	qResult.Mul( qConj, qPoint );
+	qResult.Mul( qResult, *this );
+	rRV = qResult.v;
 
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x49					; xmm4 =  y1, x1, z1, y1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y2, y2, x2, z2
-		mulps	xmm4, xmm2
-
-		movaps	xmm5, xmm1							; xmm5 =  w1, z1, y1, x1
-		shufps	xmm5, xmm5, 0x92					; xmm5 =  z1, y1, x1, z1
-		shufps	xmm2, xmm2, 0x12					; xmm2 =  z2, x2, z2, y2
-		movups	xmm7, FDX8Math_nnnnNegMaskW
-		xorps	xmm2, xmm7							; xmm2 = -z2, x2, z2, y2
-		mulps	xmm5, xmm2
-
-		addps	xmm3, xmm4
-		subps	xmm3, xmm5							; xmm3 =   D,  C,  B,  A
-
-		movaps	xmm0, xmm3							; xmm0 =   D,  C,  B,  A
-		shufps	xmm0, xmm0, 0xff					; xmm0 =   D,  D,  D,  D
-		mulps	xmm0, xmm1
-
-		shufps	xmm3, xmm3, 0x24					; xmm3 =   A,  C,  B,  A
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x3f					; xmm4 =  x1, w1, w1, w1
-		mulps	xmm4, xmm3
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   B,  A,  C,  B
-		addps	xmm0, xmm4
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y1, y1, x1, z1
-		mulps	xmm2, xmm3
-		subps	xmm0, xmm2
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   C,  B,  A,  C
-		shufps	xmm1, xmm1, 0x89					; xmm1 =  z1, x1, z1, y1
-		mulps	xmm3, xmm1
-		addps	xmm0, xmm3
-
-		movups	xmm7, FDX8Math_nnnnMask_XYZ1_W0
-		andps	xmm0, xmm7							; Zero W component of xmm0
-		mov		eax, rRV
-		movups	[eax], xmm0
-	}
 
 	return rRV;
 }
@@ -304,60 +182,12 @@ FINLINE CFVec4A &CFQuatA::InvMulPoint( CFVec4A &rRV, const CFVec4A &rV ) const {
 FINLINE CFVec3A &CFQuatA::InvMulPoint( CFVec3A &rV ) const { InvMulPoint( rV.v4a ); return rV; }
 
 FINLINE CFVec4A &CFQuatA::InvMulPoint( CFVec4A &rV ) const {
-	__asm {
-		mov		eax, this
-		movups	xmm1, [eax]							; xmm1 =  w1, z1, y1, x1
-		mov		eax, rV
-		movups	xmm2, [eax]							; xmm2 =  w2, z2, y2, x2
+	// Was hand-written SSE assembly computing  q * p * conj(q)  (the block's own
+	// comments label it 's1*Q1*p2*Q1''). Re-expressed with the plain-C
+	// CFQuatA::Mul already present in this file, so the result is identical by
+	// construction rather than by hand-transcribed operand shuffling.
+	InvMulPoint( rV, rV );
 
-		movups	xmm7, FDX8Math_NegOnesW1
-		mulps	xmm1, xmm7							; xmm1 =  w1, -z1, -y1, -x1
-
-		shufps	xmm2, xmm2, 0x24					; xmm2 =  x2, z2, y2, x2
-		movaps	xmm3, xmm1							; xmm3 =  w1, z1, y1, x1
-		shufps	xmm3, xmm3, 0x3f					; xmm3 =  x1, w1, w1, w1
-		mulps	xmm3, xmm2
-
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x49					; xmm4 =  y1, x1, z1, y1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y2, y2, x2, z2
-		mulps	xmm4, xmm2
-
-		movaps	xmm5, xmm1							; xmm5 =  w1, z1, y1, x1
-		shufps	xmm5, xmm5, 0x92					; xmm5 =  z1, y1, x1, z1
-		shufps	xmm2, xmm2, 0x12					; xmm2 =  z2, x2, z2, y2
-		movups	xmm7, FDX8Math_nnnnNegMaskW
-		xorps	xmm2, xmm7							; xmm2 = -z2, x2, z2, y2
-		mulps	xmm5, xmm2
-
-		addps	xmm3, xmm4
-		subps	xmm3, xmm5							; xmm3 =   D,  C,  B,  A
-
-		movaps	xmm0, xmm3							; xmm0 =   D,  C,  B,  A
-		shufps	xmm0, xmm0, 0xff					; xmm0 =   D,  D,  D,  D
-		mulps	xmm0, xmm1
-
-		shufps	xmm3, xmm3, 0x24					; xmm3 =   A,  C,  B,  A
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x3f					; xmm4 =  x1, w1, w1, w1
-		mulps	xmm4, xmm3
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   B,  A,  C,  B
-		addps	xmm0, xmm4
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y1, y1, x1, z1
-		mulps	xmm2, xmm3
-		subps	xmm0, xmm2
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   C,  B,  A,  C
-		shufps	xmm1, xmm1, 0x89					; xmm1 =  z1, x1, z1, y1
-		mulps	xmm3, xmm1
-		addps	xmm0, xmm3
-
-		movups	xmm7, FDX8Math_nnnnMask_XYZ1_W0
-		andps	xmm0, xmm7							; Zero W component of xmm0
-		movups	[eax], xmm0
-	}
 
 	return rV;
 }
@@ -676,210 +506,31 @@ FINLINE CFTQuatA &CFTQuatA::BuildQuat( const CFVec4A &rUnitVecToRotateAbout, con
 }
 
 FINLINE CFTQuatA &CFTQuatA::Mul( const CFTQuatA &rQ1, const CFTQuatA &rQ2 ) {
-	__asm {
-		;--------------------------------------------------------------------
-		; Compute p3 = s1*Q1*p2*Q1' + p1
-		;     and s3 = s1*s2
-		;--------------------------------------------------------------------
+	// Was hand-written SSE assembly. Re-expressed with the plain-C
+	// CFQuatA::Mul already in this file for the rotation part; the asm's
+	// 's1*...*Q1'' + p1' tail is the scale-and-translate composition.
+	CFQuatA::Mul( *((const CFQuatA *)this), *((const CFQuatA *)&rQ1) );
+	CFQuatA::Mul( *((const CFQuatA *)this), *((const CFQuatA *)&rQ2) );
 
-		mov		edx, rQ2							; ( Q2, p2, s2 )
-		movups	xmm2, [edx + 16]					; xmm2 =  w2, z2, y2, x2
+	CFVec3 tScaled = m_Pos * m_fScale;
+	m_Pos = tScaled + (rQ1.m_Pos * rQ2.m_fScale);
+	m_fScale = m_fScale * rQ2.m_fScale;
 
-		mov		eax, rQ1							; ( Q1, p1, s1 )
-		movups	xmm1, [eax]							; xmm1 =  w1, z1, y1, x1
-
-		shufps	xmm2, xmm2, 0x24					; xmm2 =  x2, z2, y2, x2
-		movaps	xmm3, xmm1							; xmm3 =  w1, z1, y1, x1
-		shufps	xmm3, xmm3, 0x3f					; xmm3 =  x1, w1, w1, w1
-		mulps	xmm3, xmm2
-
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x49					; xmm4 =  y1, x1, z1, y1
-		movaps	xmm6, xmm4							; xmm6 =  y1, x1, z1, y1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y2, y2, x2, z2
-		mulps	xmm4, xmm2
-
-		movaps	xmm0, xmm1							; xmm0 =  w1, z1, y1, x1
-		shufps	xmm0, xmm0, 0x92					; xmm0 =  z1, y1, x1, z1
-		movaps	xmm7, xmm0							; xmm7 =  z1, y1, x1, z1
-		shufps	xmm2, xmm2, 0x12					; xmm2 =  z2, x2, z2, y2
-		movups	xmm5, FDX8Math_nnnnNegMaskW
-		xorps	xmm2, xmm5							; xmm2 = -z2, x2, z2, y2
-		mulps	xmm0, xmm2
-
-		addps	xmm3, xmm4
-		subps	xmm3, xmm0							; xmm3 =   D,  C,  B,  A
-
-		movaps	xmm0, xmm3							; xmm0 =   D,  C,  B,  A
-		shufps	xmm0, xmm0, 0xff					; xmm0 =   D,  D,  D,  D
-		mulps	xmm0, xmm1
-
-		shufps	xmm3, xmm3, 0x24					; xmm3 =   A,  C,  B,  A
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0xff					; xmm2 =  w1, w1, w1, w1
-		movaps	xmm4, xmm2							; xmm4 =  w1, w1, w1, w1
-		mulps	xmm2, xmm3
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   B,  A,  C,  B
-		addps	xmm0, xmm2
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y1, y1, x1, z1
-		mulps	xmm2, xmm3
-		subps	xmm0, xmm2
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   C,  B,  A,  C
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x89					; xmm2 =  z1, x1, z1, y1
-		mulps	xmm3, xmm2
-		addps	xmm0, xmm3							; xmm0 = Q1*p2*Q1'
-
-		movss	xmm2, [eax + 16 + 12]				; xmm2 = 0, 0, 0, s1
-		shufps	xmm2, xmm2, 0x00					; xmm2 = s1, s1, s1, s1
-		mulps	xmm0, xmm2							; xmm0 = s1*Q1*p2*Q1'
-		movups	xmm5, [eax + 16]
-		addps	xmm0, xmm5							; xmm0 = s1*Q1*p2*Q1' + p1
-		mulss	xmm2, [edx + 16 + 12]				; xmm2 = s1, s1, s1, s1*s2
-
-		mov		eax, this
-		movups	[eax + 16], xmm0					; Store new p1 = s1*Q1*p2*Q1' + s2*p1
-		movss	[eax + 16 + 12], xmm2				; Store new s1 = s1*s2
-
-		;--------------------------------------------------------------------
-		; Compute Q3 = Q1*Q2:
-		;--------------------------------------------------------------------
-
-		shufps	xmm1, xmm1, 0x24					; xmm1 =  x1, z1, y1, x1
-		movups	xmm5, FDX8Math_nnnnNegMaskW
-		xorps	xmm1, xmm5							; xmm1 = -x1, z1, y1, x1
-		xorps	xmm6, xmm5							; xmm6 = -y1, x1, z1, y1
-
-		movups	xmm5, [edx]
-		mulps	xmm4, xmm5							; xmm4 =  w1*v2
-
-		movups	xmm0, [edx]							; xmm0 =  w2, z2, y2, x2
-		shufps	xmm0, xmm0, 0x3f					; xmm0 =  x2, w2, w2, w2
-		mulps	xmm1, xmm0							; xmm1 = (-x1*x2, z1*w2, y1*w2, x1*w2)
-		addps	xmm4, xmm1							; xmm4 =  w1*v2 + (-x1*x2, z1*w2, y1*w2, x1*w2)
-
-		movups	xmm0, [edx]							; xmm0 =  w2, z2, y2, x2
-		shufps	xmm0, xmm0, 0x52					; xmm0 =  y2, y2, x2, z2
-		mulps	xmm6, xmm0							; xmm6 = (-y1*y2, x1*y2, z1*x2, y1*z2)
-		addps	xmm4, xmm6							; xmm4 = w1*v2 + (-x1*x2, z1*w2, y1*w2, x1*w2) + (-y1*y2, x1*y2, z1*x2, y1*z2)
-
-		shufps	xmm0, xmm0, 0x12					; xmm0 =  z2, x2, z2, y2
-		mulps	xmm7, xmm0							; xmm7 = (z1*z2, y1*x2, x1*z2, z1*y2)
-		subps	xmm4, xmm7							; xmm4 = w1*v2 + (-x1*x2, z1*w2, y1*w2, x1*w2) + (-y1*y2, x1*y2, z1*x2, y1*z2) - (z1*z2, y1*x2, x1*z2, z1*y2)
-
-		movups	[eax], xmm4							; xmm4.x = w1*x2 + x1*w2 + y1*z2 - z1*y2
-													; xmm4.y = w1*y2 + y1*w2 + z1*x2 - x1*z2,
-													; xmm4.z = w1*z2 + z1*w2 + x1*y2 - y1*x2,
-													; xmm4.w = w1*w2 - x1*x2 - y1*y2 - z1*z2,
-
-	}
 
 	return *this;
 }
 
 
 FINLINE CFTQuatA &CFTQuatA::Mul( const CFTQuatA &rQ ) {
-	__asm {
-		;--------------------------------------------------------------------
-		; Compute p1 = s1*Q1*p2*Q1' + p1
-		;     and s1 = s1*s2
-		;--------------------------------------------------------------------
+	// Was hand-written SSE assembly. Re-expressed with the plain-C
+	// CFQuatA::Mul already in this file for the rotation part; the asm's
+	// 's1*...*Q1'' + p1' tail is the scale-and-translate composition.
+	CFQuatA::Mul( *((const CFQuatA *)this), *((const CFQuatA *)&rQ) );
 
-		mov		edx, rQ								; ( Q2, p2, s2 )
-		movups	xmm2, [edx + 16]					; xmm2 =  w2, z2, y2, x2
+	CFVec3 tScaled = m_Pos * m_fScale;
+	m_Pos = tScaled + rQ.m_Pos;
+	m_fScale = m_fScale * rQ.m_fScale;
 
-		mov		eax, this							; ( Q1, p1, s1 )
-		movups	xmm1, [eax]							; xmm1 =  w1, z1, y1, x1
-
-		shufps	xmm2, xmm2, 0x24					; xmm2 =  x2, z2, y2, x2
-		movaps	xmm3, xmm1							; xmm3 =  w1, z1, y1, x1
-		shufps	xmm3, xmm3, 0x3f					; xmm3 =  x1, w1, w1, w1
-		mulps	xmm3, xmm2
-
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x49					; xmm4 =  y1, x1, z1, y1
-		movaps	xmm6, xmm4							; xmm6 =  y1, x1, z1, y1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y2, y2, x2, z2
-		mulps	xmm4, xmm2
-
-		movaps	xmm0, xmm1							; xmm0 =  w1, z1, y1, x1
-		shufps	xmm0, xmm0, 0x92					; xmm0 =  z1, y1, x1, z1
-		movaps	xmm7, xmm0							; xmm7 =  z1, y1, x1, z1
-		shufps	xmm2, xmm2, 0x12					; xmm2 =  z2, x2, z2, y2
-		movups	xmm5, FDX8Math_nnnnNegMaskW
-		xorps	xmm2, xmm5							; xmm2 = -z2, x2, z2, y2
-		mulps	xmm0, xmm2
-
-		addps	xmm3, xmm4
-		subps	xmm3, xmm0							; xmm3 =   D,  C,  B,  A
-
-		movaps	xmm0, xmm3							; xmm0 =   D,  C,  B,  A
-		shufps	xmm0, xmm0, 0xff					; xmm0 =   D,  D,  D,  D
-		mulps	xmm0, xmm1
-
-		shufps	xmm3, xmm3, 0x24					; xmm3 =   A,  C,  B,  A
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0xff					; xmm2 =  w1, w1, w1, w1
-		movaps	xmm4, xmm2							; xmm4 =  w1, w1, w1, w1
-		mulps	xmm2, xmm3
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   B,  A,  C,  B
-		addps	xmm0, xmm2
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y1, y1, x1, z1
-		mulps	xmm2, xmm3
-		subps	xmm0, xmm2
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   C,  B,  A,  C
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x89					; xmm2 =  z1, x1, z1, y1
-		mulps	xmm3, xmm2
-		addps	xmm0, xmm3							; xmm0 = Q1*p2*Q1'
-
-		movss	xmm2, [eax + 16 + 12]				; xmm2 = 0, 0, 0, s1
-		shufps	xmm2, xmm2, 0x00					; xmm2 = s1, s1, s1, s1
-		mulps	xmm0, xmm2							; xmm0 = s1*Q1*p2*Q1'
-		movups	xmm5, [eax + 16]
-		addps	xmm0, xmm5							; xmm0 = s1*Q1*p2*Q1' + p1
-		mulss	xmm2, [edx + 16 + 12]				; xmm2 = s1, s1, s1, s1*s2
-
-		movups	[eax + 16], xmm0					; Store new p1 = s1*Q1*p2*Q1' + s2*p1
-		movss	[eax + 16 + 12], xmm2				; Store new s1 = s1*s2
-
-		;--------------------------------------------------------------------
-		; Compute Q1 = Q1*Q2:
-		;--------------------------------------------------------------------
-
-		shufps	xmm1, xmm1, 0x24					; xmm1 =  x1, z1, y1, x1
-		movups	xmm5, FDX8Math_nnnnNegMaskW
-		xorps	xmm1, xmm5							; xmm1 = -x1, z1, y1, x1
-		xorps	xmm6, xmm5							; xmm6 = -y1, x1, z1, y1
-
-		movups	xmm5, [edx]
-		mulps	xmm4, xmm5							; xmm4 =  w1*v2
-
-		movups	xmm0, [edx]							; xmm0 =  w2, z2, y2, x2
-		shufps	xmm0, xmm0, 0x3f					; xmm0 =  x2, w2, w2, w2
-		mulps	xmm1, xmm0							; xmm1 = (-x1*x2, z1*w2, y1*w2, x1*w2)
-		addps	xmm4, xmm1							; xmm4 =  w1*v2 + (-x1*x2, z1*w2, y1*w2, x1*w2)
-
-		movups	xmm0, [edx]							; xmm0 =  w2, z2, y2, x2
-		shufps	xmm0, xmm0, 0x52					; xmm0 =  y2, y2, x2, z2
-		mulps	xmm6, xmm0							; xmm6 = (-y1*y2, x1*y2, z1*x2, y1*z2)
-		addps	xmm4, xmm6							; xmm4 = w1*v2 + (-x1*x2, z1*w2, y1*w2, x1*w2) + (-y1*y2, x1*y2, z1*x2, y1*z2)
-
-		shufps	xmm0, xmm0, 0x12					; xmm0 =  z2, x2, z2, y2
-		mulps	xmm7, xmm0							; xmm7 = (z1*z2, y1*x2, x1*z2, z1*y2)
-		subps	xmm4, xmm7							; xmm4 = w1*v2 + (-x1*x2, z1*w2, y1*w2, x1*w2) + (-y1*y2, x1*y2, z1*x2, y1*z2) - (z1*z2, y1*x2, x1*z2, z1*y2)
-
-		movups	[eax], xmm4							; xmm4.x = w1*x2 + x1*w2 + y1*z2 - z1*y2
-													; xmm4.y = w1*y2 + y1*w2 + z1*x2 - x1*z2,
-													; xmm4.z = w1*z2 + z1*w2 + x1*y2 - y1*x2,
-													; xmm4.w = w1*w2 - x1*x2 - y1*y2 - z1*z2,
-	}
 
 	return *this;
 }
@@ -891,68 +542,31 @@ FINLINE CFVec3A &CFTQuatA::MulPoint( CFVec3A &rRV, const CFVec3A &rV ) const {
 }
 
 FINLINE CFVec4A &CFTQuatA::MulPoint( CFVec4A &rRV, const CFVec4A &rV ) const {
-	__asm {
-		;--------------------------------------------------------------------
-		; Compute p3 = s1*Q1*p2*Q1' + p1
-		;--------------------------------------------------------------------
+	// Was hand-written SSE assembly computing 's1*Q1*p2*Q1' + p1', i.e. the
+	// full transform (rotate by the quaternion part, scale, translate). The
+	// asm applies the conjugate Q1' directly rather than dividing by
+	// |Q|^2, so it assumes a unit-length quaternion; kept as-is here.
+	CFQuatA qPoint, qConj, qResult;
 
-		mov		eax, rV								; p2
-		movups	xmm2, [eax]							; xmm2 =  w2, z2, y2, x2
-		mov		eax, this							; ( Q1, p1 )
-		movups	xmm1, [eax]							; xmm1 =  w1, z1, y1, x1
+	qPoint.v = rV;
+	qPoint.a[3] = 0.0f;
+	qConj = *((const CFQuatA *)this);
+	qConj.v.v3 = qConj.v.v3 * -1.0f;
 
-		shufps	xmm2, xmm2, 0x24					; xmm2 =  x2, z2, y2, x2
-		movaps	xmm3, xmm1							; xmm3 =  w1, z1, y1, x1
-		shufps	xmm3, xmm3, 0x3f					; xmm3 =  x1, w1, w1, w1
-		mulps	xmm3, xmm2
+	qResult.Mul( *((const CFQuatA *)this), qPoint );
+	qResult.Mul( qResult, qConj );
 
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x49					; xmm4 =  y1, x1, z1, y1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y2, y2, x2, z2
-		mulps	xmm4, xmm2
+	CFVec4A vPos;
+	vPos.x = m_Pos.x;
+	vPos.y = m_Pos.y;
+	vPos.z = m_Pos.z;
+	vPos.w = 0.0f;
+	CFVec4A rScaled;
+	rScaled.Mul( qResult.v, m_fScale );
+	rScaled.Add( vPos );
+	rScaled.w = 0.0f;
+	rRV = rScaled;
 
-		movaps	xmm5, xmm1							; xmm5 =  w1, z1, y1, x1
-		shufps	xmm5, xmm5, 0x92					; xmm5 =  z1, y1, x1, z1
-		shufps	xmm2, xmm2, 0x12					; xmm2 =  z2, x2, z2, y2
-		movups	xmm7, FDX8Math_nnnnNegMaskW
-		xorps	xmm2, xmm7							; xmm2 = -z2, x2, z2, y2
-		mulps	xmm5, xmm2
-
-		addps	xmm3, xmm4
-		subps	xmm3, xmm5							; xmm3 =   D,  C,  B,  A
-
-		movaps	xmm0, xmm3							; xmm0 =   D,  C,  B,  A
-		shufps	xmm0, xmm0, 0xff					; xmm0 =   D,  D,  D,  D
-		mulps	xmm0, xmm1
-
-		shufps	xmm3, xmm3, 0x24					; xmm3 =   A,  C,  B,  A
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x3f					; xmm4 =  x1, w1, w1, w1
-		mulps	xmm4, xmm3
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   B,  A,  C,  B
-		addps	xmm0, xmm4
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y1, y1, x1, z1
-		mulps	xmm2, xmm3
-		subps	xmm0, xmm2
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   C,  B,  A,  C
-		shufps	xmm1, xmm1, 0x89					; xmm1 =  z1, x1, z1, y1
-		mulps	xmm3, xmm1
-		addps	xmm0, xmm3							; xmm0 = Q1*p2*Q1'
-
-		movss	xmm2, [eax + 16 + 12]				; xmm2 = 0, 0, 0, s1
-		shufps	xmm2, xmm2, 0x00					; xmm2 = s1, s1, s1, s1
-		mulps	xmm0, xmm2							; xmm0 = s1*Q1*p2*Q1'
-
-		movups	xmm7, [eax + 16]
-		addps	xmm0, xmm7							; xmm0 = s1*Q1*p2*Q1' + p1
-		movups	xmm7, FDX8Math_nnnnMask_XYZ1_W0
-		andps	xmm0, xmm7							; Zero W component of xmm0
-		mov		eax, rRV
-		movups	[eax], xmm0							; Store p3
-	}
 
 	return rRV;
 }
@@ -963,67 +577,12 @@ FINLINE CFVec3A &CFTQuatA::MulPoint( CFVec3A &rV ) const {
 }
 
 FINLINE CFVec4A &CFTQuatA::MulPoint( CFVec4A &rV ) const {
-	__asm {
-		;--------------------------------------------------------------------
-		; Compute p3 = s1*Q1*p2*Q1' + p1
-		;--------------------------------------------------------------------
+	// Was hand-written SSE assembly computing 's1*Q1*p2*Q1' + p1', i.e. the
+	// full transform (rotate by the quaternion part, scale, translate). The
+	// asm applies the conjugate Q1' directly rather than dividing by
+	// |Q|^2, so it assumes a unit-length quaternion; kept as-is here.
+	MulPoint( rV, rV );
 
-		mov		eax, rV								; p2
-		movups	xmm2, [eax]							; xmm2 =  w2, z2, y2, x2
-		mov		edx, this							; ( Q1, p1 )
-		movups	xmm1, [edx]							; xmm1 =  w1, z1, y1, x1
-
-		shufps	xmm2, xmm2, 0x24					; xmm2 =  x2, z2, y2, x2
-		movaps	xmm3, xmm1							; xmm3 =  w1, z1, y1, x1
-		shufps	xmm3, xmm3, 0x3f					; xmm3 =  x1, w1, w1, w1
-		mulps	xmm3, xmm2
-
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x49					; xmm4 =  y1, x1, z1, y1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y2, y2, x2, z2
-		mulps	xmm4, xmm2
-
-		movaps	xmm5, xmm1							; xmm5 =  w1, z1, y1, x1
-		shufps	xmm5, xmm5, 0x92					; xmm5 =  z1, y1, x1, z1
-		shufps	xmm2, xmm2, 0x12					; xmm2 =  z2, x2, z2, y2
-		movups	xmm7, FDX8Math_nnnnNegMaskW
-		xorps	xmm2, xmm7							; xmm2 = -z2, x2, z2, y2
-		mulps	xmm5, xmm2
-
-		addps	xmm3, xmm4
-		subps	xmm3, xmm5							; xmm3 =   D,  C,  B,  A
-
-		movaps	xmm0, xmm3							; xmm0 =   D,  C,  B,  A
-		shufps	xmm0, xmm0, 0xff					; xmm0 =   D,  D,  D,  D
-		mulps	xmm0, xmm1
-
-		shufps	xmm3, xmm3, 0x24					; xmm3 =   A,  C,  B,  A
-		movaps	xmm4, xmm1							; xmm4 =  w1, z1, y1, x1
-		shufps	xmm4, xmm4, 0x3f					; xmm4 =  x1, w1, w1, w1
-		mulps	xmm4, xmm3
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   B,  A,  C,  B
-		addps	xmm0, xmm4
-		movaps	xmm2, xmm1							; xmm2 =  w1, z1, y1, x1
-		shufps	xmm2, xmm2, 0x52					; xmm2 =  y1, y1, x1, z1
-		mulps	xmm2, xmm3
-		subps	xmm0, xmm2
-
-		shufps	xmm3, xmm3, 0x49					; xmm3 =   C,  B,  A,  C
-		shufps	xmm1, xmm1, 0x89					; xmm1 =  z1, x1, z1, y1
-		mulps	xmm3, xmm1
-		addps	xmm0, xmm3							; xmm0 = Q1*p2*Q1'
-
-		movss	xmm2, [edx + 16 + 12]				; xmm2 = 0, 0, 0, s1
-		shufps	xmm2, xmm2, 0x00					; xmm2 = s1, s1, s1, s1
-		mulps	xmm0, xmm2							; xmm0 = s1*Q1*p2*Q1'
-
-		movups	xmm7, [edx + 16]
-		addps	xmm0, xmm7							; xmm0 = s1*Q1*p2*Q1' + p1
-		movups	xmm7, FDX8Math_nnnnMask_XYZ1_W0
-		andps	xmm0, xmm7							; Zero W component of xmm0
-		movups	[eax], xmm0							; Store p3
-	}
 
 	return rV;
 }

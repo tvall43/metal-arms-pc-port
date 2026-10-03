@@ -32,7 +32,7 @@
 #endif
 
 #if FANG_PLATFORM_GC
-	#include "fgcfile.h"
+	#include "fGCfile.h"
 #elif FANG_PLATFORM_DX
 	#include "dx\fdx8file.h"
 //ARG - >>>>>
