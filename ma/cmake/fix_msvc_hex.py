@@ -13,7 +13,8 @@ are delimited like real literals, so identifiers such as "length" or
 import re, sys, os
 
 # A literal: 1+ hex digits then 'h', delimited by whitespace/punctuation.
-LIT = re.compile(rb'(?<=[ \t,(])((?:0[xX])?[0-9A-Fa-f]+)h(?=[ \t,)\r\n;])')
+LIT = re.compile(
+    rb'(?<=[ \t,\(\[\{=+\-*/%&|^~!<>])([0-9A-Fa-f]+)h(?=[ \t,)\]\};\r\n+\-*/%&|])')
 
 def rewrite(data: bytes) -> tuple[bytes, int]:
     out, changed, pos = bytearray(), 0, 0
@@ -31,8 +32,6 @@ def rewrite(data: bytes) -> tuple[bytes, int]:
         def sub(mm):
             nonlocal changed
             tok = mm.group(1)
-            if tok.lower().startswith(b'0x'):   # already C-style, leave alone
-                return mm.group(0)
             # Require >= 2 hex digits: MSVC asm literals are byte/word sized.
             if len(tok) < 2:
                 return mm.group(0)

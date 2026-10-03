@@ -938,13 +938,13 @@ FINLINE CFVec3A &CFMtx44A::MulPoint( CFVec3A &rRV, const CFVec3A &rV ) const {
 
 		movlps		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movlps		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
-		addps		xmm2, [ecx+30h]
+		addps		xmm2, [ecx+0x30]
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
 
@@ -968,17 +968,17 @@ FINLINE CFVec4A &CFMtx44A::MulPoint( CFVec4A &rRV, const CFVec4A &rV ) const {
 
 		movlps		xmm1, [eax]
 		shufps		xmm1, xmm1, 0x55
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movhps		xmm0, [eax]
 		shufps		xmm0, xmm0, 0x0AA
-		mulps		xmm0, [ecx+20h]
+		mulps		xmm0, [ecx+0x20]
 
 		addps		xmm2, xmm1
 
 		movhps		xmm1, [eax]
 		shufps		xmm1, xmm1, 0x0FF
-		mulps		xmm1, [ecx+30h]
+		mulps		xmm1, [ecx+0x30]
 
 		addps		xmm2, xmm0
 		addps		xmm2, xmm1
@@ -1001,13 +1001,13 @@ FINLINE CFVec3A &CFMtx44A::MulPoint( CFVec3A &rV ) const {
 
 		movlps		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movlps		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
-		addps		xmm2, [ecx+30h]
+		addps		xmm2, [ecx+0x30]
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
 
@@ -1030,17 +1030,17 @@ FINLINE CFVec4A &CFMtx44A::MulPoint( CFVec4A &rV ) const {
 
 		movlps		xmm1, [eax]
 		shufps		xmm1, xmm1, 0x55
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movhps		xmm0, [eax]
 		shufps		xmm0, xmm0, 0x0AA
-		mulps		xmm0, [ecx+20h]
+		mulps		xmm0, [ecx+0x20]
 
 		addps		xmm2, xmm1
 
 		movhps		xmm1, [eax]
 		shufps		xmm1, xmm1, 0x0FF
-		mulps		xmm1, [ecx+30h]
+		mulps		xmm1, [ecx+0x30]
 
 		addps		xmm2, xmm0
 		addps		xmm2, xmm1
@@ -1062,11 +1062,11 @@ FINLINE CFVec3A &CFMtx44A::MulDir( CFVec3A &rRV, const CFVec3A &rV ) const {
 
 		movlps		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movlps		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
@@ -1091,11 +1091,11 @@ FINLINE CFVec4A &CFMtx44A::MulDir( CFVec4A &rRV, const CFVec4A &rV ) const {
 
 		movlps		xmm1, [eax]
 		shufps		xmm1, xmm1, 0x55
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movhps		xmm0, [eax]
 		shufps		xmm0, xmm0, 0x0AA
-		mulps		xmm0, [ecx+20h]
+		mulps		xmm0, [ecx+0x20]
 
 		addps		xmm2, xmm1
 		addps		xmm2, xmm0
@@ -1118,11 +1118,11 @@ FINLINE CFVec3A &CFMtx44A::MulDir( CFVec3A &rV ) const {
 
 		movlps		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movlps		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
@@ -1146,11 +1146,11 @@ FINLINE CFVec4A &CFMtx44A::MulDir( CFVec4A &rV ) const {
 
 		movlps		xmm1, [eax]
 		shufps		xmm1, xmm1, 0x55
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movhps		xmm0, [eax]
 		shufps		xmm0, xmm0, 0x0AA
-		mulps		xmm0, [ecx+20h]
+		mulps		xmm0, [ecx+0x20]
 
 		addps		xmm2, xmm1
 		addps		xmm2, xmm0
@@ -1166,9 +1166,9 @@ FINLINE CFMtx44A &CFMtx44A::ReceiveTranspose( const CFMtx44A &rM ) {
 		mov			ecx, rM
 		mov			eax, this
 		movaps		xmm0, [ecx]
-		movaps		xmm2, [ecx+10h]
-		movaps		xmm3, [ecx+20h]
-		movaps		xmm5, [ecx+30h]
+		movaps		xmm2, [ecx+0x10]
+		movaps		xmm3, [ecx+0x20]
+		movaps		xmm5, [ecx+0x30]
 		movaps		xmm1, xmm0
 		movaps		xmm4, xmm3
 		unpcklps	xmm0, xmm2
@@ -1177,12 +1177,12 @@ FINLINE CFMtx44A &CFMtx44A::ReceiveTranspose( const CFMtx44A &rM ) {
 		unpckhps	xmm4, xmm5
 		movlps		[eax], xmm0
 		movlps		[eax+8], xmm3
-		movhps		[eax+10h], xmm0
-		movhps		[eax+18h], xmm3
-		movlps		[eax+20h], xmm1
-		movlps		[eax+28h], xmm4
-		movhps		[eax+30h], xmm1
-		movhps		[eax+38h], xmm4
+		movhps		[eax+0x10], xmm0
+		movhps		[eax+0x18], xmm3
+		movlps		[eax+0x20], xmm1
+		movlps		[eax+0x28], xmm4
+		movhps		[eax+0x30], xmm1
+		movhps		[eax+0x38], xmm4
 	}
 
 	return *this;
@@ -1192,9 +1192,9 @@ FINLINE CFMtx44A &CFMtx44A::Transpose( void ) {
 	__asm {
 		mov			eax, this
 		movaps		xmm0, [eax]
-		movaps		xmm2, [eax+10h]
-		movaps		xmm3, [eax+20h]
-		movaps		xmm5, [eax+30h]
+		movaps		xmm2, [eax+0x10]
+		movaps		xmm3, [eax+0x20]
+		movaps		xmm5, [eax+0x30]
 		movaps		xmm1, xmm0
 		movaps		xmm4, xmm3
 		unpcklps	xmm0, xmm2
@@ -1203,12 +1203,12 @@ FINLINE CFMtx44A &CFMtx44A::Transpose( void ) {
 		unpckhps	xmm4, xmm5
 		movlps		[eax], xmm0
 		movlps		[eax+8], xmm3
-		movhps		[eax+10h], xmm0
-		movhps		[eax+18h], xmm3
-		movlps		[eax+20h], xmm1
-		movlps		[eax+28h], xmm4
-		movhps		[eax+30h], xmm1
-		movhps		[eax+38h], xmm4
+		movhps		[eax+0x10], xmm0
+		movhps		[eax+0x18], xmm3
+		movlps		[eax+0x20], xmm1
+		movlps		[eax+0x28], xmm4
+		movhps		[eax+0x30], xmm1
+		movhps		[eax+0x38], xmm4
 	}
 
 	return *this;
@@ -2069,13 +2069,13 @@ FINLINE CFVec3A &CFMtx43A::MulPoint( CFVec3A &rRV, const CFVec3A &rV ) const {
 
 		movlps		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movlps		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
-		addps		xmm2, [ecx+30h]
+		addps		xmm2, [ecx+0x30]
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
 
@@ -2099,13 +2099,13 @@ FINLINE CFVec3&  CFMtx43A::MulPoint( CFVec3 &rRV, const CFVec3 &rV ) const
 
 		movss		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movss		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
-		addps		xmm2, [ecx+30h]
+		addps		xmm2, [ecx+0x30]
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
 
@@ -2127,13 +2127,13 @@ FINLINE CFVec3A &CFMtx43A::MulPoint( CFVec3A &rV ) const {
 
 		movlps		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movlps		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
-		addps		xmm2, [ecx+30h]
+		addps		xmm2, [ecx+0x30]
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
 
@@ -2154,11 +2154,11 @@ FINLINE CFVec3A &CFMtx43A::MulDir( CFVec3A &rRV, const CFVec3A &rV ) const {
 
 		movlps		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movlps		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
@@ -2181,11 +2181,11 @@ FINLINE CFVec3A &CFMtx43A::MulDir( CFVec3A &rV ) const {
 
 		movlps		xmm1, [eax+4]
 		shufps		xmm1, xmm1, 0
-		mulps		xmm1, [ecx+10h]
+		mulps		xmm1, [ecx+0x10]
 
 		movlps		xmm3, [eax+8]
 		shufps		xmm3, xmm3, 0
-		mulps		xmm3, [ecx+20h]
+		mulps		xmm3, [ecx+0x20]
 
 		addps		xmm2, xmm1
 		addps		xmm2, xmm3
@@ -2312,8 +2312,8 @@ FINLINE CFMtx43A &CFMtx43A::ReceiveTranspose33( const CFMtx43A &rM ) {
 		mov			ecx, rM
 		mov			eax, this
 		movaps		xmm0, [ecx]
-		movaps		xmm2, [ecx+10h]
-		movaps		xmm3, [ecx+20h]
+		movaps		xmm2, [ecx+0x10]
+		movaps		xmm3, [ecx+0x20]
 		xorps		xmm5, xmm5
 		movaps		xmm1, xmm0
 		movaps		xmm4, xmm3
@@ -2323,10 +2323,10 @@ FINLINE CFMtx43A &CFMtx43A::ReceiveTranspose33( const CFMtx43A &rM ) {
 		unpckhps	xmm4, xmm5
 		movlps		[eax], xmm0
 		movlps		[eax+8], xmm3
-		movhps		[eax+10h], xmm0
-		movhps		[eax+18h], xmm3
-		movlps		[eax+20h], xmm1
-		movlps		[eax+28h], xmm4
+		movhps		[eax+0x10], xmm0
+		movhps		[eax+0x18], xmm3
+		movlps		[eax+0x20], xmm1
+		movlps		[eax+0x28], xmm4
 	}
 
 	return *this;
@@ -2336,8 +2336,8 @@ FINLINE CFMtx43A &CFMtx43A::Transpose33( void ) {
 	__asm {
 		mov			eax, this
 		movaps		xmm0, [eax]
-		movaps		xmm2, [eax+10h]
-		movaps		xmm3, [eax+20h]
+		movaps		xmm2, [eax+0x10]
+		movaps		xmm3, [eax+0x20]
 		xorps		xmm5, xmm5
 		movaps		xmm1, xmm0
 		movaps		xmm4, xmm3
@@ -2347,10 +2347,10 @@ FINLINE CFMtx43A &CFMtx43A::Transpose33( void ) {
 		unpckhps	xmm4, xmm5
 		movlps		[eax], xmm0
 		movlps		[eax+8], xmm3
-		movhps		[eax+10h], xmm0
-		movhps		[eax+18h], xmm3
-		movlps		[eax+20h], xmm1
-		movlps		[eax+28h], xmm4
+		movhps		[eax+0x10], xmm0
+		movhps		[eax+0x18], xmm3
+		movlps		[eax+0x20], xmm1
+		movlps		[eax+0x28], xmm4
 	}
 
 	return *this;

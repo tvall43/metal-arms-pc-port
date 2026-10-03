@@ -2498,8 +2498,8 @@ FINLINE CFMtx43A &CFMtx43A::ReceiveTranspose33( const CFMtx43A &rM )
 		mov			ecx, rM
 		mov			eax, this
 		movaps		xmm0, [ecx]
-		movaps		xmm2, [ecx+10h]
-		movaps		xmm3, [ecx+20h]
+		movaps		xmm2, [ecx+0x10]
+		movaps		xmm3, [ecx+0x20]
 		xorps		xmm5, xmm5
 		movaps		xmm1, xmm0
 		movaps		xmm4, xmm3
@@ -2509,10 +2509,10 @@ FINLINE CFMtx43A &CFMtx43A::ReceiveTranspose33( const CFMtx43A &rM )
 		unpckhps	xmm4, xmm5
 		movlps		[eax], xmm0
 		movlps		[eax+8], xmm3
-		movhps		[eax+10h], xmm0
-		movhps		[eax+18h], xmm3
-		movlps		[eax+20h], xmm1
-		movlps		[eax+28h], xmm4
+		movhps		[eax+0x10], xmm0
+		movhps		[eax+0x18], xmm3
+		movlps		[eax+0x20], xmm1
+		movlps		[eax+0x28], xmm4
 	}
 */
 	return *this;
@@ -2538,8 +2538,8 @@ FINLINE CFMtx43A &CFMtx43A::Transpose33( void )
 	__asm {
 		mov			eax, this
 		movaps		xmm0, [eax]
-		movaps		xmm2, [eax+10h]
-		movaps		xmm3, [eax+20h]
+		movaps		xmm2, [eax+0x10]
+		movaps		xmm3, [eax+0x20]
 		xorps		xmm5, xmm5
 		movaps		xmm1, xmm0
 		movaps		xmm4, xmm3
@@ -2549,10 +2549,10 @@ FINLINE CFMtx43A &CFMtx43A::Transpose33( void )
 		unpckhps	xmm4, xmm5
 		movlps		[eax], xmm0
 		movlps		[eax+8], xmm3
-		movhps		[eax+10h], xmm0
-		movhps		[eax+18h], xmm3
-		movlps		[eax+20h], xmm1
-		movlps		[eax+28h], xmm4
+		movhps		[eax+0x10], xmm0
+		movhps		[eax+0x18], xmm3
+		movlps		[eax+0x20], xmm1
+		movlps		[eax+0x28], xmm4
 	}
 */
 	return *this;
