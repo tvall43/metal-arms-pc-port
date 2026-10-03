@@ -152,6 +152,10 @@ FMovie2_Error_e fmovie2_Install( void ) {
 	FASSERT_MSG( _bModuleStarted,     "[ FMOVIE2 ] Error: System not started !!!" );
 	FASSERT_MSG( ! _bModuleInstalled, "[ FMOVIE2 ] Error: System already installed !!!" );
 
+	// Declared up here so the 'goto _ExitWithError' below does not jump across
+	// its initialisation, which C++ forbids (MSVC allowed it).
+	BOOL bScanSubDirs = TRUE;
+
 	//set up sound support (if running windows)
 	//sound support on XBOX is automatically supported.
 #if FANG_PLATFORM_WIN
@@ -170,7 +174,6 @@ FMovie2_Error_e fmovie2_Install( void ) {
 #endif
 
 	//next, scan the directory system for movies
-	BOOL bScanSubDirs = TRUE;
 	if( ! _BuildMovieFilenameTable ( Fang_ConfigDefs.pszMovie_BasePathName, bScanSubDirs ) ) {
 		//not a catastrophic issue, just bail out.
 		goto _ExitWithError;

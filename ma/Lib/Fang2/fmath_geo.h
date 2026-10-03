@@ -375,15 +375,22 @@ FCLASS_ALIGN_PREFIX class CFProjSphere
 
 class CFRect2D {
 public:
+	// Two names for each corner: the engine uses both spellings.
 	union {
-				CFVec2 UpperLeft;
+		CFVec2 UpperLeft;
 		CFVec2 LowerRight;
-				CFVec2 m_UpperLeft;
+		CFVec2 m_UpperLeft;
 		CFVec2 m_LowerRight;
 	};
 
 	CFRect2D();
 	CFRect2D( const CFVec2 &UpperLeftVec, const CFVec2 &LowerRightVec );
+
+	// Required because the union above holds CFVec2, which has a non-trivial
+	// default constructor: under C++11 the implicit copy constructor and copy
+	// assignment would otherwise be deleted.
+	CFRect2D( const CFRect2D &rRect );
+	CFRect2D &operator = ( const CFRect2D &rRect );
 
 	CFRect2D &Zero( void );
 

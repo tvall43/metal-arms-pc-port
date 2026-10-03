@@ -37,7 +37,7 @@
 
 // Include compiled shaders:
 #if FANG_PLATFORM_WIN
-	#include "win//fdxsh_psprite.cvs"
+	#include "win/fdxsh_psprite.cvs"
 #else
 	#include "xb//fdxsh_psprite.cvs"
 #endif

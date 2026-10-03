@@ -94,7 +94,7 @@ static FResLoadReg_t _ResLoadRegistration;
 
 static FMeshCullDir_e _nCurrentCullDir;
 
-static const _aD3DVertexBlendFlags[_D3D_VTX_BLEND_FLAG_COUNT] = 
+static const D3DVERTEXBLENDFLAGS _aD3DVertexBlendFlags[_D3D_VTX_BLEND_FLAG_COUNT] = 
 {
 	D3DVBF_DISABLE,		// 0 segment matrices
 	D3DVBF_DISABLE,		// 1 segment matrix

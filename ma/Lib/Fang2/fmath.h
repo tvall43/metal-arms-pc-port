@@ -337,6 +337,9 @@ extern f32 fmath_GenRandFloatLessThanOne( void );
 
 	#include "dx/fdx8math_quat.inl"
 	#include "dx/fdx8gcmath_quat.inl"
+
+	// Definitions the _FANGDEF_WINGC configuration is otherwise missing.
+	#include "dx/fdx8wingc_missing.inl"
 #elif FANG_PLATFORM_GC
 	#include "fGCmath.inl"
 	#include "fGCmath_vec.inl"

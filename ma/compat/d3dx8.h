@@ -38,6 +38,17 @@
 #define D3DX_DEFAULT           0xffffffff
 #endif
 
+// d3d8 in mingw-w64 omits these two D3DX-era constants that the video and
+#ifndef D3DSGR_NO_CALIBRATION
+#define D3DSGR_NO_CALIBRATION   0x00000000
+#endif
+#ifndef D3DSGR_CALIBRATE
+#define D3DSGR_CALIBRATE        0x00000001
+#endif
+#ifndef D3DPRESENT_RATE_DEFAULT
+#define D3DPRESENT_RATE_DEFAULT ((UINT)-1)
+#endif
+
 // ---------------------------------------------------------------------------
 // D3DX math types (same definitions as the D3DX8/9 SDK)
 // ---------------------------------------------------------------------------

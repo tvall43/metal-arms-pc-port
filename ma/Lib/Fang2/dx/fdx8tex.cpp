@@ -1880,6 +1880,12 @@ FTexDef_t *ftex_CreateTexture( const FTexInfo_t *pTexInfo, const void *pSrcImage
 	ResFrame = fres_GetFrame();
 
 	// Build or retrieve our resource...
+#if FHEAP_TRACK_MEM_ALLOCATIONS
+	// Declared up here so the 'goto _CreateTextureFailure' statements below do
+	// not jump across an initialization, which C++ forbids (MSVC allowed it).
+	u32 i, nAlloc = 0;
+#endif
+
 	if( hRes == FRES_NULLHANDLE ) 
 	{
 		// Resource handle not provided...
@@ -2017,7 +2023,6 @@ FTexDef_t *ftex_CreateTexture( const FTexInfo_t *pTexInfo, const void *pSrcImage
 #endif
 
 #if FHEAP_TRACK_MEM_ALLOCATIONS
-	u32 i, nAlloc = 0;
 	for ( i = 0; i < pTexData->nD3DLodCount; i++ )
 	{
 		D3DSURFACE_DESC Desc;
