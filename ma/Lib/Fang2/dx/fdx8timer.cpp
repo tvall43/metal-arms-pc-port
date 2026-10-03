@@ -18,6 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
+#include <intrin.h>
 #include "ftimer.h"
 #include "fcpu.h"
 #include "fvid.h"
@@ -337,17 +338,9 @@ void CFTimer::InitFrequencyAndPeriod( u32 nFrequency )
 	{
 		u32 nLow;
 
-		__asm 
-		{
-			push eax
-			push edx
-
-			rdtsc
-			mov nLow, eax
-
-			pop edx
-			pop eax
-		}
+		// Was MSVC asm saving/restoring eax/edx around RDTSC and keeping
+		// only the low half; (u32)__rdtsc() is exactly equivalent.
+		nLow = (u32)__rdtsc();
 
 		return nLow;
 	}
@@ -357,17 +350,12 @@ void CFTimer::InitFrequencyAndPeriod( u32 nFrequency )
 	{
 		u32 nLow, nHigh;
 
-		__asm 
+		// Was MSVC asm capturing both halves of RDTSC into nLow/nHigh;
+		// the 64-bit __rdtsc() intrinsic returns the same value directly.
 		{
-			push eax
-			push edx
-
-			rdtsc
-			mov nLow, eax
-			mov nHigh, edx
-
-			pop edx
-			pop eax
+			const u64 nTicks = __rdtsc();
+			nLow  = (u32)(nTicks & 0xffffffffu);
+			nHigh = (u32)(nTicks >> 32);
 		}
 
 		return (u64)nLow + ( ((u64)(nHigh)) << 32 );
