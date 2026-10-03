@@ -52,12 +52,24 @@
 		typedef __wchar_t wchar;
 	#else
 //ARG - <<<<<
+// The original used MSVC-only __intN types. GCC has no such types, and the
+		// failing typedefs left u8/u16/u32/s32/s32 undefined, which cascaded into
+		// tens of thousands of errors across the tree.
+#if defined(_MSC_VER)
 		typedef unsigned __int8 u8;
 		typedef unsigned __int16 u16;
 		typedef unsigned __int32 u32;
 		typedef __int8 s8;
 		typedef __int16 s16;
 		typedef __int32 s32;
+#else
+		typedef unsigned char u8;
+		typedef unsigned short u16;
+		typedef unsigned int u32;
+		typedef signed char s8;
+		typedef signed short s16;
+		typedef signed int s32;
+#endif
 		typedef float f32;
 		typedef u16 wchar;
 	#endif	//ARG
@@ -98,8 +110,13 @@
 	#else
 		// Careful with these 64-bit types - they are not as fast as true native 32-bit types...
 		#if ! FANG_PLATFORM_GC
+#if defined(_MSC_VER)
 			typedef unsigned __int64 u64;
 			typedef signed __int64 s64;
+#else
+			typedef unsigned long long u64;
+			typedef signed long long s64;
+#endif
 		#else
 			typedef unsigned long long u64;
 			typedef signed long long s64;	
@@ -109,8 +126,13 @@
 			typedef const u64 cu64;
 			typedef const s64 cs64;
 		#else
+#if defined(_MSC_VER)
 			typedef const unsigned __int64 cu64;
 			typedef const signed __int64 cs64;
+#else
+			typedef const unsigned long long cu64;
+			typedef const signed long long cs64;
+#endif
 		#endif
 		
 		#if ! FANG_PLATFORM_GC
