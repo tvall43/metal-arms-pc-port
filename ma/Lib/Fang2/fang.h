@@ -171,7 +171,15 @@
 // Compiler:
 
 #if FANG_PLATFORM_DX
-	#define FANG_COMPILER_MSVC 1
+	// The original assumed any DX-platform build used MSVC, which was true
+	// because this project only ever compiled with MSVC. mingw-w64 targets
+	// the same platform but is not MSVC, so test the compiler directly --
+	// otherwise FINLINE expands to __forceinline, which does not exist.
+	#if defined(_MSC_VER) || defined(__INTEL_COMPILER)
+		#define FANG_COMPILER_MSVC 1
+	#else
+		#define FANG_COMPILER_MSVC 0
+	#endif
 	#define FANG_COMPILER_CW 0
 	#define FANG_COMPILER_SN 0	//ARG
 #elif FANG_PLATFORM_PS2
@@ -336,8 +344,14 @@
 		#define FINLINE inline
 //ARG - <<<<<
 	#else
-//ARG		#error <Fang Error: Don't know what the 'inline' specifier is for this compiler.>
-		#error <Fang Error: Dont know what the inline specifier is for this compiler.>	//ARG
+		// Any other compiler (GCC/clang). always_inline matches the intent of
+		// __forceinline: these are small accessors where the call overhead and
+		// ODR-safe inlining both matter.
+		#if defined(__GNUC__)
+			#define FINLINE inline __attribute__((always_inline))
+		#else
+			#define FINLINE inline
+		#endif
 	#endif
 #else
 	// Don't allow inline functions...
@@ -392,6 +406,11 @@ typedef void FangFcnPrintf_t( cchar *pszFormat, FANG_VA_LIST Args );
 		#define FASSERT( bExpr ) if( !(bExpr) ) fang_Assert( __FILE__, __LINE__, #bExpr );
 		#define FASSERT_MSG( bExpr, pszMsg ) if( !(bExpr) ) fang_Assert( __FILE__, __LINE__, pszMsg );
 	#else
+		// <crtdbg.h>/_CrtDbgReport are MSVC-debug-CRT only and do not exist
+		// under mingw. Route to Fang's own assert handler instead, which is
+		// what the FANG_TEST_BUILD branch above already does, so assertions
+		// still go through the engine's reporting path.
+#if defined(_MSC_VER)
 		#include <crtdbg.h>
 
 		#define FASSERT( bExpr ) _ASSERTE( bExpr )
@@ -401,6 +420,10 @@ typedef void FangFcnPrintf_t( cchar *pszFormat, FANG_VA_LIST Args );
 					_CrtDbgBreak(); \
 				} \
 			} while (0)
+#else
+		#define FASSERT( bExpr ) if( !(bExpr) ) fang_Assert( __FILE__, __LINE__, #bExpr )
+		#define FASSERT_MSG( bExpr, pszMsg ) if( !(bExpr) ) fang_Assert( __FILE__, __LINE__, pszMsg )
+#endif
 	#endif
 
 #elif FANG_PLATFORM_XB
