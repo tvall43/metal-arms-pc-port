@@ -21,6 +21,11 @@
 
 #include "fang.h"
 
+// CSettings stores several of its paths in MFC CStrings. The win/ sources get
+// that type through App/ma/win/StdAfx.h -> <afxwin.h>; anything including this
+// header directly has to ask for it.
+#include "afxwin.h"
+
 class CMa_winDlg;
 class CVidMode;
 

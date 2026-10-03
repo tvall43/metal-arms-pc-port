@@ -116,7 +116,14 @@ target_link_libraries(fang2win PUBLIC
 # ---------------------------------------------------------------------------
 # ma_win -- the game.
 # ---------------------------------------------------------------------------
-add_executable(ma_win ${MA_WIN_SOURCES})
+# App/ma/win/main_win.cpp is not in the original .vcproj: the retail PC build
+# got its entry point from MFC (CMa_winApp in App/ma/win/ma_win.cpp, excluded
+# below as it needs real MFC). main_win.cpp supplies a plain WinMain that runs
+# the same fang_Init/Fang_ConfigDefs/fang_Startup/gameloop_Start sequence.
+add_executable(ma_win
+  ${MA_WIN_SOURCES}
+  App/ma/win/main_win.cpp
+)
 target_include_directories(ma_win PRIVATE
   App/ma
   App/ma/win
