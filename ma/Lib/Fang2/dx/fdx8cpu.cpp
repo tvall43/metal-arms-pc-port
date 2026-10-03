@@ -532,14 +532,14 @@ static BOOL _IsCPUAn80286( void ) {
 		pop cx
 		mov bx, cx
 
-		or cx, 0f000h			// Try to set bits 12-15 in FLAGS...
+		or cx, 0x0f000			// Try to set bits 12-15 in FLAGS...
 		push cx
 		popf
 
 		pushf					// Get new FLAGS in ax...
 		pop ax
 
-		and ax, 0f000h			// If bits 12-15 are clear then the CPU is an 80286...
+		and ax, 0x0f000			// If bits 12-15 are clear then the CPU is an 80286...
 		jz Exit80286			// Jump if this is an 80286
 
 		mov bIsAn80286, FALSE	// Not an 80286
@@ -573,7 +573,7 @@ static BOOL _IsCPUAn80386( void ) {
 		pop eax
 		mov ecx, eax
 
-		xor eax, 40000h			// Try to flip AC bit in EFLAGS...
+		xor eax, 0x40000			// Try to flip AC bit in EFLAGS...
 		push eax
 		popfd
 

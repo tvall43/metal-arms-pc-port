@@ -877,7 +877,7 @@ FINLINE CFMtx44A &CFMtx44A::Mul( const CFMtx44A &rM, const f32 &fVal ) {
 
 	__asm {
 		movss	xmm1, FDX8Math_fTemp
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 
 		movaps	xmm0, xmm1
 		mov		edx, rM
@@ -905,7 +905,7 @@ FINLINE CFMtx44A &CFMtx44A::Mul( const f32 &fVal ) {
 
 	__asm {
 		movss	xmm1, FDX8Math_fTemp
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 
 		movaps	xmm0, xmm1
 		mov		eax, this
@@ -967,17 +967,17 @@ FINLINE CFVec4A &CFMtx44A::MulPoint( CFVec4A &rRV, const CFVec4A &rV ) const {
 		mulps		xmm2, [ecx]
 
 		movlps		xmm1, [eax]
-		shufps		xmm1, xmm1, 55h
+		shufps		xmm1, xmm1, 0x55
 		mulps		xmm1, [ecx+10h]
 
 		movhps		xmm0, [eax]
-		shufps		xmm0, xmm0, 0AAh
+		shufps		xmm0, xmm0, 0x0AA
 		mulps		xmm0, [ecx+20h]
 
 		addps		xmm2, xmm1
 
 		movhps		xmm1, [eax]
-		shufps		xmm1, xmm1, 0FFh
+		shufps		xmm1, xmm1, 0x0FF
 		mulps		xmm1, [ecx+30h]
 
 		addps		xmm2, xmm0
@@ -1029,17 +1029,17 @@ FINLINE CFVec4A &CFMtx44A::MulPoint( CFVec4A &rV ) const {
 		mulps		xmm2, [ecx]
 
 		movlps		xmm1, [eax]
-		shufps		xmm1, xmm1, 55h
+		shufps		xmm1, xmm1, 0x55
 		mulps		xmm1, [ecx+10h]
 
 		movhps		xmm0, [eax]
-		shufps		xmm0, xmm0, 0AAh
+		shufps		xmm0, xmm0, 0x0AA
 		mulps		xmm0, [ecx+20h]
 
 		addps		xmm2, xmm1
 
 		movhps		xmm1, [eax]
-		shufps		xmm1, xmm1, 0FFh
+		shufps		xmm1, xmm1, 0x0FF
 		mulps		xmm1, [ecx+30h]
 
 		addps		xmm2, xmm0
@@ -1090,11 +1090,11 @@ FINLINE CFVec4A &CFMtx44A::MulDir( CFVec4A &rRV, const CFVec4A &rV ) const {
 		mulps		xmm2, [ecx]
 
 		movlps		xmm1, [eax]
-		shufps		xmm1, xmm1, 55h
+		shufps		xmm1, xmm1, 0x55
 		mulps		xmm1, [ecx+10h]
 
 		movhps		xmm0, [eax]
-		shufps		xmm0, xmm0, 0AAh
+		shufps		xmm0, xmm0, 0x0AA
 		mulps		xmm0, [ecx+20h]
 
 		addps		xmm2, xmm1
@@ -1145,11 +1145,11 @@ FINLINE CFVec4A &CFMtx44A::MulDir( CFVec4A &rV ) const {
 		mulps		xmm2, [ecx]
 
 		movlps		xmm1, [eax]
-		shufps		xmm1, xmm1, 55h
+		shufps		xmm1, xmm1, 0x55
 		mulps		xmm1, [ecx+10h]
 
 		movhps		xmm0, [eax]
-		shufps		xmm0, xmm0, 0AAh
+		shufps		xmm0, xmm0, 0x0AA
 		mulps		xmm0, [ecx+20h]
 
 		addps		xmm2, xmm1
@@ -1955,7 +1955,7 @@ FINLINE CFMtx43A &CFMtx43A::Mul( const CFMtx43A &rM, const f32 &fVal ) {
 
 	__asm {
 		movss	xmm1, FDX8Math_fTemp
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 
 		movaps	xmm0, xmm1
 		mov		edx, rM
@@ -1984,7 +1984,7 @@ FINLINE CFMtx43A &CFMtx43A::Mul( const f32 &fVal ) {
 
 	__asm {
 		movss	xmm1, FDX8Math_fTemp
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 
 		movaps	xmm0, xmm1
 		mov		eax, this
@@ -2012,7 +2012,7 @@ FINLINE CFMtx43A &CFMtx43A::Mul33( const CFMtx43A &rM, const f32 &fVal ) {
 
 	__asm {
 		movss	xmm1, FDX8Math_fTemp
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 
 		movaps	xmm0, xmm1
 		mov		edx, rM
@@ -2038,7 +2038,7 @@ FINLINE CFMtx43A &CFMtx43A::Mul33( const f32 &fVal ) {
 
 	__asm {
 		movss	xmm1, FDX8Math_fTemp
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 
 		movaps	xmm0, xmm1
 		mov		eax, this

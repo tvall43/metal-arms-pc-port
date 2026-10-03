@@ -665,7 +665,7 @@ FINLINE CFQuatA &CFQuatA::NonUnitInv( const CFQuatA &rQ )
 
 	__asm {
 		rcpss	xmm0, fMag2
-		shufps	xmm0, xmm0, 00h
+		shufps	xmm0, xmm0, 0x00
 		mulps	xmm0, FDX8Math_NegOnesW1
 		mov		eax, rQ
 		mulps	xmm0, [eax]
@@ -683,7 +683,7 @@ FINLINE CFQuatA &CFQuatA::NonUnitInv( void )
 
 	__asm {
 		rcpss	xmm0, fMag2
-		shufps	xmm0, xmm0, 00h
+		shufps	xmm0, xmm0, 0x00
 		mulps	xmm0, FDX8Math_NegOnesW1
 		mov		eax, this
 		mulps	xmm0, [eax]

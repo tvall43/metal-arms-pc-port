@@ -713,10 +713,10 @@ FINLINE f32 CFVec4A::UnitAndMag( const CFVec4A &rV ) {
 
 		mulps	xmm1, xmm1
 		movaps	xmm0, xmm1
-		shufps	xmm1, xmm1, 4eh
+		shufps	xmm1, xmm1, 0x4e
 		addps	xmm0, xmm1
 		movaps	xmm1, xmm0
-		shufps	xmm1, xmm1, 11h
+		shufps	xmm1, xmm1, 0x11
 		addps	xmm0, xmm1
 		rsqrtss	xmm0, xmm0
 		rcpss	xmm1, xmm0
@@ -873,7 +873,7 @@ FINLINE f32 CFVec4A::UnitAndMagXZ( const CFVec4A &rV ) {
 		mulps	xmm0, xmm1
 		movss	fMag2, xmm2
 		movss	[eax], xmm0
-		shufps	xmm0, xmm0, 02h
+		shufps	xmm0, xmm0, 0x02
 		movss	[eax+8], xmm0
 	}
 
@@ -915,7 +915,7 @@ FINLINE f32 CFVec4A::SafeUnitAndMagXZ( const CFVec4A &rV ) {
 			mulps	xmm0, xmm1
 			movss	fMag2, xmm2
 			movss	[eax], xmm0
-			shufps	xmm0, xmm0, 02h
+			shufps	xmm0, xmm0, 0x02
 			movss	[eax+8], xmm0
 		}
 
@@ -944,7 +944,7 @@ FINLINE f32 CFVec4A::SafeUnitAndInvMagXZ( const CFVec4A &rV ) {
 			mulps	xmm0, xmm1
 			movss	fMag2, xmm1
 			movss	[eax], xmm0
-			shufps	xmm0, xmm0, 02h
+			shufps	xmm0, xmm0, 0x02
 			movss	[eax+8], xmm0
 		}
 
@@ -1596,9 +1596,9 @@ FINLINE f32 CFVec3A::UnitAndMag( const CFVec3A &rV ) {
 		mov		eax, this
 		mulps	xmm1, xmm1
 		movaps	xmm0, xmm1
-		shufps	xmm0, xmm0, 39h
+		shufps	xmm0, xmm0, 0x39
 		addps	xmm1, xmm0
-		shufps	xmm0, xmm0, 39h
+		shufps	xmm0, xmm0, 0x39
 		addps	xmm1, xmm0
 
 		rsqrtss	xmm1, xmm1
@@ -1626,9 +1626,9 @@ FINLINE f32 CFVec3A::UnitAndInvMag( const CFVec3A &rV ) {
 
 		mulps	xmm1, xmm1
 		movaps	xmm0, xmm1
-		shufps	xmm0, xmm0, 39h
+		shufps	xmm0, xmm0, 0x39
 		addps	xmm1, xmm0
-		shufps	xmm0, xmm0, 39h
+		shufps	xmm0, xmm0, 0x39
 		addps	xmm1, xmm0
 
 		mov		eax, this
@@ -1764,7 +1764,7 @@ FINLINE f32 CFVec3A::UnitAndMagXZ( const CFVec3A &rV ) {
 		mulps	xmm0, xmm1
 		movss	fMag2, xmm2
 		movss	[eax], xmm0
-		shufps	xmm0, xmm0, 02h
+		shufps	xmm0, xmm0, 0x02
 		movss	[eax+8], xmm0
 	}
 
@@ -1806,7 +1806,7 @@ FINLINE f32 CFVec3A::SafeUnitAndMagXZ( const CFVec3A &rV ) {
 			mulps	xmm0, xmm1
 			movss	fMag2, xmm2
 			movss	[eax], xmm0
-			shufps	xmm0, xmm0, 02h
+			shufps	xmm0, xmm0, 0x02
 			movss	[eax+8], xmm0
 		}
 
@@ -1835,7 +1835,7 @@ FINLINE f32 CFVec3A::SafeUnitAndInvMagXZ( const CFVec3A &rV ) {
 			mulps	xmm0, xmm1
 			movss	fMag2, xmm1
 			movss	[eax], xmm0
-			shufps	xmm0, xmm0, 02h
+			shufps	xmm0, xmm0, 0x02
 			movss	[eax+8], xmm0
 		}
 

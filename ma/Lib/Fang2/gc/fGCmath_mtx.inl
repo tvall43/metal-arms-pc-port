@@ -1930,7 +1930,7 @@ FINLINE CFMtx43A &CFMtx43A::Mul( const CFMtx43A &rM, const f32 &fVal )
 
 	__asm {
 		movss	xmm1, FDX8Math_fTemp
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 
 		movaps	xmm0, xmm1
 		mov		edx, rM
@@ -1966,7 +1966,7 @@ FINLINE CFMtx43A &CFMtx43A::Mul( const f32 &fVal )
 
 	__asm {
 		movss	xmm1, FDX8Math_fTemp
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 
 		movaps	xmm0, xmm1
 		mov		eax, this

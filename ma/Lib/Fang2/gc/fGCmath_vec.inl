@@ -748,15 +748,15 @@ FINLINE f32 CFVec4A::UnitAndMag( const CFVec4A &rV )
 
 		mulps	xmm1, xmm1
 		movaps	xmm0, xmm1
-		shufps	xmm1, xmm1, 4eh
+		shufps	xmm1, xmm1, 0x4e
 		addps	xmm0, xmm1
 		movaps	xmm1, xmm0
-		shufps	xmm1, xmm1, 11h
+		shufps	xmm1, xmm1, 0x11
 		addps	xmm0, xmm1
 		rsqrtss	xmm0, xmm0
 		rcpss	xmm1, xmm0
 		movss	fMag, xmm1
-		shufps	xmm0, xmm0, 00h
+		shufps	xmm0, xmm0, 0x00
 		mulps	xmm2, xmm0
 		mov		eax, this
 		movaps	[eax], xmm2
@@ -789,7 +789,7 @@ FINLINE f32 CFVec4A::SafeUnitAndMag( const CFVec4A &rV )
 	if( fMag2 > 0.0f ) {
 		__asm {
 			rsqrtss	xmm0, fMag2
-			shufps	xmm0, xmm0, 00h
+			shufps	xmm0, xmm0, 0x00
 			rcpss	xmm1, xmm0
 			mov		edx, rV
 			mulps	xmm0, [edx]
@@ -813,7 +813,7 @@ FINLINE f32 CFVec4A::SafeUnitAndInvMag( const CFVec4A &rV )
 		__asm {
 			mov		eax, rV
 			rsqrtss	xmm0, fMag2
-			shufps	xmm0, xmm0, 00h
+			shufps	xmm0, xmm0, 0x00
 			movss	fMag2, xmm0
 			mulps	xmm0, [eax]
 			mov		eax, this
@@ -894,14 +894,14 @@ FINLINE f32 CFVec4A::UnitAndMagXZ( const CFVec4A &rV )
 		rsqrtss	xmm1, fMag2
 		mov		eax, rV
 		movaps	xmm0, [eax]
-		shufps	xmm1, xmm1, 00h
+		shufps	xmm1, xmm1, 0x00
 		mov		eax, this
 		movaps	[eax], xmm0
 		rcpss	xmm2, xmm1
 		mulps	xmm0, xmm1
 		movss	fMag2, xmm2
 		movss	[eax], xmm0
-		shufps	xmm0, xmm0, 02h
+		shufps	xmm0, xmm0, 0x02
 		movss	[eax+8], xmm0
 	}
 
@@ -929,14 +929,14 @@ FINLINE f32 CFVec4A::SafeUnitAndMagXZ( const CFVec4A &rV )
 			rsqrtss	xmm1, fMag2
 			mov		eax, rV
 			movaps	xmm0, [eax]
-			shufps	xmm1, xmm1, 00h
+			shufps	xmm1, xmm1, 0x00
 			mov		eax, this
 			movaps	[eax], xmm0
 			rcpss	xmm2, xmm1
 			mulps	xmm0, xmm1
 			movss	fMag2, xmm2
 			movss	[eax], xmm0
-			shufps	xmm0, xmm0, 02h
+			shufps	xmm0, xmm0, 0x02
 			movss	[eax+8], xmm0
 		}
 
@@ -956,13 +956,13 @@ FINLINE f32 CFVec4A::SafeUnitAndInvMagXZ( const CFVec4A &rV )
 			rsqrtss	xmm1, fMag2
 			mov		eax, rV
 			movaps	xmm0, [eax]
-			shufps	xmm1, xmm1, 00h
+			shufps	xmm1, xmm1, 0x00
 			mov		eax, this
 			movaps	[eax], xmm0
 			mulps	xmm0, xmm1
 			movss	fMag2, xmm1
 			movss	[eax], xmm0
-			shufps	xmm0, xmm0, 02h
+			shufps	xmm0, xmm0, 0x02
 			movss	[eax+8], xmm0
 		}
 
