@@ -26,11 +26,11 @@
 #include "fparticle.h"
 
 #include "collectable.h"
-#include "camsimple.h"
+#include "CamSimple.h"
 
 #include "level.h"
 #include "MagnetDevice.h"
-#include "ai/aicorrosive.h"
+#include "Ai/AiCorrosive.h"
 
 class CBot;
 class CBotGrunt;

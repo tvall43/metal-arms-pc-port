@@ -19,7 +19,7 @@
 #include "fang.h"
 #include "user_john.h"
 #include "floop.h"
-#include "fresload.H"
+#include "fresload.h"
 #include "bot.h"
 #include "player.h"
 

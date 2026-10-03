@@ -20,7 +20,7 @@
 #include "AIBrainUtils.h"
 #include "AIBrain.h"
 #include "AIMover.h"
-#include "../Entity.h"
+#include "../entity.h"
 
 void StuffWaitParams(	CAIMemoryLarge* pParamPack,
 						BOOL bSpecifyLookAt,		// TRUE/FALSE  (True means use pLookAtObj or LookAtLoc) FALSE means no lookAtgoal

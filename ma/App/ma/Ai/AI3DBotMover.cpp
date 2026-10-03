@@ -7,11 +7,11 @@
 #include "AIRooms.h"
 #include "AIEdgeLock.h"
 #include "AIGameUtils.h"
-#include "AIMain.h"
+#include "aimain.h"
 #include "AIHazard.h"
 #include "AIGraphSearcher.h"
 #include "../player.h"
-#include "../Entity.h"
+#include "../entity.h"
 #include "../bot.h"
 
 extern f32 kfEssentiallyStoppedSpeed;

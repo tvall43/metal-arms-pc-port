@@ -27,11 +27,11 @@
 #include "AIBrainMan.h"
 #include "AIGroup.h"
 #include "AIGameUtils.h"
-#include "../protrack.h"
+#include "../ProTrack.h"
 #include "../player.h"
-#include "../damage.h"
+#include "../Damage.h"
 #include "AIThoughtsGeneric.h" //CGenericWait.. findfix: why again?
-#include "../meshtypes.h"
+#include "../MeshTypes.h"
 
 #define NPC_BOT_SEENMEM_TIME 5
 

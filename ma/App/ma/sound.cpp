@@ -19,7 +19,7 @@
 
 #include "fang.h"
 #include "fsound.h"
-#include "ai/aienviro.h"
+#include "Ai/AIEnviro.h"
 #include "fclib.h"
 
 

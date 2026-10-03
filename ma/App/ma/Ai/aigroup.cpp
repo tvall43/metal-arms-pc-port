@@ -17,25 +17,25 @@
 // 09/15/02 MacKellar   Created.
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
-#include "aigroup.h"
+#include "AIGroup.h"
 #include "ftl.h"
-#include "fscriptsystem.h"
+#include "FScriptSystem.h"
 #include "AIBrain.h"
-#include "AIBrainman.h"
-#include "AiBrainMems.h"
+#include "AIBrainMan.h"
+#include "AIBrainMems.h"
 #include "AIGameUtils.h"
 #include "AIMover.h"
 #include "AIThoughtsGeneric.h"
 #include "AIThoughtsGround.h"
-#include "AI/AiApi.h"
-#include "AI/AIMain.h"
+#include "Ai/AIApi.h"
+#include "Ai/aimain.h"
 #include "Ai/AINodePools.h"
-#include "AI/AIEdgeLock.h"
+#include "Ai/AIEdgeLock.h"
 
-#include "../Entity.h"
-#include "../Player.h"
-#include "../Site_BotWeapon.h"		  //needed since there is no cbot access to the driver of a pill
-#include "../Vehicle.h"				  //needed since there is no cbot access to the driver of a vehicle
+#include "../entity.h"
+#include "../player.h"
+#include "../site_botWeapon.h"		  //needed since there is no cbot access to the driver of a pill
+#include "../vehicle.h"				  //needed since there is no cbot access to the driver of a vehicle
 
 
 FCLASS_ALIGN_PREFIX class CGroupAttackContext
@@ -243,7 +243,7 @@ CGroupAttackContext _aGAContext[MAX_PLAYERS];
 CGroupVisQueryContext _aGVQContext[MAX_PLAYERS];
 CSuspicionGroupContext _aGSContext[MAX_PLAYERS];
 CNiList<CBot*> _ActiveMechList;				 //List of all Mech that have registered with the AI system as a operatable thing
-CBot* CNiIterator<CBot*>::s_ReturnError;
+template <> CBot*  CNiIterator<CBot*>::s_ReturnError;
 CNiList<CEntity*> _AvoidanceList;
 BOOL _bSystemInitialized = FALSE;
 BOOL aigroup_InitSystem(void)

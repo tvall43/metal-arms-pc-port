@@ -36,7 +36,7 @@
 #include "eparticlepool.h"
 #include "gamecam.h"
 #include "flightgroup.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 
 #define _SHOW_SELL_SHEET_INSTEAD	( LAUNCHER_GO_DIRECTLY_TO_E3_WRAPPERS )	
 #define _LEVEL_NAMES_CSV			"pick_level$"

@@ -20,7 +20,7 @@
 #define _EPARTICLEPOOL_H_ 1
 
 #include "fang.h"
-#include "eparticle.h"
+#include "EParticle.h"
 
 #define EPARTICLE_POOL_COUNT	50
 

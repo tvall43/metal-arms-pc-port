@@ -27,7 +27,7 @@
 #include "fmath.h"
 #include "AIMath.h"
 #include "AIMover.h"
-#include "AIBotMover.h"
+#include "AiBotMover.h"
 
 class CBot;
 class CAIBrain;

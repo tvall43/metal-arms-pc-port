@@ -1,28 +1,28 @@
 #include "fang.h"
 #include "floop.h"
-#include "AIBotMover.h"
+#include "AiBotMover.h"
 #include "AIBrain.h"
 #include "AINodePools.h"
 #include "AIBrainMan.h"
 #include "AIRooms.h"
 #include "AIEdgeLock.h"
 #include "AIGameUtils.h"
-#include "AIMain.h"
+#include "aimain.h"
 #include "AIHazard.h"
 #include "AIGraphSearcher.h"
 #include "AIGroup.h"
 #include "../player.h"
-#include "../Entity.h"
+#include "../entity.h"
 #include "../bot.h"
 #include "../Door.h"
 #include "../ESwitch.h"
-#include "../meshtypes.h"
-#include "../Vehicle.h"
-#include "../Site_BoTweapon.h"
+#include "../MeshTypes.h"
+#include "../vehicle.h"
+#include "../site_botWeapon.h"
 #include "../botjumper.h"
 
 
-CEntity *  CNiIterator<class CEntity *>::s_ReturnError;
+template <> CEntity *   CNiIterator<class CEntity *>::s_ReturnError;
 
 f32 kfEssentiallyStoppedSpeed = 0.0001f;
 const f32 kfEssentiallyStoppedSpeed2 = kfEssentiallyStoppedSpeed*kfEssentiallyStoppedSpeed;

@@ -18,8 +18,8 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "PSPool.h"
-#include "fDataPool.h"
+#include "PsPool.h"
+#include "fdatapool.h"
 
 
 static CFDataPool _PSPool;

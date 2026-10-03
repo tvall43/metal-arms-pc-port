@@ -23,7 +23,7 @@
 #include "fang.h"
 #include "fmath.h"
 #include "level.h"
-#include "botZombieBoss.h"
+#include "botzombieboss.h"
 
 class CBot;
 class CBotGrunt;

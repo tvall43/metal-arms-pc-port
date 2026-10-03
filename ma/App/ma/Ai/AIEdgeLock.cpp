@@ -20,7 +20,7 @@
 #include "fang.h"
 #include "flinklist.h"
 #include "AIEdgeLock.h"
-#include "AInodepools.h"
+#include "AINodePools.h"
 #include "flinklist.h"
 #include "ftl.h"
 
@@ -53,7 +53,7 @@ CNiList<CEdgeLock*>* CEdgeLock::s_pEdgeLockList = NULL;
 CNiBank<CEdgeLock>* CEdgeLock::s_pAllocBank = NULL;
 CNiLocker<CEdgeLock>* CEdgeLock::s_pLocker = NULL;
 const s32 knEdgeLockBankSize = 50;
-CEdgeLock *  CNiIterator<class CEdgeLock *>::s_ReturnError;  //iterator template requires you to put this here
+template <> CEdgeLock *   CNiIterator<class CEdgeLock *>::s_ReturnError;  //iterator template requires you to put this here
 
 //=================
 // public variables
@@ -150,7 +150,7 @@ CNiList<CMechSeatLock*>* CMechSeatLock::s_pMechSeatLockList = NULL;
 CNiBank<CMechSeatLock>* CMechSeatLock::s_pAllocBank = NULL;
 CNiLocker<CMechSeatLock>* CMechSeatLock::s_pLocker = NULL;
 const s32 knMechSeatLockBankSize = 50;
-CMechSeatLock *  CNiIterator<class CMechSeatLock *>::s_ReturnError;  //iterator template requires you to put this here
+template <> CMechSeatLock *   CNiIterator<class CMechSeatLock *>::s_ReturnError;  //iterator template requires you to put this here
 
 //=================
 // public variables

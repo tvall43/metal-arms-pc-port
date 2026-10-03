@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
 #include "eparticlepool.h"
-#include "eparticle.h"
+#include "EParticle.h"
 #include "fres.h"
 
 typedef enum {

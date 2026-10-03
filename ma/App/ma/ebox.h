@@ -117,7 +117,7 @@ public:
 	FINLINE const CFVec3A *CornerMin_WS( void ) const { FASSERT( IsCreated() ); return &m_aCorner_WS[0]; }
 	FINLINE const CFVec3A *CornerMax_WS( void ) const { FASSERT( IsCreated() ); return &m_aCorner_WS[1]; }
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 
 
 

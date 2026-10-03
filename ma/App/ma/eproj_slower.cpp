@@ -22,9 +22,9 @@
 #include "floop.h"
 #include "fresload.h"
 #include "explosion.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "fsndfx.h"
-#include "damage.h"
+#include "Damage.h"
 
 #define _TRAIL_PARTICLE_NAME	"stf_prt01" 
 #define _STREAMER_TEXTURE_NAME	"TFMEStream1"

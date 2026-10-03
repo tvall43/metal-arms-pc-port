@@ -26,7 +26,7 @@
 #include "botprobe.h"
 #include "MeshTypes.h"
 #include "ProTrack.h"
-#include "AI/AIBrainMan.h"
+#include "Ai/AIBrainMan.h"
 #include "botglitch.h"
 #include "collectable.h"
 #include "botpart.h"

@@ -19,7 +19,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
 #include "AIWeaponCtrl.h"
-#include "AIBuilder.h"
+#include "aiBuilder.h"
 #include "AIGameUtils.h"
 
 

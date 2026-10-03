@@ -21,7 +21,7 @@
 
 #include "SplineActor.h"
 #include "fres.h"
-#include "fscriptsystem.h"
+#include "FScriptSystem.h"
 
 // NKM
 // The code to build the matrix here was taken from Actor.cpp in the CMeshActor::Work() function.

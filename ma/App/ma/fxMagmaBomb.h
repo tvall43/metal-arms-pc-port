@@ -24,7 +24,7 @@
 #include "fang.h"
 #include "fdraw.h" 
 #include "fcoll.h"
-#include "FParticle.h"
+#include "fparticle.h"
 #include "EParticle.h"
 #include "Damage.h"
 

@@ -24,6 +24,7 @@
 #include "fang.h"
 #include "bot.h"
 
+class CBotPartPool;
 class CBotGlitch;
 class CDamageProfile;
 class CFDebrisGroup;

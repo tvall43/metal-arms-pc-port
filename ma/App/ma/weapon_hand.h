@@ -69,7 +69,7 @@ public:
 
 	BOOL Create( cchar *pszEntityName=NULL, const CFMtx43A *pMtx=NULL, cchar *pszAIBuilderName=NULL );
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual void ClassHierarchySetUpgradeLevel( u32 nPreviousUpgradeLevel );
 
 	FINLINE virtual CFWorldMesh *GetMesh( void ) const { FASSERT( IsCreated() ); return m_pWorldMesh; }

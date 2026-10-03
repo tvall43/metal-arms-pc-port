@@ -1,16 +1,16 @@
 #include "fang.h"
 #include "flinklist.h"
-#include "fScriptSystem.h"
-#include "ApeNew.h"
+#include "FScriptSystem.h"
+#include "apenew.h"
 #include "AIBrain.h"
 #include "AIBrainMems.h"
-#include "AiApi.h"
-#include "AIBotMover.h"
+#include "AIApi.h"
+#include "AiBotMover.h"
 #include "AIBrain.h"
-#include "AITactics.h"
+#include "aitactics.h"
 #include "AIThoughtsGround.h"
-#include "../BotEliteGuard.h"
-#include "../Weapon_staff.h"
+#include "../botEliteGuard.h"
+#include "../weapon_staff.h"
 
 
 enum

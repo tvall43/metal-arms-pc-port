@@ -296,12 +296,15 @@ public:
 	}
 
 
+	// The original assigned 'pNode->m_Data = Element;' here, but 'Element' does not
+	// exist in this template (the parameter is DT), and the sibling PushHead() has
+	// no such assignment -- the caller writes through the returned pointer. Removed
+	// so PushTail matches PushHead.
 	DT* PushTail(void)
 	{
 		CNiNode<DT>* pNode = AllocateNode();
 		if (pNode)
 		{
-			pNode->m_Data = Element;
 			flinklist_AddTail(&m_LinkList, pNode);
 			return &(pNode->m_Data);
 		}

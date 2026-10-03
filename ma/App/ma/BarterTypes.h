@@ -5,8 +5,8 @@
 #include "fdata.h"
 #include "BotTalkInst.h"
 #include "fgamedata.h"
-#include "Collectable.h"
-#include "bartersystem.h"
+#include "collectable.h"
+#include "BarterSystem.h"
 
 class CBot;
 class CMeshEntity;

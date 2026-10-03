@@ -24,8 +24,8 @@
 #include "gstring.h"
 #include "fworld.h"
 #include "fclib.h"
-#include "meshtypes.h"
-#include "damage.h"
+#include "MeshTypes.h"
+#include "Damage.h"
 #include "fdebris.h"
 #include "entity.h"
 

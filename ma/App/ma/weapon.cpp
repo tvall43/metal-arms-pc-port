@@ -30,10 +30,10 @@
 #include "fworld_coll.h"
 #include "FCheckPoint.h"
 #include "bot.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "entity.h"
-#include "iteminst.h"
-#include "protrack.h"
+#include "ItemInst.h"
+#include "ProTrack.h"
 #include "fsound.h"
 
 

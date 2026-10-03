@@ -23,7 +23,7 @@
 #include "fworld.h"
 #include "fmesh.h"
 #include "fanim.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "fresload.h"
 #include "floop.h"
 #include "bot.h"

@@ -24,7 +24,7 @@
 #include "vehicle.h"
 #include "fphysics.h"
 #include "fparticle.h"
-#include "eparticle.h"
+#include "EParticle.h"
 #include "tracer.h"
 #include "gcoll.h"
 #include "fforce.h"
@@ -360,7 +360,7 @@ public:
 
 	BOOL Create( s32 nPlayerIndex=-1, BOOL bInstallDataPort=FALSE, cchar *pszEntityName=NULL, const CFMtx43A *pMtx=NULL, cchar *pszAIBuilderName=NULL );
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 
 	// checkpoint load/save functions
 	virtual void CheckpointSaveSelect( s32 nCheckpoint );

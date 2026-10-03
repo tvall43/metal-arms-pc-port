@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
 #include "AIFSM.h"
-#include "AINodepools.h"
+#include "AINodePools.h"
 #include "fres.h"
 
 
@@ -220,7 +220,7 @@ void CFSM::Work(void* pParam2)
 // static
 //
 CNiBank<CPendingStateChange>* CFSM::s_pCFSMPendingStateBank = NULL;
-CPendingStateChange *CNiIterator<CPendingStateChange*>::s_ReturnError;
+template <> CPendingStateChange * CNiIterator<CPendingStateChange*>::s_ReturnError;
 											    
 BOOL CFSM::InitSystem(struct FLinkRoot_s* pGlobalPtrNodePool)
 {

@@ -27,7 +27,7 @@
 #include "fmeshpool.h"
 #include "flinklist.h"
 #include "fparticle.h"
-#include "fcheckpoint.h"
+#include "FCheckPoint.h"
 
 #include "entity.h"
 

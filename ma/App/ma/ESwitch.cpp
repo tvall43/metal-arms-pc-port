@@ -20,7 +20,7 @@
 #include "ESwitch.h"
 #include "floop.h"
 #include "bot.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "FPointPath2.h"
 #include "FV3OLine1.h"
 #include "fresload.h"
@@ -31,8 +31,8 @@
 #include "ItemInst.h"
 #include "fsndfx.h"
 #include "TalkSystem2.h"
-#include "AI/AiApi.h"
-#include "AI/AIBTATable.h"
+#include "Ai/AIApi.h"
+#include "Ai/AIBTATable.h"
 #include "BotTalkInst.h"
 
 

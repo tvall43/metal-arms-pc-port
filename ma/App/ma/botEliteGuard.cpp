@@ -19,8 +19,8 @@
 
 
 #include "fang.h"
-#include "BotEliteGuard.h"
-#include "BotScout.h"
+#include "botEliteGuard.h"
+#include "botscout.h"
 #include "fanim.h"
 #include "fresload.h"
 #include "floop.h"
@@ -30,7 +30,7 @@
 #include "ItemInst.h"
 #include "ItemRepository.h"
 #include "fforce.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "potmark.h"
 #include "reticle.h"
 #include "player.h"
@@ -41,7 +41,7 @@
 #include "botpart.h"
 #include "Ai/AIEnviro.h"
 #include "Hud2.h"
-#include "zipline.h"
+#include "ZipLine.h"
 #include "fworld_coll.h"
 #include "weapon_staff.h"
 #include "fdecal.h"

@@ -20,8 +20,8 @@
 #include "GoodieBag.h"
 #include "fclib.h"
 #include "meshentity.h"
-#include "ESphere.h"
-#include "BotSwarmer.h"
+#include "esphere.h"
+#include "botswarmer.h"
 #include "fsndfx.h"
 #include "collectable.h"
 

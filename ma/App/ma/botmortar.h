@@ -26,6 +26,7 @@
 
 // Forward Declarations
 
+class CBotPartPool;
 class CEBox;
 
 FCLASS_ALIGN_PREFIX class CBotMortar : public CBot
@@ -272,7 +273,7 @@ public:
 
 	BOOL Create( s32 nPlayerIndex=-1, cchar *pszEntityName=NULL, const CFMtx43A *pMtx=NULL);
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual void Die( BOOL bSpawnDeathEffects=TRUE, BOOL bSpawnGoodies=TRUE );
 
 	virtual void CheckpointSaveSelect( s32 nCheckpoint );

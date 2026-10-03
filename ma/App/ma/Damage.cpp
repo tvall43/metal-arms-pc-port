@@ -18,21 +18,21 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "damage.h"
+#include "Damage.h"
 #include "flinklist.h"
 #include "fres.h"
 #include "fworld.h"
 #include "fworld_coll.h"
 #include "fgamedata.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "entity.h"
 #include "bot.h"
 #include "weapon.h"
 #include "gstring.h"
-#include "ai/aienviro.h"
+#include "Ai/AIEnviro.h"
 #include "fclib.h"
 #include "MultiplayerMgr.h"
-#include "Difficulty.h"
+#include "difficulty.h"
 
 
 #define _DAMAGE_CSV_FILENAME		"damage.csv"	// Holds all damage profiles

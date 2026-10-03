@@ -19,7 +19,7 @@
 
 #include "fang.h"
 #include "bottitan.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "player.h"
 #include "ProTrack.h"
 #include "meshentity.h"
@@ -32,11 +32,11 @@
 #include "fclib.h"
 #include "fresload.h"
 #include "FCheckPoint.h"
-#include "splat.h"
+#include "Splat.h"
 #include "eshield.h"
 #include "explosion.h"
-#include "damage.h"
-#include "hud2.h"
+#include "Damage.h"
+#include "Hud2.h"
 #include "botpart.h"
 #include "LightPool.h"
 //#include "gamepad.h"		// Remove this at some point

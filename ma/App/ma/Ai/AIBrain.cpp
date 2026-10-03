@@ -31,13 +31,13 @@
 #include "AIBrainMems.h"
 #include "AIMover.h"
 #include "AINodePools.h"
-#include "ApeNew.h"
+#include "apenew.h"
 #include "AIGameUtils.h"
 #include "AIFormations.h"
-#include "AiApi.h"
+#include "AIApi.h"
 #include "AIEdgeLock.h"
-#include "../Entity.h" 
-#include "../protrack.h"
+#include "../entity.h" 
+#include "../ProTrack.h"
 #include "../BotTalkInst.h"
 
 //====================
@@ -52,7 +52,7 @@ f32 CAIBrain::s_fDamagedByTotalDamageMultiplier = 1000.0f;
 //==================
 // private variables
 CNiBank<CPendingThought>* CAIBrain::s_pPendingThoughtBank = NULL;
-CPendingThought *  CNiIterator<CPendingThought *>::s_ReturnError;
+template <> CPendingThought *   CNiIterator<CPendingThought *>::s_ReturnError;
 
 void				*aibrain_pPostNodePoolMem = NULL;
 FLinkRoot_t			aibrain_PostNodePool;
@@ -68,7 +68,7 @@ FLinkRoot_t			*aibrain_pPostNodePool = NULL;
 // public functions
 
 
-CAIBrain* CNiIterator<CAIBrain *>::s_ReturnError;
+template <> CAIBrain*  CNiIterator<CAIBrain *>::s_ReturnError;
 
 static cchar*  _pszHUH = "HUH?";
 static cchar*  _pszInvalid = "TT_INVALID";

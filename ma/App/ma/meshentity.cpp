@@ -27,12 +27,12 @@
 #include "floop.h"
 #include "fclib.h"
 #include "FCheckPoint.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "bot.h"
 #include "Hud2.h"
 #include "fvis.h"
 #include "collectable.h"
-#include "ai/aigroup.h"
+#include "Ai/AIGroup.h"
 #include "fwire.h"
 
 

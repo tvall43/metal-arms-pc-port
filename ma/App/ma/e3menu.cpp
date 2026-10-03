@@ -52,7 +52,7 @@
 #include "gcoll.h"
 #include "flightgroup.h"
 #include "ffile.h"
-#include "fdatastreaming.h"
+#include "fDataStreaming.h"
 
 //====================
 // private definitions

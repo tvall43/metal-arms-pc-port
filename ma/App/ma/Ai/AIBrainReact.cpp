@@ -27,21 +27,21 @@
 #include "AIBrainMems.h"
 #include "AIMover.h"
 #include "AINodePools.h"
-#include "ApeNew.h"
-#include "AIBotMover.h"  //findfix: remove this when entity is completed
-#include "AIBrainman.h"	 //findfix: remove this when entity is completed
+#include "apenew.h"
+#include "AiBotMover.h"  //findfix: remove this when entity is completed
+#include "AIBrainMan.h"	 //findfix: remove this when entity is completed
 #include "AIGameUtils.h"
-#include "AiApi.h"
+#include "AIApi.h"
 #include "AIEnviro.h"
 #include "AIBTATable.h"
 #include "AIBrainUtils.h"
 #include "AIGroup.h"
 #include "AIThoughtsGeneric.h" //follow, etc
-#include "../Alarmsys.h"
-#include "../Bot.h"   // findfix: shouldn't be here just for peeking into aimover class
+#include "../AlarmSys.h"
+#include "../bot.h"   // findfix: shouldn't be here just for peeking into aimover class
 #include "../BotTalkInst.h"
-#include "../Player.h"
-#include "../Protrack.h"
+#include "../player.h"
+#include "../ProTrack.h"
 #include "../TalkSystem2.h"
 #include "../vehicle.h"
 

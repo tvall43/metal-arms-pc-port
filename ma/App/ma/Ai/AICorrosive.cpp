@@ -20,7 +20,7 @@
 #include "fang.h"
 
 #include "AIApi.h"
-#include "AICorrosive.h"
+#include "AiCorrosive.h"
 #include "AIFSM.h"
 #include "AIThoughts3DBot.h"
 #include "AIThoughtsGeneric.h"
@@ -29,11 +29,11 @@
 #include "AIMover.h"
 #include "AIBrain.h"
 #include "AIGameUtils.h"
-#include "AITactics.h"
+#include "aitactics.h"
 #include "AIBTATable.h"
 #include "AIGroup.h"
 
-#include "../BotCorrosive.h"
+#include "../botcorrosive.h"
 #include "../BotTalkInst.h"
 #include "../BotTalkData.h"
 #include "weapon.h"

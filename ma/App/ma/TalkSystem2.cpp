@@ -25,7 +25,7 @@
 #include "bot.h"
 #include "floop.h"
 #include "game.h"
-#include "AI/AiApi.h"
+#include "Ai/AIApi.h"
 #include "BotTalkData.h"
 #include "BotTalkInst.h"
 

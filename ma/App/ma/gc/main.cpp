@@ -23,7 +23,7 @@
 #include "fclib.h"
 #include "../gameloop.h"
 #include "floop.h"
-#include "fgc.h"
+#include "fGC.h"
 
 
 #if FANG_DEBUG_BUILD

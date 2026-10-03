@@ -26,14 +26,14 @@
 #include "fmath.h"
 #include "fres.h"
 #include "fvis.h"
-#include "Apenew.h"
+#include "apenew.h"
 #if AIGRAPH_EDITOR_ENABLED
 #include "AIUtil.h"
 #include <stdio.h>
 #include <windows.h>  //getkeystate
 #endif
 #if !AIGRAPH_EDITOR_ENABLED
-#include "AIGameutils.h"
+#include "AIGameUtils.h"
 #endif
 
 const s32 GraphEdge::knAsciiBuffSize = 64*10;

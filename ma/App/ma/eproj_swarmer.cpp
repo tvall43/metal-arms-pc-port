@@ -22,11 +22,11 @@
 #include "floop.h"
 #include "fworld_coll.h"
 #include "explosion.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "weapon.h"
-#include "lightpool.h"
+#include "LightPool.h"
 #include "fsound.h"
-#include "AI/AIEnviro.h"  //this file had one to few ai files in it.
+#include "Ai/AIEnviro.h"  //this file had one to few ai files in it.
 
 
 

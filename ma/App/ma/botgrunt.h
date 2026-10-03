@@ -21,7 +21,7 @@
 #define _BOTGRUNT_H_ 1
 
 #include "bot.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 
 
 // Forward Declarations
@@ -451,7 +451,7 @@ public:
 
 	BOOL Create( s32 nPlayerIndex=-1, BOOL bInstallDataPort=FALSE, cchar *pszEntityName=NULL, const CFMtx43A *pMtx=NULL, cchar *pszAIBuilderName=NULL, u32 nMeshVersionOverride=0, CBotBuilder::NPCWeapon_e nWeapon=CBotBuilder::_NPC_WEAPON_LASER );
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual const CFVec3A *GetApproxEyePoint( void ) const;
 
 	BOOL GrabCable( CEZipLine *pCable );

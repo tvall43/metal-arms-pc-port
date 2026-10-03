@@ -28,10 +28,10 @@
 #include "fmeshpool.h"
 #include "sas_user.h"
 
-#include "hud2.h"
+#include "Hud2.h"
 #include "Door.h"
 #include "game.h"
-#include "Player.h"
+#include "player.h"
 #include "entity.h"
 #include "fdebris.h"
 #include "botpart.h"
@@ -40,26 +40,26 @@
 #include "gamecam.h"
 #include "SpyVsSpy.h"
 #include "botgrunt.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "botglitch.h"
 #include "CamManual.h"
 #include "explosion.h"
 #include "meshentity.h"
 #include "BotTalkData.h"
-#include "Collectable.h"
+#include "collectable.h"
 #include "SplineActor.h"
 #include "FXMeshBuild.h"
 #include "SpyVsSpyDDR.h"
 #include "TalkSystem2.h"
 #include "botscientist.h"
 #include "eparticlepool.h"
-#include "multiplayerMgr.h"
+#include "MultiplayerMgr.h"
 
-#include "AI/AIApi.h"
-#include "AI/AIBrain.h"
-#include "AI/AIMover.h"
-#include "AI/AIBrainman.h"
-#include "AI/AIBTATable.h"
+#include "Ai/AIApi.h"
+#include "Ai/AIBrain.h"
+#include "Ai/AIMover.h"
+#include "Ai/AIBrainMan.h"
+#include "Ai/AIBTATable.h"
 
 #define _SPY_VS_SPY_SOUNDS				( "Level_18" )
 #define _SPY_VS_SPY_DIALOG				( "Level_18D" )
@@ -238,6 +238,9 @@ void CEmitterFader::Fade(	CFAudioEmitter *pEmitter,
 							const f32 &fTimeToFade,
 							BOOL bDestroyWhenDone/* = FALSE*/,
 							const CFVec3A *pPos/* = NULL*/ ) {
+	// Hoisted so the 'goto _ExitWithError' below does not jump across
+	// its initialisation, which C++ forbids (MSVC allowed it).
+	FaderEntry_t *pFader;
 	if( fStartVol < 0.0f ) {
 		goto _ExitWithError;
 	}
@@ -254,7 +257,7 @@ void CEmitterFader::Fade(	CFAudioEmitter *pEmitter,
 		goto _ExitWithError;
 	}
 
-	FaderEntry_t *pFader = _GetFader();
+	pFader = _GetFader();
 
 	if( pFader == NULL ) {
 		goto _ExitWithError;
@@ -289,6 +292,9 @@ void CEmitterFader::FadeInAndOut(	CFAudioEmitter *pEmitter,
 									const f32 &fUnitMaxVol, // Unit time to hit max volume at
 									BOOL bDestroyWhenDone/* = FALSE*/,
 									const CFVec3A *pPos/* = NULL*/ ) {
+	// Hoisted so the 'goto _ExitWithError' below does not jump across
+	// its initialisation, which C++ forbids (MSVC allowed it).
+	FaderEntry_t *pFader;
 	if( fStartVol < 0.0f ) {
 		goto _ExitWithError;
 	}
@@ -309,7 +315,7 @@ void CEmitterFader::FadeInAndOut(	CFAudioEmitter *pEmitter,
 		goto _ExitWithError;
 	}
 
-	FaderEntry_t *pFader = _GetFader();
+	pFader = _GetFader();
 
 	if( pFader == NULL ) {
 		goto _ExitWithError;
@@ -6710,6 +6716,9 @@ const FGameData_TableEntry_t _aUserPropVocab[] = {
 };
 
 BOOL CSpyVsSpy::_LoadLevelCSV( void ) {
+	// Hoisted so the 'goto _ExitWithError' below does not jump across
+	// its initialisation, which C++ forbids (MSVC allowed it).
+	FGameDataTableHandle_t hTable = FGAMEDATA_INVALID_TABLE_HANDLE;
 	FResFrame_t Frame = fres_GetFrame();
 	FGameDataFileHandle_t hHandle;
 
@@ -6720,7 +6729,7 @@ BOOL CSpyVsSpy::_LoadLevelCSV( void ) {
 		goto _ExitWithError;
 	}
 
-	FGameDataTableHandle_t hTable = fgamedata_GetFirstTableHandle( hHandle, "info" );
+	hTable = fgamedata_GetFirstTableHandle( hHandle, "info" );
 
 	if( hHandle == FGAMEDATA_INVALID_TABLE_HANDLE ) {
 		DEVPRINTF( "CSpyVsSpy::_LoadLevelCSV(): Could not find \"info\" table in CSV.\n" );

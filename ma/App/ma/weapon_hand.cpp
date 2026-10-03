@@ -22,7 +22,7 @@
 #include "weapon.h"
 #include "fworld.h"
 #include "fresload.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 
 
 

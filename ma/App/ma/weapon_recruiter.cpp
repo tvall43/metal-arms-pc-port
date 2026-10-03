@@ -21,7 +21,7 @@
 #include "weapon_recruiter.h"
 #include "weapon.h"
 #include "eproj.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "fresload.h"
 #include "fsndfx.h"
 #include "bot.h"
@@ -29,11 +29,11 @@
 #include "frenderer.h"
 #include "fdraw.h"
 #include "fvtxpool.h"
-#include "muzzleflash.h"
+#include "MuzzleFlash.h"
 #include "MultiplayerMgr.h"
-#include "ai/aiapi.h"
-#include "ai/aibrain.h"
-#include "ai/aimover.h"
+#include "Ai/AIApi.h"
+#include "Ai/AIBrain.h"
+#include "Ai/AIMover.h"
 
 
 

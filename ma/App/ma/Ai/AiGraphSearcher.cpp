@@ -7,12 +7,12 @@
 #ifdef USE_HAZARDS
 #include "AIHazard.h"
 #include "../Door.h"
-#include "../eSwitch.h"
-#include "AIGameutils.h"
-#include "../meshtypes.h"
+#include "../ESwitch.h"
+#include "AIGameUtils.h"
+#include "../MeshTypes.h"
 #endif
 
-const GraphVert* CNiIterator<const GraphVert*>::s_ReturnError;
+template <> const GraphVert*  CNiIterator<const GraphVert*>::s_ReturnError;
 const f32 CGraphSearcher::s_kfDefaultSlopeCost = 0.0f;
 
 #define GETNODE(uNodeId) (m_paSearchNodes + (uNodeId))

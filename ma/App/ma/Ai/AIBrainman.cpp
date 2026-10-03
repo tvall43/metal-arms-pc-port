@@ -6,29 +6,29 @@
 #include "AIBrainMan.h"
 #include "AIBrain.h"
 #include "AIBrainMems.h"
-#include "AIBotMover.h"
-#include "AICarMover.h"
+#include "AiBotMover.h"
+#include "AiCarMover.h"
 #include "AIEdgeLock.h"
 #include "AI3DBotMover.h"
 #include "AINodePools.h"
 #include "AIThoughtsGeneric.h"
 #include "AIThoughtsGround.h"
 #include "AIThoughts3DBot.h"
-#include "AIBuilder.h"
-#include "AICorrosive.h"
+#include "aiBuilder.h"
+#include "AiCorrosive.h"
 #include "AIZombieBoss.h"
-#include "AiApi.h"
+#include "AIApi.h"
 #include "AIGameUtils.h"
 #include "AIPatrolPath.h"
 #include "AIThought.h"
 #include "AIGroup.h"
 #include "../Damage.h"
-#include "../Entity.h"
-#include "../EntityControl.h"
-#include "../Player.h"
-#include "../Protrack.h"
-#include "../ESpline.h"
-#include "../Vehicle.h"
+#include "../entity.h"
+#include "../entitycontrol.h"
+#include "../player.h"
+#include "../ProTrack.h"
+#include "../espline.h"
+#include "../vehicle.h"
 
 //
 //	Table of all Thought Classes that have beeen implemented
@@ -171,7 +171,7 @@ _BrainSpec [NUM_BRAINTYPES] =
 //	aibrainman data
 //
 CNiList<CAIBrain*>* _pActiveBrains = NULL;
-const CAIBrain* CNiIterator<const CAIBrain *>::s_ReturnError;
+template <> const CAIBrain*  CNiIterator<const CAIBrain *>::s_ReturnError;
 CNiList<CAIBrain*>* _pPendingDeactivates = NULL;
 
 //

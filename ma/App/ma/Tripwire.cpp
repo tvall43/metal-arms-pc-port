@@ -17,13 +17,13 @@
 // 07/09/02 MacKellar   Created.
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
-#include "fscriptsystem.h"
-#include "Tripwire.h"
+#include "FScriptSystem.h"
+#include "TripWire.h"
 #include "fclib.h"
 #include "entity.h"
-#include "AI/AiPatrolPath.h"
+#include "Ai/AIPatrolPath.h"
 #include "gstring.h"
-#include "spawnsys.h"
+#include "SpawnSys.h"
 
 
 

@@ -25,7 +25,7 @@
 #include "fworld.h"
 #include "fresload.h"
 #include "fres.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "fcoll.h"
 #include "floop.h"
 #include "eproj_swarmer.h"
@@ -35,7 +35,7 @@
 #include "eproj_cleaner.h"
 #include "eproj_slower.h"
 #include "eproj_mortar.h"
-#include "damage.h"
+#include "Damage.h"
 #include "LightPool.h"
 #include "fsound.h"
 

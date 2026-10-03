@@ -29,7 +29,7 @@
 #include "fvid.h"
 #include "fworld_coll.h"
 #include "frenderer.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 
 
 #define _VERTS_PER_TRACER	12

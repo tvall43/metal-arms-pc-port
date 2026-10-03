@@ -25,7 +25,7 @@
 #include "FScriptSystem.h"
 #include "faudio.h"
 #include "gamepad.h"
-#include "Player.h"
+#include "player.h"
 #include "fclib.h"
 #include "game.h"
 

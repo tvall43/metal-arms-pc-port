@@ -21,8 +21,8 @@
 #define _BOTZOMBIEBOSS_H_ 1
 
 #include "bot.h"
-#include "iteminst.h"
-#include "Fxstreamer.h"
+#include "ItemInst.h"
+#include "FXStreamer.h"
 #include "EParticle.h"
 
 // Forward Declarations
@@ -30,7 +30,7 @@ struct FAnim_t;
 class CFDebrisGroup;
 class CBotPartPool;
 
-#include "miscDraw.h"
+#include "MiscDraw.h"
 FCLASS_ALIGN_PREFIX class CFHermiteInterpolator
 {
 public:
@@ -589,7 +589,7 @@ protected:
 
 	virtual void Power( BOOL bPowerUp, f32 fPowerOffTime, f32 fPowerOffOnSpeedMult );
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual void InflictDamage( CDamageData *pDamageData );
 	virtual void InflictDamageResult( const CDamageResult *pDamageResult );
 	virtual void Die( BOOL bSpawnDeathEffects=TRUE, BOOL bSpawnGoodies=TRUE );

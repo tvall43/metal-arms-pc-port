@@ -25,7 +25,7 @@
 #include "fworld.h"
 #include "entity.h"
 #include "reticle.h"
-#include "muzzleflash.h"
+#include "MuzzleFlash.h"
 #include "fgamedata.h"
 #include "eproj.h"
 #include "fdebris.h"

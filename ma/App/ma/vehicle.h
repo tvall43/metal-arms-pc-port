@@ -21,7 +21,7 @@
 #define _VEHICLE_H_ 1
 
 #include "fphysics.h"
-#include "cammanual.h"
+#include "CamManual.h"
 #include "bot.h"
 #include "espline.h"
 #include "fforce.h"
@@ -411,7 +411,7 @@ public:
 	virtual BOOL ClassHierarchyLoadSharedResources( void );
 	virtual void ClassHierarchyUnloadSharedResources( void );
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual BOOL SquishBot( CBot *pBot );		// TRUE if bot was squished, FALSE if not
 
 	FINLINE BOOL SmoothContact( void ) const { FASSERT( IsCreated() ); return !!(m_uVehicleFlags & VEHICLE_FLAG_SMOOTH_CONTACT); }

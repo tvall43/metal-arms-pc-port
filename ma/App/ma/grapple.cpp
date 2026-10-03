@@ -26,11 +26,11 @@
 #include "flinklist.h"
 #include "fres.h"
 #include "fresload.h"
-#include "MeshEntity.h"
+#include "meshentity.h"
 #include "bot.h"
 #include "fdraw.h"
 #include "botmortar.h"
-#include "ai/aigameutils.h"
+#include "Ai/AIGameUtils.h"
 #include "fvtxpool.h"
 #include "frenderer.h"
 

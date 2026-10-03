@@ -24,10 +24,10 @@
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "ma_win.h"
 #include "InputEmulation.h"
-#include "settings.h"
+#include "Settings.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

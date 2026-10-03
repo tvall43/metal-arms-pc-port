@@ -19,7 +19,7 @@
 
 #include "fang.h"
 #include "fres.h"
-#include "gc/fgcdata.h"
+#include "gc/fGCdata.h"
 //#include "gc/fGCnormalsphere.h"
 
 FGCData_VtxFmt_t FGCData_VertexFormatDesc[FGCDATA_FIXED_VERTEX_FORMATS] =

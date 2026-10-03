@@ -21,8 +21,8 @@
 #define _BOTSLOSH_H_ 1
 
 #include "bot.h"
-#include "iteminst.h"
-#include "SloshTank.h"
+#include "ItemInst.h"
+#include "sloshtank.h"
 
 // Forward Declarations
 struct FAnim_t;
@@ -301,7 +301,7 @@ public:
 
 	BOOL Create( s32 nPlayerIndex=-1, BOOL bInstallDataPort=FALSE, cchar *pszEntityName=NULL, const CFMtx43A *pMtx=NULL, cchar *pszAIBuilderName=NULL );
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual const CFVec3A *GetApproxEyePoint( void ) const;
 
 //	virtual void UserAnim_BatchUpdateTapBoneMask( UserAnimBoneMask_e nBoneMaskGroup );

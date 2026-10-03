@@ -225,7 +225,7 @@ public:
 	virtual void ClassHierarchyUnloadSharedResources( void );
 
 	// Other:
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 
 	// Checkpoint routines
 	virtual BOOL CheckpointSave( void );

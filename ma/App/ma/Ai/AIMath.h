@@ -21,7 +21,7 @@
 
 #include "fang.h"
 #include "fmath.h"
-#include "aimath.h"
+#include "AIMath.h"
 
 #if defined(__cplusplus)
 extern "C" {

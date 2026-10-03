@@ -18,19 +18,19 @@
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
 #include "AIPatrolPath.h"
-#include "Apenew.h"
+#include "apenew.h"
 #include "AIPath.h"
-#include "AINodepools.h"
-#include "AIMain.h"
+#include "AINodePools.h"
+#include "aimain.h"
 #include "AIBrain.h"
 #include "AIMover.h"
-#include "AiApi.h"
+#include "AIApi.h"
 #include "AIThoughtsGeneric.h"
 #include "AIGameUtils.h"
-#include "../Entity.h"
+#include "../entity.h"
 #include "../gstring.h"
 #include "../espline.h"
-#include "../talksystem2.h"
+#include "../TalkSystem2.h"
 
 //====================
 // private definitions
@@ -55,7 +55,7 @@
 CNiList<CPatrolPath*> CPatrolPath::s_CookingList;
 CNiList<CPatrolPath*> CPatrolPath::s_RegisterList;
 CNiBank<CPatrolPath>* CPatrolPath::s_pAllocBank = NULL;
-CPatrolPath *CNiIterator<class CPatrolPath *>::s_ReturnError;
+template <> CPatrolPath * CNiIterator<class CPatrolPath *>::s_ReturnError;
 CSearchQuery *CPatrolPath::s_pSearchQuery = NULL;
 CSearchResults *CPatrolPath::s_pSearchResults = NULL;
 u16 CPatrolPath::s_uNumPatrolLinksFound = 0;

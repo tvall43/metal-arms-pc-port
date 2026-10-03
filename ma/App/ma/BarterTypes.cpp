@@ -25,17 +25,17 @@
 #include "fclib.h"
 #include "floop.h"
 #include "gstring.h"
-#include "item.h"
-#include "iteminst.h"
+#include "Item.h"
+#include "ItemInst.h"
 #include "fsndfx.h"
 #include "TalkSystem2.h"
-#include "shady.h"
+#include "Shady.h"
 #include "BarterSystem.h"
 #include "weapon.h"
 #include "botglitch.h"
 #include "collectable.h"
-#include "miscdraw.h"
-#include "meshtypes.h"
+#include "MiscDraw.h"
+#include "MeshTypes.h"
 #include "game.h"
 
 static const f32 SELECTED_ITEM_YAW_FREQ = 2.0f;
@@ -302,6 +302,9 @@ CBarterItem::~CBarterItem()
 }
 
 BOOL CBarterItem::InitFromFile( cchar *pszCSVFile ) {
+	// Hoisted so the 'goto _ExitWithError' below does not jump across this
+	// initialisation, which C++ forbids (MSVC allowed it).
+	u32 i = 0;
 	FGameData_VarType_e nDataType;
 	FGameDataTableHandle_t hTableHandle, hBotTalkTable;
 	cchar *pszItemName, *pszResponseTable;
@@ -329,7 +332,6 @@ BOOL CBarterItem::InitFromFile( cchar *pszCSVFile ) {
 	}
 
 	//	for (s32 nSlot = 0; nSlot < BARTER_TYPES_NUM_SLOTS; nSlot++)
-	u32 i = 0;
 	for(s32 nSlot=_nSlotIterateOrder[i]; nSlot != -1 ; i++, nSlot = _nSlotIterateOrder[i] ) 
 	{
 		// find the table we are interested in
@@ -978,6 +980,8 @@ FTextAreaHandle_t	CBarterLevel::m_hTextDisplay;
 CFWorldMesh*		CBarterLevel::m_pAmmoBoxMesh;
 
 BOOL CBarterLevel::InitLevel( cchar *pszCSVFile ) {
+	// Hoisted for the same reason as CBarterItem::InitFromFile above.
+	FMesh_t *pMesh = NULL;
 	FGameDataTableHandle_t hTables, hSlot;
 	u32 nNumFields, nTable, j, nIndex, nItems, nNumEmptySlots;
 	cchar *pszString[4], *pszChainName, *pszItemName, *pszUpsellItemName;
@@ -1243,7 +1247,7 @@ BOOL CBarterLevel::InitLevel( cchar *pszCSVFile ) {
 	m_oTextArea.bVisible = FALSE;
 	m_hTextDisplay = ftext_Create(&m_oTextArea);
 
-	FMesh_t		*pMesh = (FMesh_t *)fresload_Load( FMESH_RESTYPE, "gp_ieuk2");
+	pMesh = (FMesh_t *)fresload_Load( FMESH_RESTYPE, "gp_ieuk2");
 	if (!pMesh)
 	{
 		DEVPRINTF( "CBarterLevel::InitLevel() : Could not find mesh '%s'\n", "gp_ieuk2");

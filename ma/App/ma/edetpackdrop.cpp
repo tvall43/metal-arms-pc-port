@@ -17,15 +17,15 @@
 // 02.07.03	Scholz		Created.
 //////////////////////////////////////////////////////////////////////////////////////
 
-#include "EDetPackDrop.h"
+#include "edetpackdrop.h"
 #include "ItemInst.h"
 #include "bot.h"
 #include "fclib.h"
 #include "FCheckPoint.h"
 #include "FScriptSystem.h"
-#include "hud2.h"
+#include "Hud2.h"
 #include "fresload.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "fsound.h"
 #include "fstringtable.h"
 

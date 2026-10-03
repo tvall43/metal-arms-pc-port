@@ -19,9 +19,9 @@
 //                      (but only in limited easy way that would be easy to change if 
 //                       necessary) AIBotMover is the real hard-core cbot class wrapper.
 //////////////////////////////////////////////////////////////////////////////////////
-#include "../Entity.h"
-#include "../Bot.h"
-#include "aigameutils.h"
+#include "../entity.h"
+#include "../bot.h"
+#include "AIGameUtils.h"
 
 const CFVec3A& CAIMover::GetLoc(void) const
 {

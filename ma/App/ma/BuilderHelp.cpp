@@ -2,7 +2,7 @@
 #include "fgamedata.h"
 #include "fclib.h"
 #include "BuilderHelp.h"
-#include "Entity.h"
+#include "entity.h"
 
 void BuilderHelp_SetDefaults(void* pBuilder, InterpretTableDataSpec *paItableDataSpec, u32 uNumItableFields)
 {

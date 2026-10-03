@@ -25,7 +25,7 @@
 #include "ftext.h"
 #include "fstorage.h"
 #include "fAMem.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "level.h"
 #include "FCheckPoint.h"
 

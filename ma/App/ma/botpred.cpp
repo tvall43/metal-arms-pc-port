@@ -20,9 +20,9 @@
 
 #include "fang.h"
 #include "botpred.h"
-#include "meshtypes.h"
-#include "Protrack.h"
-#include "Player.h"
+#include "MeshTypes.h"
+#include "ProTrack.h"
+#include "player.h"
 #include "fcamera.h"
 #include "fresload.h"
 #include "fclib.h"

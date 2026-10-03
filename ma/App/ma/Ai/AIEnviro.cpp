@@ -26,12 +26,12 @@
 #include "../entity.h"
 #include "../player.h"
 #include "../bot.h"
-#include "../Weapon_Laser.h"
+#include "../weapon_laser.h"
 
 static CNiList<CAISound*>* _pActiveSounds = NULL;
 static CNiList<CAISound*>* _pVisibleEntities = NULL;
 static CNiBank<CAISound>* _pSoundBank = NULL;
-CAISound* CNiIterator<CAISound *>::s_ReturnError;
+template <> CAISound*  CNiIterator<CAISound *>::s_ReturnError;
 AISoundHandle _aPlayerSoundHandles[MAX_PLAYERS];
 f32 _afPlayerSoundVols[MAX_PLAYERS];
 

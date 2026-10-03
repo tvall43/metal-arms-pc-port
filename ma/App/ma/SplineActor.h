@@ -22,12 +22,12 @@
 #define _SPLINE_ACTOR_H_ 1
 
 #include "fang.h"
-#include "fpointpath2.h"
-#include "actor.h"
-#include "FQOtang1.h"
+#include "FPointPath2.h"
+#include "Actor.h"
+#include "FQOTang1.h"
 #include "FQuatTang2.h"
 #include "FQuatTang3.h"
-#include "fQuatComp.h"
+#include "FQuatComp.h"
 #include "espline.h"
 
 class CSplineActor 

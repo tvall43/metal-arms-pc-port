@@ -29,10 +29,10 @@
 #include "fgamedata.h"
 #include "GoodieBag.h"
 #include "faudio.h"
-#include "tripwire.h"
+#include "TripWire.h"
 #include "fverlet.h"
 #include "fexplosion.h"
-#include "fcheckpoint.h"
+#include "FCheckPoint.h"
 
 #define ENTITY_TRIPWIRE_EVENT_NAME				"Tripwire"
 #define ENTITY_ERROR_MESH_NAME					"gpdmwpnunkn"
@@ -666,7 +666,7 @@ public:
 
 
 	// Collision:
-	virtual FINLINE void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]) { FASSERT( IsCreated() ); }
+	virtual FINLINE void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]) { FASSERT( IsCreated() ); }
 
 	FINLINE void SetProjectileReaction( ProjectileReaction_e nProjReact ) { FASSERT( IsCreated() ); FASSERT( nProjReact>=0 && nProjReact<PROJECTILE_REACTION_COUNT ); m_nProjectileReaction = nProjReact; }
 	FINLINE ProjectileReaction_e GetProjectileReaction( void ) const { FASSERT( IsCreated() ); return (ProjectileReaction_e)m_nProjectileReaction; }

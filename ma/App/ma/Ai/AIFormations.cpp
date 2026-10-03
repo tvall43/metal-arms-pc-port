@@ -22,7 +22,7 @@
 #include "AIMover.h"
 #include "AIThoughtsGeneric.h"
 #include "AIGameUtils.h"
-#include "../Entity.h"
+#include "../entity.h"
 #include "flinklist.h"
 #include "fres.h"
 #include "fdraw.h"
@@ -32,9 +32,9 @@ static CNiBank<CAIFormation>* _pFormationBank = NULL;
 static CNiBank<CAIPost>* _pPostBank = NULL;
 const u8 kMAX_NUM_POSTS_PER_FORMATION = 20;
 static u8 _auPostSortBuff[kMAX_NUM_POSTS_PER_FORMATION];
-CAIPost CNiIterator<CAIPost>::s_ReturnError;
-CAIFormation* CNiIterator<CAIFormation*>::s_ReturnError;
-CAIPost* CNiIterator<CAIPost*>::s_ReturnError;
+template <> CAIPost  CNiIterator<CAIPost>::s_ReturnError;
+template <> CAIFormation*  CNiIterator<CAIFormation*>::s_ReturnError;
+template <> CAIPost*  CNiIterator<CAIPost*>::s_ReturnError;
 
 BOOL AIFormations_InitSystem(	struct FLinkRoot_s* pGlobalPtrNodePool,
 								u32 uFormationBankSize/* = AIFORMATION_DEFAULT_GLOBAL_FORMATION_BANK_SIZE*/,

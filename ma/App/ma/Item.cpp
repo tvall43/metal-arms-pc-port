@@ -26,7 +26,7 @@
 #include "fmesh.h"
 #include "gstring.h"
 #include "weapons.h"
-#include "hud2.h"
+#include "Hud2.h"
 
 
 // =============================================================================================================

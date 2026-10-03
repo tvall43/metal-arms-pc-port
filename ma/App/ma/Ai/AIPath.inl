@@ -1,4 +1,4 @@
-#include "Ftl.h"
+#include "ftl.h"
 
 
 FINLINE void CAIPath::AddWayPointHead(const CAIPathWaypoint& rWaypoint, BOOL bReverse /*= FALSE*/)

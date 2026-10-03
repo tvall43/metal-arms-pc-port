@@ -20,7 +20,7 @@
 #include "fang.h"
 #include "weapon_scope.h"
 #include "weapon.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "gamecam.h"
 #include "player.h"
 #include "bot.h"

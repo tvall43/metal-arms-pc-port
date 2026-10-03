@@ -28,7 +28,7 @@
 #include "ItemInst.h"
 #include "ItemRepository.h"
 #include "fforce.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "weapons.h"
 #include "reticle.h"
 #include "player.h"

@@ -27,7 +27,7 @@
 #include "fvis.h"
 
 #include "gamecam.h"
-#include "damage.h"
+#include "Damage.h"
 
 class CBot;
 class CMeshEntity;

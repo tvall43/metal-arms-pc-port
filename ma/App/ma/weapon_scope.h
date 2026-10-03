@@ -23,7 +23,7 @@
 #include "fang.h"
 #include "weapon.h"
 #include "eproj.h"
-#include "camsimple.h"
+#include "CamSimple.h"
 
 
 

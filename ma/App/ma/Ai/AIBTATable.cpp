@@ -23,7 +23,7 @@
 #include "AIBTATable.h"
 #include "AIBrain.h"
 #include "AIGameUtils.h"
-#include "AiMover.h"
+#include "AIMover.h"
 #include "fclib.h"
 #include "fmath.h"
 #include "../TalkSystem2.h"

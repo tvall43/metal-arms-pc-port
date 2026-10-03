@@ -22,12 +22,12 @@
 #include "AIGameUtils.h"
 #include "AIRooms.h"
 #include "AIBrain.h"
-#include "../Entity.h"
-#include "../Bot.h" //findfix: remove this ASA CEntity has its own methods for getting Bounds, Location and Orientation
+#include "../entity.h"
+#include "../bot.h" //findfix: remove this ASA CEntity has its own methods for getting Bounds, Location and Orientation
 #include "../BotTalkInst.h"
-#include "../BottalkData.h"
-#include "../BotPart.h"
-#include "../Vehicle.h"
+#include "../BotTalkData.h"
+#include "../botpart.h"
+#include "../vehicle.h"
 
 #if !FANG_ENABLE_INLINE_CODE
 #include "AIMover.inl"

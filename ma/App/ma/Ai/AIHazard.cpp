@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
 #include "AIHazard.h"
-#include "APEnew.h"
+#include "apenew.h"
 
 CAIHazardReg::CAIHazardReg(void)
 {

@@ -20,7 +20,7 @@
 #include "fresload.h"
 
 #include "CamBot.h"
-#include "Player.h"
+#include "player.h"
 #include "entity.h"
 #include "espline.h"
 #include "gamecam.h"
@@ -28,14 +28,14 @@
 #include "botglitch.h"
 #include "botgrunt.h"
 #include "CamSimple.h"
-#include "MeshEntity.h"
+#include "meshentity.h"
 #include "SpyVsSpyDDR.h"
 
-#include "AI/AIApi.h"
-#include "AI/AIBrain.h"
-#include "AI/AIMover.h"
-#include "AI/AIBrainman.h"
-#include "AI/AIGameUtils.h"
+#include "Ai/AIApi.h"
+#include "Ai/AIBrain.h"
+#include "Ai/AIMover.h"
+#include "Ai/AIBrainMan.h"
+#include "Ai/AIGameUtils.h"
 
 #define _BIG_RADIUS ( 1000.0f )
 

@@ -23,7 +23,7 @@
 #include "weapon.h"
 #include "eproj.h"
 #include "explosion.h"
-#include "FXMagmaBomb.h"
+#include "fxMagmaBomb.h"
 
 class CBot;
 class CFSoundGroup;

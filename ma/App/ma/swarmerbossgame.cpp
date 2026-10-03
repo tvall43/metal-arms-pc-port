@@ -27,7 +27,7 @@
 #include "botswarmerboss.h"
 #include "player.h"
 #include "sas_user.h"
-#include "ESphere.h"
+#include "esphere.h"
 
 //TMP
 #include "gamepad.h"

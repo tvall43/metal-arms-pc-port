@@ -1,7 +1,7 @@
 // ma_win.cpp : Defines the class behaviors for the application.
 //
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "ma_win.h"
 #include "ma_winDlg.h"
 

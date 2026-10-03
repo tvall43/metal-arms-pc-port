@@ -206,11 +206,11 @@ static BOOL _bTempFixedWidthFont, _bTempItalicFont, _bTempOTOTexelPixelAlignment
 	#include "fGC.h"
 	static u8 FGC_ALIGN(32) _auDefaultFnt[] =
 	{
-	#include "gc/fgcfontdata.h"
+	#include "gc/fGCfontdata.h"
 	};
 	static u8 FGC_ALIGN(32) _auDefaultTga[] = // Verdana 14 pts.
 	{
-	#include "gc/fgcfonttex.h"
+	#include "gc/fGCfonttex.h"
 	};
 //ARG - >>>>>
 #elif( FANG_PLATFORM_PS2 )

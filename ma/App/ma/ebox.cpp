@@ -21,7 +21,7 @@
 #include "ebox.h"
 #include "entity.h"
 #include "GoodieProps.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "fclib.h"
 #include "fdraw.h"
 

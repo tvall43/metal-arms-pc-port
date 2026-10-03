@@ -18,12 +18,12 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "BotZombieBoss.h"
+#include "botzombieboss.h"
 #include "fanim.h"
 #include "fresload.h"
 #include "floop.h"
 #include "gamepad.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "reticle.h"
 #include "player.h"
 #include "level.h"
@@ -32,15 +32,15 @@
 #include "meshentity.h"
 #include "botpart.h"
 #include "Ai/AIEnviro.h"
-#include "AI/AIGameUtils.h"
+#include "Ai/AIGameUtils.h"
 #include "fworld_coll.h"
-#include "miscDraw.h"
-#include "botGlitch.h"
+#include "MiscDraw.h"
+#include "botglitch.h"
 #include "fxshockwave.h"
 #include "potmark.h"
 #include "FScriptSystem.h"
-#include "Fdebris.h"
-#include "EBotfire.h"
+#include "fdebris.h"
+#include "ebotfire.h"
 
 #define _BOTINFO_FILENAME		"b_zombiebos"
 #define _BOTPART_FILENAME		"bpzombiebos"
@@ -3020,6 +3020,13 @@ const FGameData_TableEntry_t CBotZombieBoss::m_ZombieBossInfoVocab_Fight[] =
 
 BOOL CBotZombieBoss::_ReadFightLevel(cchar* pszFileName)
 {
+	// Hoisted so the 'goto _ExitWithError' statements below do not jump across
+	// their initialisation, which C++ forbids (MSVC allowed it).
+	cchar* pszTableName;
+	FGameDataTableHandle_t hFightTable;
+	s32 nStructElementCount;
+	s32 nTableFieldCount;
+	u32 nBytesToAlloc;
 	FResFrame_t ResFrame = fres_GetFrame();
 
 	FGameDataFileHandle_t hGameDataFile = fgamedata_LoadFileToFMem( pszFileName );
@@ -3028,19 +3035,19 @@ BOOL CBotZombieBoss::_ReadFightLevel(cchar* pszFileName)
 		DEVPRINTF( "CBotZombieBoss::_ReadFightLevel(): Could not open '%s'.\n", pszFileName );
 		goto _ExitWithError;
 	}
-	cchar* pszTableName = "Fight";
-	FGameDataTableHandle_t hFightTable = fgamedata_GetFirstTableHandle( hGameDataFile, pszTableName);
+	pszTableName = "Fight";
+	hFightTable = fgamedata_GetFirstTableHandle( hGameDataFile, pszTableName);
 	if( hFightTable == FGAMEDATA_INVALID_TABLE_HANDLE ) 
 	{
 		DEVPRINTF( "CBotZombieBoss::_ReadFightLevel(): Failed to find %s handle\n", pszTableName );
 		goto _ExitWithError;
 	}
 	
-	s32 nStructElementCount = sizeof( m_ZombieBossInfoVocab_Fight ) / sizeof( FGameData_TableEntry_t );
+	nStructElementCount = sizeof( m_ZombieBossInfoVocab_Fight ) / sizeof( FGameData_TableEntry_t );
 	FASSERT( nStructElementCount > 0 );
 	--nStructElementCount;
 
-	s32 nTableFieldCount = fgamedata_GetNumFields( hFightTable );
+	nTableFieldCount = fgamedata_GetNumFields( hFightTable );
 	if( nTableFieldCount % nStructElementCount ) 
 	{
 			DEVPRINTF( "CBotZombieBoss::_ReadFightLevel():  Invalid number of fields table '%s' of file '%s.csv'.\n", pszTableName, pszFileName );
@@ -3049,7 +3056,7 @@ BOOL CBotZombieBoss::_ReadFightLevel(cchar* pszFileName)
 
 	m_uNumFightLevels = nTableFieldCount / nStructElementCount;
 
-	u32 nBytesToAlloc = m_uNumFightLevels * sizeof(ZombieBossFightLevel_t);
+	nBytesToAlloc = m_uNumFightLevels * sizeof(ZombieBossFightLevel_t);
 	m_paFightLevels = (CBotZombieBoss::ZombieBossFightLevel_t*)fres_Alloc(nBytesToAlloc);
 	if( m_paFightLevels == NULL ) 
 	{

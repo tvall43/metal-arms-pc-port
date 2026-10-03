@@ -26,12 +26,12 @@
 #include "botanim.h"
 #include "fmesh.h"
 #include "fresload.h"
-#include "meshtypes.h"
-#include "protrack.h"
+#include "MeshTypes.h"
+#include "ProTrack.h"
 
 //METMP
 #include "fdraw.h"
-#include "picklevel.h"
+#include "PickLevel.h"
 #include "sas_user.h"
 
 #define _BOTINFO_FILENAME			( "b_SBoss" )

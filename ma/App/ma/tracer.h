@@ -27,7 +27,7 @@
 #include "fmath.h"
 #include "fcolor.h"
 #include "fcoll.h"
-#include "damage.h"
+#include "Damage.h"
 
 
 typedef void *TracerGroupHandle_t;

@@ -25,9 +25,9 @@
 #include "potmark.h"
 #include "fworld_coll.h"
 #include "fresload.h"
-#include "meshtypes.h"
-#include "AI/AIEnviro.h"
-#include "eparticle.h"
+#include "MeshTypes.h"
+#include "Ai/AIEnviro.h"
+#include "EParticle.h"
 #include "player.h"
 
 

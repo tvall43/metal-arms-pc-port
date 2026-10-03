@@ -19,7 +19,7 @@
 #include "fang.h"
 #include "screenshot.h"
 #include "fvid.h"
-#include "screengrab.h"
+#include "ScreenGrab.h"
 #if FANG_PLATFORM_WIN
 	#include "dx/fdx8vid.h"
 #endif

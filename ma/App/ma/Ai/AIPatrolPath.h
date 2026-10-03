@@ -23,7 +23,7 @@
 #include "ftl.h"
 #include "AIPath.h"
 #include "AIGraphSearcher.h"
-#include "../tripwire.h"
+#include "../TripWire.h"
 
 class CESpline;
 

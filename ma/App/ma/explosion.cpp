@@ -19,7 +19,7 @@
 #include "fang.h"
 #include "explosion.h"
 #include "gcoll.h"
-#include "damage.h"
+#include "Damage.h"
 
 BOOL CExplosion2::m_bSystemInitialized = FALSE;
 

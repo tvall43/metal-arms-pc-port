@@ -22,7 +22,7 @@
 
 #include "meshentity.h"
 #include "bot.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 
 //====================
 // private definitions

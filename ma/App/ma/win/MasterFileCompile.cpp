@@ -16,7 +16,7 @@
 // -------- ----------  --------------------------------------------------------------
 // 05/21/01 Starich     Created.
 //////////////////////////////////////////////////////////////////////////////////////
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "fang.h"
 #include "MasterFileCompile.h"
 #include "FileInfo.h"

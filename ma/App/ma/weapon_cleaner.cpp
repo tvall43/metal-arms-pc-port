@@ -21,11 +21,11 @@
 #include "weapon_cleaner.h"
 #include "weapon.h"
 #include "eproj.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "fsndfx.h"
 #include "fresload.h"
 #include "eproj_cleaner.h"
-#include "damage.h"
+#include "Damage.h"
 #include "bot.h"
 
 

@@ -20,7 +20,7 @@
 
 #if 0
 
-#include "splat.h"
+#include "Splat.h"
 #include "fresload.h"
 #include "fdraw.h"
 #include "frenderer.h"

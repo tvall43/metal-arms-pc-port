@@ -56,7 +56,7 @@ public:
 	void AddToWorld();
 	void RemoveFromWorld();
 	void Relocate_WS( const CFMtx43A *pMtx_WS );
-	void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 
 	void GotoFolded()	{ _GotoFolded(); }
 	void StartUnfold();

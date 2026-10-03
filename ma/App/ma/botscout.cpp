@@ -26,7 +26,7 @@
 #include "fsound.h"
 #include "botscout.h"
 #include "botanim.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "gamecam.h"
 #include "eparticlepool.h"
 #include "meshentity.h"

@@ -28,10 +28,10 @@
 #include "potmark.h"
 #include "explosion.h"
 #include "eproj.h"
-#include "hud2.h"
+#include "Hud2.h"
 #include "player.h"
-#include "AI/AIEnviro.h"
-#include "AI/AIBrainman.h"
+#include "Ai/AIEnviro.h"
+#include "Ai/AIBrainMan.h"
 #include "vehiclerat.h"
 
 #define _ANTENNA_SEGMENTS			( 5 )

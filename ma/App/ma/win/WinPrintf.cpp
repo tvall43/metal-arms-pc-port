@@ -1,7 +1,7 @@
 // WinPrintf.cpp : implementation file
 //
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "Afxmt.h"
 #include "WinPrintf.h"
 

@@ -19,7 +19,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 
-#include "fxmagmabomb.h"
+#include "fxMagmaBomb.h"
 #include "fresload.h"
 #include "fdraw.h"
 #include "frenderer.h"
@@ -28,11 +28,11 @@
 #include "floop.h"
 #include "player.h"
 #include "fvtxpool.h"
-#include "damage.h"
-#include "Bot.h"
-#include "EBotFire.h"
+#include "Damage.h"
+#include "bot.h"
+#include "ebotfire.h"
 #include "MeshTypes.h"
-#include "Ai/aienviro.h"
+#include "Ai/AIEnviro.h"
 #include "fsound.h"
 
 BOOL		 CFXMagmaBomb::m_bSystemInitialized	= FALSE;				// TRUE if the system has been initialized

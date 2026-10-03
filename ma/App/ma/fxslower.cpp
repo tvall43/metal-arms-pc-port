@@ -28,7 +28,7 @@
 #include "fresload.h"
 #include "fxslower.h"
 #include "fvtxpool.h"
-#include "Bot.h"
+#include "bot.h"
 #include "MeshTypes.h"
 //
 // SLOWER stuff

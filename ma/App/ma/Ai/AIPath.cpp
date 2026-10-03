@@ -7,7 +7,7 @@
 
 //static member initialization
 CNiBank<CAIPathWaypoint>* CAIPath::s_pWayPointBank = NULL;
-CAIPathWaypoint* CNiIterator<CAIPathWaypoint*>::s_ReturnError;
+template <> CAIPathWaypoint*  CNiIterator<CAIPathWaypoint*>::s_ReturnError;
 FLinkRoot_t* CAIPath::s_pPtrNodePool = NULL;
 
 

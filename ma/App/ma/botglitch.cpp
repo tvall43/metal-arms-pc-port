@@ -29,7 +29,7 @@
 #include "ItemInst.h"
 #include "ItemRepository.h"
 #include "fforce.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "weapons.h"
 #include "reticle.h"
 #include "player.h"
@@ -38,10 +38,10 @@
 #include "fsndfx.h"
 #include "RoboBuddy.h"
 #include "meshentity.h"
-#include "AI/AIEnviro.h"	//for AI sounds
-#include "AI/AIGameUtils.h"	// for autils_DebugTrackRay
+#include "Ai/AIEnviro.h"	//for AI sounds
+#include "Ai/AIGameUtils.h"	// for autils_DebugTrackRay
 #include "fmesh_coll.h"
-#include "zipline.h"
+#include "ZipLine.h"
 #include "gamesave.h"
 #include "gamecam.h"
 #include "botprobe.h"
@@ -49,25 +49,25 @@
 #include "vehicle.h"
 #include "site_botWeapon.h"
 #include "game.h"
-#include "botfx.h"
-#include "fcheckpoint.h"
+#include "BotFx.h"
+#include "FCheckPoint.h"
 #include "botpart.h"
 #include "collectable.h"
 #include "SpyVsSpy.h"
-#include "ai/aiapi.h"
-#include "ai/aibrainman.h"
-#include "AI/aibrain.h"
-#include "AI/AIBrainMems.h"
+#include "Ai/AIApi.h"
+#include "Ai/AIBrainMan.h"
+#include "Ai/AIBrain.h"
+#include "Ai/AIBrainMems.h"
 #include "MultiplayerMgr.h"
 #include "sas_user.h"
-#include "botAAGun.h"
+#include "botAAgun.h"
 #include "econsole.h"
-#include "eswitch.h"
+#include "ESwitch.h"
 #include "edetpackdrop.h"
 #include "letterbox.h"
-#include "bartersystem.h"
+#include "BarterSystem.h"
 
-//#include "miscdraw.h"
+//#include "MiscDraw.h"
 
 
 #define _DEATH_TIME 1.0f

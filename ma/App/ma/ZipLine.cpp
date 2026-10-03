@@ -25,7 +25,7 @@
 #include "fdraw.h"
 #include "frenderer.h"
 #include "floop.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "fclib.h"
 #include "fresload.h"
 

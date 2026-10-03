@@ -17,7 +17,7 @@
 // 02/28/03 Ranck       Created.
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
-#include "lightpool.h"
+#include "LightPool.h"
 #include "flightpool.h"
 
 

@@ -220,7 +220,7 @@ public:
 	virtual void	ComputeApproxMuzzlePoint_WS( CFVec3A *pApproxMuzzlePoint_WS );
 	virtual BOOL	CheckpointSave( void );
 	virtual void	CheckpointRestore( const CBotSiteWeapon::SiteWeaponData_t& rSiteData );
-	virtual void	AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void	AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual BOOL	CanOccupyStation(CBot * pBot);
 
 //----------------------------------------------------------------------------------------------------------------------------------

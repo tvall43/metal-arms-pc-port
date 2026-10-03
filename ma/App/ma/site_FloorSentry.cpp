@@ -25,12 +25,12 @@
 #include "FCheckPoint.h"
 #include "potmark.h"
 #include "explosion.h"
-#include "hud2.h"
+#include "Hud2.h"
 #include "player.h"
 #include "botpart.h"
-#include "AI/AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "MultiplayerMgr.h"
-//#include "miscdraw.h" 
+//#include "MiscDraw.h" 
 
 static cchar _FLOORSENTRYINFO_FILENAME[] = 	"sw_floor";
 static cchar _apszSentryMeshFilename[] = "GRMSsentry1";

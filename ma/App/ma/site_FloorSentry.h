@@ -6,8 +6,9 @@
 #include "fforce.h"
 #include "fdecal.h"
 
-#include "Weapon_Recruiter.h"
+#include "weapon_recruiter.h"
 
+class CBotPartPool;
 FCLASS_ALIGN_PREFIX class CFloorSentry : public CBotSiteWeapon::CSiteWeaponAnimator
 {
 //----------------------------------------------------------------------------------------------------------------------------------
@@ -280,7 +281,7 @@ public:
 	virtual void	PreUserRender( void );
 	virtual void	PostUserRender( void );
 
-	virtual void	AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void	AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual BOOL	CanOccupyStation(CBot * pBot);
 //----------------------------------------------------------------------------------------------------------------------------------
 // Private Functions:

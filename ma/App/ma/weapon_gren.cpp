@@ -21,13 +21,13 @@
 #include "weapon_gren.h"
 #include "weapon.h"
 #include "eproj.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "fresload.h"
-#include "damage.h"
+#include "Damage.h"
 #include "bot.h"
 #include "fsound.h"
 #include "explosion.h"
-#include "ai/aigameutils.h"
+#include "Ai/AIGameUtils.h"
 
 #define _USER_PROP_FILENAME		"w_gren.csv"
 

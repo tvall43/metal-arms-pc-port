@@ -310,7 +310,7 @@ public:
 		virtual void PreUserRender( void ) {}
 		virtual void PostUserRender( void ) {}
 
-		virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0])=0;
+		virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0])=0;
 		virtual BOOL CanOccupyStation(CBot * pBot)=0;
 
 		
@@ -482,7 +482,7 @@ FINLINE		void  GetTurretRanges(f32* pfYawMin_WS,
 				
 	FINLINE CBot* GetDriverBot(void) {return m_SiteWeaponData.m_pDriverBot;}
 	virtual void Die( BOOL bSpawnDeathEffects=TRUE, BOOL bSpawnGoodies=TRUE );
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]) ;
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]) ;
 	static void AnimBoneCallback( u32 nBoneIndex, CFMtx43A &rNewMtx, const CFMtx43A &rParentMtx, const CFMtx43A &rBoneMtx );
 	FINLINE CSiteWeaponAnimator *GetMyGun( void ) const { return m_pGun; };
 	FINLINE CCamManualInfo *GetCameraInfo( void ) const { return &m_pData->m_CamManInfo; };

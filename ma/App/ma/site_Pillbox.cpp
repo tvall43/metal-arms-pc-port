@@ -27,12 +27,12 @@
 #include "explosion.h"
 #include "eproj.h"
 #include "ftext.h"
-#include "hud2.h"
+#include "Hud2.h"
 #include "player.h"
 #include "botpart.h"
 #include "vehicle.h"
-#include "AI/AIBrainman.h"
-#include "AI/AIEnviro.h"
+#include "Ai/AIBrainMan.h"
+#include "Ai/AIEnviro.h"
 
 static s32 _nRED_LIGHT_ID = 1;
 static s32 _nYELLOW_LIGHT_ID = 2;

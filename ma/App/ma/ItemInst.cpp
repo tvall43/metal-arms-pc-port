@@ -19,7 +19,7 @@
 #include "ItemInst.h"
 #include "Item.h"
 #include "ItemRepository.h"
-#include "Weapons.h"
+#include "weapons.h"
 #include "fclib.h"
 #include "gamesave.h"
 #include "MultiplayerMgr.h"

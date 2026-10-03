@@ -22,7 +22,7 @@
 #ifndef _AICONTROLGOALS_H_
 #define _AICONTROLGOALS_H_ 1
 
-#include "../EntityControl.h"
+#include "../entitycontrol.h"
 
 class CAIControlGoals
 {

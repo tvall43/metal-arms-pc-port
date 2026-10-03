@@ -20,7 +20,7 @@
 
 #include "fang.h"
 #include "fanim.h"
-#include "BotEliteGuard.h"
+#include "botEliteGuard.h"
 #include "botanim.h"
 #include "fmesh.h"
 

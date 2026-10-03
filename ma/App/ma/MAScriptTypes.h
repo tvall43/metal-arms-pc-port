@@ -21,7 +21,7 @@
 
 #include "fang.h"
 #include "fres.h"
-#include "fCamAnim.h"
+#include "fcamanim.h"
 #include "amx.h"
 
 #define NUM_MA_ETIMERS 10

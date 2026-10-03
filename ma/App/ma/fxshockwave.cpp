@@ -25,9 +25,9 @@
 #include "fresload.h"
 #include "fworld_coll.h"
 #include "bot.h"
-#include "pspool.h"
+#include "PsPool.h"
 #include "vehicle.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 
 //POSSIBLY MORE TEXTURES LATER
 #define _RING_TEX_FNAME				"TFF1dust001"

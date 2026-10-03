@@ -17,18 +17,18 @@
 // 11/12/02 MScholz     Created.
 //////////////////////////////////////////////////////////////////////////////////////
 
-#include "site_BotWeapon.h"
+#include "site_botWeapon.h"
 #include "site_FloorSentry.h"
 #include "fworld_coll.h"
 #include "ftext.h"
 #include "gamepad.h"
-#include "meshtypes.h"
-#include "AI/AIEnviro.h"
+#include "MeshTypes.h"
+#include "Ai/AIEnviro.h"
 #include "player.h"
 #include "eparticlepool.h"
 #include "MultiplayerMgr.h"
 #include "vehicle.h"
-#include "miscdraw.h"
+#include "MiscDraw.h"
 #include "sas_user.h"
 
 #define	REACHEDGOAL_YAWSIN 0.018f

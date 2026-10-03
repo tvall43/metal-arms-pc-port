@@ -22,13 +22,13 @@
 
 #include "fang.h"
 #include "bot.h"
-#include "camsimple.h"
+#include "CamSimple.h"
 #include "weapon.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "fforce.h"
 #include "fAntenna.h"
 #include "fworld.h"
-#include "cammanual.h"
+#include "CamManual.h"
 #include "vehicle.h"
 
 #define HEAD_LOOK_IDLE_WAIT_TIME	( 5.0f )
@@ -36,6 +36,7 @@
 #define MAX_CP_PARTICLES			( 2 )
 
 // Forward Declarations
+class CBotPartPool;
 class CBotAIBrain;
 class CRoboBuddy;
 class CEParticle;
@@ -753,7 +754,7 @@ public:
 
 	BOOL Create( s32 nPlayerIndex=-1, BOOL bInstallDataPort=FALSE, cchar *pszEntityName=NULL, const CFMtx43A *pMtx=NULL, cchar *pszAIBuilderName=NULL );
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 	virtual const CFVec3A *GetApproxEyePoint( void ) const;
 
 	FINLINE u32 GetMaxServoLevel( ServoType_e nServoType ) const { FASSERT( IsCreated() ); return SERVO_COUNT; }

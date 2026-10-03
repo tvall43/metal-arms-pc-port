@@ -34,7 +34,7 @@
 #include "fvtxpool.h"
 #include "floop.h"
 #include "ftext.h"
-#include "pausescreen.h"
+#include "PauseScreen.h"
 #include "faudio.h"
 #include "game.h"
 #include "sas_user.h"

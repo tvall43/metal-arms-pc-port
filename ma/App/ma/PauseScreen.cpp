@@ -15,7 +15,7 @@
 #include "gamepad.h"
 #include "gamesave.h"
 #include "level.h"
-#include "fscriptsystem.h"
+#include "FScriptSystem.h"
 #include "launcher.h"
 #include "game.h"
 #include "fresload.h"

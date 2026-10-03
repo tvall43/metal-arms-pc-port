@@ -25,7 +25,7 @@
 #include "fanim.h"
 #include "BarterTypes.h"
 #include "BarterSystem.h"
-#include "AI/aifsm.h"
+#include "Ai/AIFSM.h"
 #include "BotTalkInst.h"
 
 

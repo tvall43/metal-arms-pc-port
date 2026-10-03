@@ -1,5 +1,5 @@
 #include "fang.h"
-#include "Apenew.h"
+#include "apenew.h"
 #include "AIRooms.h"
 #include "AIGraph.h"
 #include "fres.h"

@@ -12,31 +12,31 @@
 #include "botglitch.h"
 #include "botminer.h"
 #include "botcorrosive.h"
-#include "door.h"
+#include "Door.h"
 #include "gamesave.h"
-#include "item.h"
+#include "Item.h"
 #include "weapon.h"
 #include "frenderer.h"
 #include "fdebris.h"
-#include "fscriptsystem.h"
-#include "hud2.h"
-#include "multiplayermgr.h"
-#include "pausescreen.h"
+#include "FScriptSystem.h"
+#include "Hud2.h"
+#include "MultiplayerMgr.h"
+#include "PauseScreen.h"
 
 #include "gamepad.h"
 
 #include "fshadow.h"
 
 #if FANG_PLATFORM_GC
-#include "fgctex.h"
+#include "fGCtex.h"
 #endif
 
 #include "fsound.h"
 
-#include "./AI/AiCorrosive.h"
-#include "./AI/AiBrainMan.h"
-#include "./AI/AiBrain.h"
-#include "./AI/AiApi.h"
+#include "Ai/AiCorrosive.h"
+#include "Ai/AIBrainMan.h"
+#include "Ai/AIBrain.h"
+#include "Ai/AIApi.h"
 
 //weapons here
 #include "weapon_rivet.h"

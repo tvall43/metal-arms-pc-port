@@ -19,14 +19,14 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 
-#include "EShield.h"
-#include "meshtypes.h"
+#include "eshield.h"
+#include "MeshTypes.h"
 #include "fworld.h"
 #include "floop.h"
 #include "fresload.h"
 #include "ftext.h"
-#include "AI/AIBrainman.h"
-#include "Bot.h"
+#include "Ai/AIBrainMan.h"
+#include "bot.h"
 #include "gamecam.h"
 #include "fworld_coll.h"
 #include "sas_user.h"

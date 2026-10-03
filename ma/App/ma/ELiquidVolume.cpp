@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "ELiquidVolume.h"
+#include "eliquidvolume.h"
 #include "fliquid.h"
 #include "entity.h"
 #include "floop.h"

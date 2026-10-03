@@ -23,7 +23,7 @@
 #include "fworld.h"
 #include "fmesh.h"
 #include "fanim.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "floop.h"
 #include "bot.h"
 #include "fforce.h"
@@ -34,9 +34,9 @@
 #include "ItemInst.h"
 #include "fsndfx.h"
 #include "meshentity.h"
-#include "AI/AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "weapon_scope.h"
-#include "damage.h"
+#include "Damage.h"
 #include "fsound.h"
 
 

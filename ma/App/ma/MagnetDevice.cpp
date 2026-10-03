@@ -8,9 +8,9 @@
 #include "entity.h"
 #include "meshentity.h"
 #include "bot.h"
-#include "cambot.h"
-#include "cammanual.h"
-#include "camsimple.h"
+#include "CamBot.h"
+#include "CamManual.h"
+#include "CamSimple.h"
 
 #define MAGNET_SHOW_DEBUG 0
 

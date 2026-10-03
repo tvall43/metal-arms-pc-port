@@ -22,7 +22,7 @@
 #include "fang.h"
 #include "fmath.h"
 #include "flinklist.h"
-#include "damage.h"
+#include "Damage.h"
 
 class CEntity;
 class CEntityBuilder;

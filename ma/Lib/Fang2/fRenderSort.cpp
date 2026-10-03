@@ -30,8 +30,8 @@
 #include "frenderer.h"
 #include "fshadow.h"
 #if FANG_PLATFORM_GC
-	#include "gc/fgc.h"
-	#include "gc/fgcsh.h"
+	#include "gc/fGC.h"
+	#include "gc/fGCsh.h"
 #endif
 #if FANG_PLATFORM_DX
 	#include "dx/fdx8tex.h"

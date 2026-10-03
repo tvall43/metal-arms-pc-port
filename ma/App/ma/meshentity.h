@@ -163,7 +163,7 @@ public:
 	BOOL Create( cchar *pszMeshName, u32 nAnimCount, cchar **ppszAnimNames, cchar *pszEntityName=NULL, const CFMtx43A *pMtx=NULL, cchar *pszAIBuilderName=NULL, BOOL bUseAnimBlending=FALSE, const CFVerlet::Init_t *pVerletInit=NULL );
 	BOOL Create( u32 nMeshCount, cchar **ppszMeshNames, u32 nAnimCount, cchar **ppszAnimNames, cchar *pszEntityName=NULL, const CFMtx43A *pMtx=NULL, cchar *pszAIBuilderName=NULL, BOOL bUseAnimBlending=FALSE, const CFVerlet::Init_t *pVerletInit=NULL );
 
-	virtual void AppendTrackerSkipList(u32& FWorld_nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** FWorld_apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
+	virtual void AppendTrackerSkipList(u32& nTrackerSkipListCount=FWorld_nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList=&FWorld_apTrackerSkipList[0]);
 
 	// Mesh:
 	FINLINE u32 GetMeshCount( void ) const { return m_nWorldMeshCount; }

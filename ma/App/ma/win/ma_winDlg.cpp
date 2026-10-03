@@ -1,7 +1,7 @@
 // ma_winDlg.cpp : implementation file
 //
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "ma_win.h"
 #include "ma_winDlg.h"
 #include "Settings.h"
@@ -10,16 +10,16 @@
 #include "VidMode.h"
 #include "floop.h"
 #include "fversion.h"
-#include "pickasset.h"
+#include "PickAsset.h"
 #include "ffile.h"
 #include "screenshot.h"
 #include "gameloop.h"
-#include "inputemulation.h"
+#include "InputEmulation.h"
 #include "bot.h"
-#include "ai/aibrain.h"
+#include "Ai/AIBrain.h"
 #include "fRenderSort.h"
 #include "flight.h"
-#include "Game.h"
+#include "game.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

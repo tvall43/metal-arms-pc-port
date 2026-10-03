@@ -31,7 +31,7 @@
 #include "wpr_drawutils.h"
 #include "gamepad.h"
 #include "game.h"
-#include "pausescreen.h"
+#include "PauseScreen.h"
 
 //====================
 // private definitions

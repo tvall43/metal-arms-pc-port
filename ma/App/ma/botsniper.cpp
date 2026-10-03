@@ -24,12 +24,12 @@
 #include "botanim.h"
 #include "fmesh.h"
 #include "fresload.h"
-#include "meshtypes.h"
-#include "protrack.h"
+#include "MeshTypes.h"
+#include "ProTrack.h"
 #include "meshentity.h"
 #include "reticle.h"
 #include "player.h"
-#include "muzzleflash.h"
+#include "MuzzleFlash.h"
 #include "weapon.h"
 #include "potmark.h"
 #include "Ai/AIEnviro.h"
@@ -42,7 +42,7 @@
 #include "frenderer.h"
 #include "fvtxpool.h"
 
-#include "picklevel.h" //METMP 
+#include "PickLevel.h" //METMP 
 
 #define	_BOTINFO_FILENAME	( "b_sniper" )
 #define _MESH_NAME			( "grmnsnipr00" )

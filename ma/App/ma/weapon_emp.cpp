@@ -20,11 +20,11 @@
 #include "weapon_emp.h"
 #include "weapon.h"
 #include "eproj.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "fresload.h"
 #include "fsndfx.h"
 #include "bot.h"
-#include "ai/aigameutils.h"
+#include "Ai/AIGameUtils.h"
 
 
 #define _USER_PROP_FILENAME		"w_emp.csv"

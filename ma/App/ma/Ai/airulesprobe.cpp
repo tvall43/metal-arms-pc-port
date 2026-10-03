@@ -1,17 +1,17 @@
 #include "fang.h"
-#include "AiBrainMems.h"
+#include "AIBrainMems.h"
 #include "AIBrain.h"
 #include "AIFSM.h"
 #include "AIGameUtils.h"
 #include "AIMover.h"
 #include "AINodePools.h"
-#include "AITactics.h"
+#include "aitactics.h"
 #include "AIThoughts3DBot.h"
 #include "AIThoughtsGeneric.h"
 #include "AIThoughtsGround.h"
 #include "AIGroup.h"
-#include "../BotProbe.h"
-#include "../BotGlitch.h"
+#include "../botprobe.h"
+#include "../botglitch.h"
 
 //
 //

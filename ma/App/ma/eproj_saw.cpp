@@ -22,14 +22,14 @@
 #include "gcoll.h"
 #include "floop.h"
 #include "fworld_coll.h"
-#include "muzzleflash.h"
+#include "MuzzleFlash.h"
 #include "weapon.h"
 #include "fclib.h"
 #include "fresload.h"
 #include "fres.h"
 #include "smoketrail.h"
-#include "meshtypes.h"
-#include "damage.h"
+#include "MeshTypes.h"
+#include "Damage.h"
 #include "fsound.h"
 
 

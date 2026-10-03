@@ -19,7 +19,7 @@
 
 #include "fang.h"
 #include "AIZombieBoss.h"
-#include "AIMain.h"
+#include "aimain.h"
 #include "AIFSM.h"
 #include "AIThoughts3DBot.h"
 #include "AIThoughtsGeneric.h"
@@ -28,8 +28,8 @@
 #include "AIMover.h"
 #include "AIBrain.h"
 #include "AIGameUtils.h"
-#include "AITactics.h"
-#include "../BotZombieBoss.h"
+#include "aitactics.h"
+#include "../botzombieboss.h"
 #include "player.h"
 
 static const float _fMaxTimeOnPath = 1.50f; // seconds

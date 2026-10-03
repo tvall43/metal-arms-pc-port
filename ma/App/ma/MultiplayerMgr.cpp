@@ -33,10 +33,10 @@
 #include "MeshTypes.h"
 #include "ShadowedText.h"
 
-#include "AI/AIApi.h"
-#include "AI/AIBrain.h"
-#include "AI/AIMover.h"
-#include "AI/aibtatable.h"
+#include "Ai/AIApi.h"
+#include "Ai/AIBrain.h"
+#include "Ai/AIMover.h"
+#include "Ai/AIBTATable.h"
 
 //-----------------------------------------------------------------------------
 // Our one global instance

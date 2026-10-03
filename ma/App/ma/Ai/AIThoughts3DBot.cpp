@@ -1,18 +1,18 @@
 #include "fang.h"
-#include "AiBrainMems.h"
+#include "AIBrainMems.h"
 #include "AIBrain.h"
 #include "AIFSM.h"
 #include "AIGameUtils.h"
 #include "AIMover.h"
 #include "AINodePools.h"
-#include "AITactics.h"
+#include "aitactics.h"
 #include "AIThoughts3DBot.h"
 #include "AIThoughtsGeneric.h"
 #include "AIThoughtsGround.h"
-#include "../BotProbe.h"
-#include "../BotPred.h"
+#include "../botprobe.h"
+#include "../botpred.h"
 #include "AIPath.h"
-#include "../BotSnarq.h"
+#include "../botsnarq.h"
 
 static const f32 kfOOHun = 1.0f/100.0f;
 static const f32 _kfPredRocketSafetyRange = 20.0f;

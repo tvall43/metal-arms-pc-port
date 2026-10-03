@@ -29,9 +29,9 @@
 #include "entity.h"
 #include "bot.h"
 #include "Item.h"
-#include "botfx.h"
+#include "BotFx.h"
 #include "weapon.h"
-#include "Player.h"
+#include "player.h"
 #include "botglitch.h"
 #include "MeshTypes.h"
 #include "ItemRepository.h"
@@ -2079,6 +2079,9 @@ void CCollectable::_LoadFromGameData( FGameDataTableHandle_t hTable ) {
 	cchar *pszTableName;
 	CollectableUserProp_t UserProp;
 	CCollectableType *pType = NULL;
+	// Declared up here so the 'goto _ExitWithError' statements below do not jump
+	// across its initialisation, which C++ forbids (MSVC allowed it).
+	CItem *pItem = NULL;
 
 	pszTableName = fgamedata_GetTableName( hTable );
 
@@ -2109,7 +2112,7 @@ void CCollectable::_LoadFromGameData( FGameDataTableHandle_t hTable ) {
 		goto _ExitWithError;
 	}
 
-	CItem *pItem = CItemRepository::RetrieveEntry( pType->m_pszName, &pType->m_uItemRepositoryIndex );
+	pItem = CItemRepository::RetrieveEntry( pType->m_pszName, &pType->m_uItemRepositoryIndex );
 
 	if( !pItem ) {
 		pType->m_uItemRepositoryIndex = ITEM_UNKNOWN;

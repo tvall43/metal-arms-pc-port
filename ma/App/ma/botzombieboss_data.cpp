@@ -20,7 +20,7 @@
 
 #include "fang.h"
 #include "fanim.h"
-#include "BotZombieBoss.h"
+#include "botzombieboss.h"
 #include "botanim.h"
 #include "fmesh.h"
 

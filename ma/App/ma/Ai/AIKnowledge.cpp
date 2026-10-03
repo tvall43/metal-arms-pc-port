@@ -833,9 +833,9 @@ CNiBank<CAIMemorySmall>* CAIKnowledge::s_pBankSmall = NULL;
 CNiBank<CAIMemoryMedium>* CAIKnowledge::s_pBankMedium = NULL;
 CNiBank<CAIMemoryLarge>* CAIKnowledge::s_pBankLarge = NULL;
 FLinkRoot_t* CAIKnowledge::s_pGlobalPtrNodePool = NULL;
-CAIMemorySmall* CNiIterator<CAIMemorySmall*>::s_ReturnError;
-CAIMemoryMedium* CNiIterator<CAIMemoryMedium*>::s_ReturnError;
-CAIMemoryLarge* CNiIterator<CAIMemoryLarge*>::s_ReturnError;
+template <> CAIMemorySmall*  CNiIterator<CAIMemorySmall*>::s_ReturnError;
+template <> CAIMemoryMedium*  CNiIterator<CAIMemoryMedium*>::s_ReturnError;
+template <> CAIMemoryLarge*  CNiIterator<CAIMemoryLarge*>::s_ReturnError;
 										 
 BOOL CAIKnowledge::InitSystem(struct FLinkRoot_s* pGlobalPtrNodePool,
 							  u32 nSmallBankSize /*= CAIKNOWLEDGE_DEFAULT_SMALLMEMORY_GLOBAL_BANK_SIZE*/,

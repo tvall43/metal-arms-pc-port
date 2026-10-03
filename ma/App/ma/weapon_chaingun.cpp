@@ -22,11 +22,11 @@
 #include "fworld_coll.h"
 #include "fanim.h"
 #include "bot.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "ftext.h"
 #include "fresload.h"
 #include "potmark.h"
-#include "AI/AIEnviro.h"
+#include "Ai/AIEnviro.h"
 #include "eshield.h"
 #include "player.h"
 

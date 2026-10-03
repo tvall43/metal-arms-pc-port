@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "botglitch.h"
 #include "weapon_wrench.h"
 #include "fsound.h"

@@ -23,7 +23,7 @@
 
 #include "fang.h"
 #include "fdraw.h"
-#include "eparticle.h"
+#include "EParticle.h"
 
 #define _EBOTFIRE_NUM_PARTICLE_FX 2
 #define _EBOTFIRE_POOL_SIZE	32

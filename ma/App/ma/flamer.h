@@ -30,7 +30,7 @@
 #include "smoketrail.h"
 #include "fpsprite.h"
 #include "fparticle.h"
-#include "eparticle.h"
+#include "EParticle.h"
 
 
 

@@ -23,15 +23,15 @@
 #include "ProTrack.h"
 #include "MeshTypes.h"
 #include "botswarmer.h"
-#include "Player.h" //findfix: pat's testing stuff
-#include "ai/AIGameUtils.h"
-#include "AI/AIEnviro.h"
-#include "AI/AIBrain.h"
-#include "AI/AIMover.h"
-#include "AI/AiApi.h"
-#include "AI/AiBrainMems.h"
+#include "player.h" //findfix: pat's testing stuff
+#include "Ai/AIGameUtils.h"
+#include "Ai/AIEnviro.h"
+#include "Ai/AIBrain.h"
+#include "Ai/AIMover.h"
+#include "Ai/AIApi.h"
+#include "Ai/AIBrainMems.h"
 #include "espline.h"
-#include "spawnsys.h"
+#include "SpawnSys.h"
 #include "explosion.h"
 #include "fsound.h"
 

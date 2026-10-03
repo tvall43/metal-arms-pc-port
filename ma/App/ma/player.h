@@ -24,7 +24,7 @@
 #include "fviewport.h"
 #include "reticle.h"
 #include "entitycontrol.h"
-#include "iteminst.h"
+#include "ItemInst.h"
 #include "ftext.h"
 #include "skybox.h"
 #include "level.h"

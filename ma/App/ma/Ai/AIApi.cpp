@@ -17,18 +17,18 @@
 // 05/10/02 MacKellar   Created.
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
-#include "AiApi.h"
+#include "AIApi.h"
 #include "AIBrainUtils.h"
 #include "AIBrain.h"
 #include "AIBrainMems.h"
-#include "AIBrainman.h"
+#include "AIBrainMan.h"
 #include "AIMover.h"
 #include "AIThoughtsGround.h"
-#include "AIgameutils.h"
-#include "../Entity.h"
-#include "../GString.h"
+#include "AIGameUtils.h"
+#include "../entity.h"
+#include "../gstring.h"
 #include "../TalkSystem2.h"
-#include "../Bottalkdata.h"
+#include "../BotTalkData.h"
 
 BOOL ai_bUnarmedPlayerRuleDisabled = TRUE;
 

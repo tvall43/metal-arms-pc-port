@@ -31,7 +31,7 @@
 #include "fworld.h"
 #include "fmotion.h"
 #include "fforce.h"
-#include "camsimple.h"
+#include "CamSimple.h"
 #include "fparticle.h"
 #include "fexplosion.h"
 

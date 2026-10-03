@@ -22,7 +22,7 @@
 #include "fgamedata.h"
 #include "fworld.h"
 #include "fmesh.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "bot.h"
 #include "fforce.h"
 #include "player.h"
@@ -31,8 +31,8 @@
 #include "fresload.h"
 #include "meshentity.h"
 #include "flamer.h"
-#include "damage.h"
-#include "AI/AIEnviro.h"
+#include "Damage.h"
+#include "Ai/AIEnviro.h"
 
 
 

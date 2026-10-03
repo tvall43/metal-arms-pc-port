@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////
 
 #include "fang.h"
-#include "ELiquidMesh.h"
+#include "eliquidmesh.h"
 #include "fliquid.h"
 #include "entity.h"
 #include "floop.h"

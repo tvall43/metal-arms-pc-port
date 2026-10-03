@@ -25,7 +25,7 @@
 #include "floop.h"
 #include "player.h"
 #include "sas_user.h"
-#include "fscriptsystem.h"
+#include "FScriptSystem.h"
 
 #define _GAME_CSV_FILENAME			"MGFinalBatl"
 

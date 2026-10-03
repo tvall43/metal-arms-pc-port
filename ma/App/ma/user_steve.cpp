@@ -33,7 +33,7 @@
 #include "fanim.h"
 #include "fverlet.h"
 #include "fmotion.h"
-#include "meshtypes.h"
+#include "MeshTypes.h"
 #include "fworld_coll.h"
 #include "meshentity.h"
 #include "level.h"

@@ -27,8 +27,8 @@
 #include "player.h"
 #include "sas_user.h"
 #include "collectable.h"
-#include "ai//aienviro.h"
-#include "fscriptsystem.h"
+#include "Ai/AIEnviro.h"
+#include "FScriptSystem.h"
 
 #if SAS_ACTIVE_USER == SAS_USER_RUSS
 #define _DRAW_DEBUG_SPHERES 1
