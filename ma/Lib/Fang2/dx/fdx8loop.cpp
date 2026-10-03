@@ -20,7 +20,7 @@
 #include "fang.h"
 
 #if FANG_PLATFORM_WIN		 //pgm. If you need to include mfc files, it is best to do it nearest the top of the file if possible.
-	#include <Afxwin.h>
+	#include "mfc.h"    // compat shim for the MFC CWinThread
 #else
 	#include <xtl.h>
 #endif

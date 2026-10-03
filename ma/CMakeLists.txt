@@ -88,7 +88,10 @@ target_compile_options(smallamx PRIVATE -include stdint.h)
 # ---------------------------------------------------------------------------
 # Fang2 -- engine core plus the D3D8 renderer.
 # ---------------------------------------------------------------------------
-add_library(fang2win STATIC ${FANG2WIN_SOURCES})
+# compat/mfc.cpp implements the CWinThread subset fdx8loop.cpp uses. It is
+# listed here rather than in cmake/sources_fang2win.cmake because that file is
+# generated from the .vcproj by cmake/gen_sources.py and must stay in sync.
+add_library(fang2win STATIC ${FANG2WIN_SOURCES} compat/mfc.cpp)
 target_include_directories(fang2win PUBLIC
   Lib/Fang2
   Lib/Fang2/dx

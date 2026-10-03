@@ -20,7 +20,7 @@
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #include <stdio.h>
-#include <afxwin.h>
+#include "mfc.h"    // stale MFC include; this file uses nothing from MFC
 #include <dinput.h>
 
 #include "fang.h"
