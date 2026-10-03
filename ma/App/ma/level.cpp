@@ -2094,6 +2094,9 @@ static void _LoadWireData( void ) {
 
 
 static void _LoadMissionText( void ) {
+	// Hoisted so the 'goto _ExitWithNoMissionText' below does not jump across
+	// its initialisation, which C++ forbids (MSVC allowed it).
+	FGameDataFileHandle_t hTable = FGAMEDATA_INVALID_FILE_HANDLE;
 	FGameData_VarType_e nVarType;
 	cwchar *pwszText;
 	u32 i, nFieldCount;
@@ -2107,7 +2110,7 @@ static void _LoadMissionText( void ) {
 	}
 
 	// Find the mission text table...
-	FGameDataFileHandle_t hTable = fgamedata_GetFirstTableHandle( Level_hLevelDataFile, "MissionText" );
+	hTable = fgamedata_GetFirstTableHandle( Level_hLevelDataFile, "MissionText" );
 	if( hTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
 		goto _ExitWithNoMissionText;
 	}

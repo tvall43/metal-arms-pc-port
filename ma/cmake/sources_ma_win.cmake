@@ -258,7 +258,6 @@ set(MA_WIN_SOURCES
     App/ma/win/ScreenGrab.cpp
     App/ma/win/Settings.cpp
     App/ma/win/screenshot.cpp
-    App/ma/win/winprintf.cpp
     App/ma/wpr_datatypes.cpp
     App/ma/wpr_drawutils.cpp
     App/ma/wpr_languageselect.cpp

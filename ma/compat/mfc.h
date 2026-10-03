@@ -35,8 +35,19 @@
 
 #include <windows.h>
 
+#include <string>
+
 // MFC's message handler marker. Purely for tooling/readability.
 #define afx_msg
+
+// MFC's ASSERT/VERIFY. Settings.cpp uses ASSERT in a reference-counted
+// singleton; route it to the CRT assert so a failed assertion traps the same
+// way it would under MFC in a debug build.
+#include <assert.h>
+#undef  ASSERT
+#define ASSERT(expr)     assert(expr)
+#undef  VERIFY
+#define VERIFY(expr)     ((void)(!!(expr)))
 
 // ---------------------------------------------------------------------------
 // Message maps
@@ -93,6 +104,43 @@
     className* className::CreateObject() { return new className; }  \
     void*      className::_CreateObject() { return new className; } \
     typedef baseClass className##_super;
+
+// ---------------------------------------------------------------------------
+// CString
+// ---------------------------------------------------------------------------
+//
+// ScreenGrab.cpp and Settings.cpp use MFC's CString, but only for default
+// construction, printf-style Format(), and a C-style cast to 'const char *'
+// (they hand the result straight to WritePrivateProfileString and friends).
+// That subset is implemented here over std::string. MFC's CString is
+// TCHAR-based; this build is not UNICODE, so TCHAR is char.
+class CString
+{
+public:
+    CString();
+    CString( const char *pszSrc );
+    CString( const CString &rSrc );
+    ~CString();
+
+    CString &operator = ( const char *pszSrc );
+    CString &operator = ( const CString &rSrc );
+
+    // printf-style, as MFC's. Uses vsnprintf so a long result is truncated
+    // rather than overflowing.
+    void Format( const char *pszFmt, ... );
+
+    void   Empty();
+    int    GetLength() const;
+    BOOL   IsEmpty() const;
+
+    operator const char *( void ) const;
+
+    BOOL operator == ( const char *pszOther ) const;
+    BOOL operator != ( const char *pszOther ) const;
+
+private:
+    std::string m_str;
+};
 
 // ---------------------------------------------------------------------------
 // CWinThread

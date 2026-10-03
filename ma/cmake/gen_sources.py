@@ -27,12 +27,13 @@ MFC_EXCLUDE = {
     "App/ma/win/pickdir.cpp",       # CFileDialog SHBrowseForFolder
     # Asset-authoring tools, not game runtime. These need MFC's CString and
     # CStringList (via App/ma/win/StdAfx.h -> <afxwin.h>). Nothing in the game
-    # references CFileInfo or CMasterFileCompile -- only these two files do --
+    # references CFileInfo or CMasterFileCompile -- only these files do --
     # and the retail master file is already available, so there is no need to
     # rebuild it here. Duplicates of both live in App/Spit and App/WavBanker,
     # which are not part of this target either.
     "App/ma/win/FileInfo.cpp",
     "App/ma/win/MasterFileCompile.cpp",
+    "App/ma/win/winprintf.cpp",
 }
 
 # Precompiled-header shims. The .vcproj builds via StdAfx.cpp/fangpch.cpp; we

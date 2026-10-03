@@ -3,6 +3,9 @@
 
 #include "mfc.h"
 
+#include <cstdarg>
+#include <cstdio>
+
 CWinThread::CWinThread()
     : m_bAutoDelete( FALSE )
     , m_hThread( NULL )
@@ -103,4 +106,90 @@ BOOL CWinThread::PostThreadMessage( UINT nMessage, WPARAM wParam, LPARAM lParam 
         return FALSE;
     }
     return ::PostThreadMessage( m_nThreadID, nMessage, wParam, lParam ) != FALSE;
+}
+
+// ---------------------------------------------------------------------------
+// CString
+// ---------------------------------------------------------------------------
+
+CString::CString()
+{
+}
+
+CString::CString( const char *pszSrc )
+    : m_str( pszSrc ? pszSrc : "" )
+{
+}
+
+CString::CString( const CString &rSrc )
+    : m_str( rSrc.m_str )
+{
+}
+
+CString::~CString()
+{
+}
+
+CString &CString::operator = ( const char *pszSrc )
+{
+    m_str = pszSrc ? pszSrc : "";
+    return *this;
+}
+
+CString &CString::operator = ( const CString &rSrc )
+{
+    if ( this != &rSrc )
+    {
+        m_str = rSrc.m_str;
+    }
+    return *this;
+}
+
+void CString::Format( const char *pszFmt, ... )
+{
+    va_list args;
+    va_start( args, pszFmt );
+    va_list argsCopy;
+    va_copy( argsCopy, args );
+    const int nNeeded = vsnprintf( NULL, 0, pszFmt, argsCopy );
+    va_end( argsCopy );
+    if ( nNeeded < 0 )
+    {
+        va_end( args );
+        m_str.clear();
+        return;
+    }
+    m_str.resize( (size_t)nNeeded );
+    vsnprintf( &m_str[0], (size_t)nNeeded + 1, pszFmt, args );
+    va_end( args );
+}
+
+void CString::Empty()
+{
+    m_str.clear();
+}
+
+int CString::GetLength() const
+{
+    return (int)m_str.size();
+}
+
+BOOL CString::IsEmpty() const
+{
+    return m_str.empty() ? TRUE : FALSE;
+}
+
+CString::operator const char *( void ) const
+{
+    return m_str.c_str();
+}
+
+BOOL CString::operator == ( const char *pszOther ) const
+{
+    return m_str.compare( pszOther ? pszOther : "" ) == 0;
+}
+
+BOOL CString::operator != ( const char *pszOther ) const
+{
+    return !( *this == pszOther );
 }
