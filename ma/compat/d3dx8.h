@@ -52,9 +52,82 @@
 // ---------------------------------------------------------------------------
 // D3DX math types (same definitions as the D3DX8/9 SDK)
 // ---------------------------------------------------------------------------
-struct D3DXVECTOR2 { FLOAT x, y; };
-struct D3DXVECTOR3 { FLOAT x, y, z; };
-struct D3DXVECTOR4 { FLOAT x, y, z, w; };
+// d3dx8.h declares these as classes with a component constructor, a pointer
+// constructor, arithmetic operators and an implicit conversion to
+// 'const FLOAT *'. They cannot stay aggregates: the engine constructs them
+// from components (fdx8sh.cpp builds D3DXVECTOR4s from four floats) and passes
+// them by value to the shader-constant setters.
+struct D3DXVECTOR2
+{
+	FLOAT x, y;
+	D3DXVECTOR2() {}
+	D3DXVECTOR2(FLOAT _x, FLOAT _y) : x(_x), y(_y) {}
+	explicit D3DXVECTOR2(const FLOAT *p) : x(p[0]), y(p[1]) {}
+	FLOAT&       operator[](int i)       { return ((FLOAT*)this)[i]; }
+	const FLOAT& operator[](int i) const { return ((const FLOAT*)this)[i]; }
+
+	// d3dx8.h gives these types arithmetic operators; the engine relies on them
+	// (fdx8sh.cpp:2882 does v += v2 and v *= f on a D3DXVECTOR3).
+	D3DXVECTOR2 &operator += (const D3DXVECTOR2 &o) { x += o.x; y += o.y; return *this; }
+	D3DXVECTOR2 &operator -= (const D3DXVECTOR2 &o) { x -= o.x; y -= o.y; return *this; }
+	D3DXVECTOR2 &operator *= (FLOAT f)           { x *= f; y *= f; return *this; }
+	D3DXVECTOR2 &operator /= (FLOAT f)           { x /= f; y /= f; return *this; }
+
+	// IDirect3DDevice8::Set{Vertex,Pixel}ShaderConstant take 'const void *', and
+	// the D3DX8 SDK supplied overloads taking 'const D3DXVECTOR4 &' so engine
+	// code could pass a vector by value. mingw's d3d8.h has no such overload,
+	// so hand back a pointer to the components and let the standard
+	// 'const FLOAT *' -> 'const void *' conversion apply.
+	operator const FLOAT *() const { return &x; }
+};
+
+struct D3DXVECTOR3
+{
+	FLOAT x, y, z;
+	D3DXVECTOR3() {}
+	D3DXVECTOR3(FLOAT _x, FLOAT _y, FLOAT _z) : x(_x), y(_y), z(_z) {}
+	explicit D3DXVECTOR3(const FLOAT *p) : x(p[0]), y(p[1]), z(p[2]) {}
+	FLOAT&       operator[](int i)       { return ((FLOAT*)this)[i]; }
+	const FLOAT& operator[](int i) const { return ((const FLOAT*)this)[i]; }
+
+	// d3dx8.h gives these types arithmetic operators; the engine relies on them
+	// (fdx8sh.cpp:2882 does v += v2 and v *= f on a D3DXVECTOR3).
+	D3DXVECTOR3 &operator += (const D3DXVECTOR3 &o) { x += o.x; y += o.y; z += o.z; return *this; }
+	D3DXVECTOR3 &operator -= (const D3DXVECTOR3 &o) { x -= o.x; y -= o.y; z -= o.z; return *this; }
+	D3DXVECTOR3 &operator *= (FLOAT f)           { x *= f; y *= f; z *= f; return *this; }
+	D3DXVECTOR3 &operator /= (FLOAT f)           { x /= f; y /= f; z /= f; return *this; }
+
+	// IDirect3DDevice8::Set{Vertex,Pixel}ShaderConstant take 'const void *', and
+	// the D3DX8 SDK supplied overloads taking 'const D3DXVECTOR4 &' so engine
+	// code could pass a vector by value. mingw's d3d8.h has no such overload,
+	// so hand back a pointer to the components and let the standard
+	// 'const FLOAT *' -> 'const void *' conversion apply.
+	operator const FLOAT *() const { return &x; }
+};
+
+struct D3DXVECTOR4
+{
+	FLOAT x, y, z, w;
+	D3DXVECTOR4() {}
+	D3DXVECTOR4(FLOAT _x, FLOAT _y, FLOAT _z, FLOAT _w) : x(_x), y(_y), z(_z), w(_w) {}
+	explicit D3DXVECTOR4(const FLOAT *p) : x(p[0]), y(p[1]), z(p[2]), w(p[3]) {}
+	FLOAT&       operator[](int i)       { return ((FLOAT*)this)[i]; }
+	const FLOAT& operator[](int i) const { return ((const FLOAT*)this)[i]; }
+
+	// d3dx8.h gives these types arithmetic operators; the engine relies on them
+	// (fdx8sh.cpp:2882 does v += v2 and v *= f on a D3DXVECTOR3).
+	D3DXVECTOR4 &operator += (const D3DXVECTOR4 &o) { x += o.x; y += o.y; z += o.z; w += o.w; return *this; }
+	D3DXVECTOR4 &operator -= (const D3DXVECTOR4 &o) { x -= o.x; y -= o.y; z -= o.z; w -= o.w; return *this; }
+	D3DXVECTOR4 &operator *= (FLOAT f)           { x *= f; y *= f; z *= f; w *= f; return *this; }
+	D3DXVECTOR4 &operator /= (FLOAT f)           { x /= f; y /= f; z /= f; w /= f; return *this; }
+
+	// IDirect3DDevice8::Set{Vertex,Pixel}ShaderConstant take 'const void *', and
+	// the D3DX8 SDK supplied overloads taking 'const D3DXVECTOR4 &' so engine
+	// code could pass a vector by value. mingw's d3d8.h has no such overload,
+	// so hand back a pointer to the components and let the standard
+	// 'const FLOAT *' -> 'const void *' conversion apply.
+	operator const FLOAT *() const { return &x; }
+};
 
 // Mirrors d3dx8.h's C++ definition: derives from D3DMATRIX, so _11.._44 and
 // m[4][4] come from the base, and a D3DXMATRIX* upcasts to D3DMATRIX*. The

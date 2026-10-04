@@ -344,11 +344,15 @@
 		#define FINLINE inline
 //ARG - <<<<<
 	#else
-		// Any other compiler (GCC/clang). always_inline matches the intent of
+		// Any other compiler (GCC/clang). Deliberately plain 'inline' rather than
+		// inline __attribute__((always_inline)): some FINLINE functions in this tree
+		// are declared before their definition and called in between, and
+		// always_inline makes that a hard error ("function body not available").
+		// The intent of
 		// __forceinline: these are small accessors where the call overhead and
 		// ODR-safe inlining both matter.
 		#if defined(__GNUC__)
-			#define FINLINE inline __attribute__((always_inline))
+			#define FINLINE inline
 		#else
 			#define FINLINE inline
 		#endif
