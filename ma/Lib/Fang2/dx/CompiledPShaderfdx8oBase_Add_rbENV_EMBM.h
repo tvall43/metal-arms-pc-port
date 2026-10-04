@@ -1,0 +1,2 @@
+DWORD dwFdx8oBase_Add_rbENV_EMBMPixelShader[] = {
+#define dwCompiledPShaderfxboBase_Add_rbENV_EMBMPixelShader dwFdx8oBase_Add_rbENV_EMBMPixelShader

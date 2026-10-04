@@ -60,7 +60,7 @@ if "!_DEXP_TEST!"=="ok" (
   echo        script cannot run. That should not happen on Windows XP or later.
   goto :fail
 )
-echo Shader pack version: 3
+echo Shader pack version: 4
 echo.
 
 set /a OK=0
@@ -127,6 +127,11 @@ REM .h it leaves behind rather than assuming a name.
 set "STAGE=%ROOT%\work"
 if exist "%STAGE%" rd /s /q "%STAGE%"
 md "%STAGE%"
+REM Stage every header in src\ as well as the source itself. 106 of the
+REM sources do "#include fdx8vshader_const.h", which defines the CV_* constants
+REM they then use as c[CV_WORLDVIEWPROJ_0]. Without it the assembler reports
+REM "invalid register 'CV_WORLDVIEWPROJ_0'" and emits no output at all.
+for %%H in ("%SRCDIR%\*.h") do copy /y "%%H" "%STAGE%\" >nul
 copy /y "%SRCDIR%\%SRC%" "%STAGE%\%BASE%%EXT%" >nul
 
 pushd "%STAGE%"
@@ -160,10 +165,10 @@ for /f "usebackq delims=" %%L in ("%PROD%") do (
   )
 )
 
-REM Append the alternate names, if this shader has any.
-if defined ALIASES (
-  for %%A in ("!ALIASES:";=" ") do >>"%OUTFILE%" echo #define %%A %WANT%
-)
+REM Append the alternate name, if this shader has one. Using %ALIASES% rather
+REM than !ALIASES! here because there is at most one alias per shader, and the
+REM '"' -> '" ' substitution form is not parsed reliably by cmd.exe.
+if defined ALIASES >>"%OUTFILE%" echo #define %ALIASES% %WANT%
 
 if not defined WROTE (
   set /a BAD+=1

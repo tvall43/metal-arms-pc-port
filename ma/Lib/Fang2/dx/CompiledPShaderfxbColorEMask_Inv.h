@@ -1,0 +1,1 @@
+DWORD dwCompiledPShaderfxbColorEMask_InvPixelShader[] = {

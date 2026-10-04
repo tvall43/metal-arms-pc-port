@@ -1,0 +1,1 @@
+DWORD dwCompiledPShaderfxbCubeReflect_VtxAlphaPixelShader[] = {

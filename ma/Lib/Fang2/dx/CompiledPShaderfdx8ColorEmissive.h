@@ -1,0 +1,1 @@
+DWORD dwFdx8ColorEmissivePixelShader[] = {

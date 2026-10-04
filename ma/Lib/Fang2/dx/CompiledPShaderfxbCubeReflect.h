@@ -1,0 +1,1 @@
+DWORD dwCompiledPShaderfxbCubeReflectPixelShader[] = {

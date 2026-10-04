@@ -1,0 +1,2 @@
+DWORD dwFdx8PerPixelSpot1_Diffuse_ShadowPixelShader[] = {
+#define dwCompiledPShaderfxbPerPixelSpot1_Diffuse_ShadowPixelShader dwFdx8PerPixelSpot1_Diffuse_ShadowPixelShader
