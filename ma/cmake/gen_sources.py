@@ -34,6 +34,11 @@ MFC_EXCLUDE = {
     "App/ma/win/FileInfo.cpp",
     "App/ma/win/MasterFileCompile.cpp",
     "App/ma/win/winprintf.cpp",
+    # A screenshot helper, and the only user of the Intel JPEG Library.
+    # ijl15l.lib is an MSVC-compiled static library whose objects need
+    # _except_list and _aullshr from the MSVC C runtime, which mingw does not
+    # provide, so it cannot be linked here.
+    "App/ma/win/ScreenGrab.cpp",
 }
 
 # Precompiled-header shims. The .vcproj builds via StdAfx.cpp/fangpch.cpp; we

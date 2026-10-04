@@ -91,7 +91,14 @@ public:
 	BOOL IsValid(void) { return m_pNode != NULL;}
 	void Reset(void) { m_pNode = NULL; m_pList = NULL;}
 	
-	const DT &Get(void) { if (m_pNode) {return m_pNode->m_Data;} return s_ReturnError;}
+	// A function-local static rather than the class's s_ReturnError member.
+	// s_ReturnError is only *declared* by the template, so every instantiation
+	// that calls Get() needs its own out-of-line definition, and this tree only
+	// supplies them for a handful of types -- GCC accepts the 'template <>'
+	// definitions without emitting anything, so the rest fail to link. A local
+	// static needs no external definition and is zero-initialised for both
+	// pointer and value DT, matching those definitions.
+	const DT &Get(void) { static DT s_Return; if (m_pNode) {return m_pNode->m_Data;} return s_Return; }
 	BOOL Get(DT** pDT) { if (m_pNode) {*pDT = &(m_pNode->m_Data); return 1;} *pDT = NULL; return 0;}
 
 	void RemoveThenNext(void)

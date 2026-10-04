@@ -134,4 +134,7 @@ target_include_directories(ma_win PRIVATE
   Lib/Bink
   compat
 )
-target_link_libraries(ma_win PRIVATE fang2win)
+target_link_libraries(ma_win PRIVATE
+  fang2win
+  ${CMAKE_CURRENT_SOURCE_DIR}/Lib/Bink/binkw32.lib   # Bink video (App/ma/win/binkw32.dll)
+)

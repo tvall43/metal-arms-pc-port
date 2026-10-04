@@ -255,7 +255,6 @@ set(MA_WIN_SOURCES
     App/ma/weapon_staff.cpp
     App/ma/weapon_tether.cpp
     App/ma/weapon_wrench.cpp
-    App/ma/win/ScreenGrab.cpp
     App/ma/win/Settings.cpp
     App/ma/win/screenshot.cpp
     App/ma/wpr_datatypes.cpp

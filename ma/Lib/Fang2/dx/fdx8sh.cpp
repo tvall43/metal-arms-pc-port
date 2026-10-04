@@ -3340,7 +3340,7 @@ BOOL _UseTrans(u32 shaderID)
 }
 
 //Calculates the number of passes based on the shader type.
-FINLINE u32 fsh_GetCurrentNumPasses(BOOL *pbFastPass)
+u32 fsh_GetCurrentNumPasses(BOOL *pbFastPass)
 {
 	u32 nRet = 1;
 	

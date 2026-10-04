@@ -156,4 +156,30 @@ FINLINE f32 CFVec4A::DistXZ( const CFVec4A &rV ) const {
 // zeroes W, which the original comment requires.
 FINLINE CFQuatA &CFQuatA::Set( const CFVec3A &rV ) { v = rV.v4a; return *this; }
 
+
+// CFMtx43A::RevMul. fdx8math_mtx.inl is entirely inside '#if !FANG_WINGC', so
+// with FANG_WINGC on this method -- and every other one in that file -- has no
+// body at all. eproj_cleaner.cpp calls it, hence the undefined reference.
+//
+// The MSVC asm decides operand order by which register 'this' and 'rM' land in:
+//   Mul     : mov edx,this / mov ecx,rM   -> result = rM * this
+//   RevMul  : mov ecx,this / mov edx,rM   -> result = this * rM
+// which for 'A.Mul(B)' means A.Mul(B) = B*A and A.RevMul(B) = A*B. So RevMul is
+// the plain product in the source order.
+//
+// aa[4][4] is the same storage the asm addresses ([ecx+0x00] is aa[0][0],
+// [ecx+0x10] is aa[1][0], ...). 'this' is copied first because callers do pass
+// the same matrix as both arguments.
+FINLINE CFMtx43A &CFMtx43A::RevMul( const CFMtx43A &rM )
+{
+	const CFMtx43A a = *this;
+	for ( int i = 0; i < 4; i++ ) {
+		for ( int j = 0; j < 4; j++ ) {
+			aa[i][j] = a.aa[i][0]*rM.aa[0][j] + a.aa[i][1]*rM.aa[1][j]
+			        + a.aa[i][2]*rM.aa[2][j] + a.aa[i][3]*rM.aa[3][j];
+		}
+	}
+	return *this;
+}
+
 #endif // FANG_WINGC
