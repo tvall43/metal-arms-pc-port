@@ -81,6 +81,32 @@ extern BOOL _FRes_bHasDestructor;
 //--------------------------------------------------------------------------------------------------------------------------
 // Windows Implementation:
 //--------------------------------------------------------------------------------------------------------------------------
+		// ---------------------------------------------------------------------------
+// Scratch storage for the destructor-detection trick in the FCLASS_STACKMEM
+// macros below.
+//
+// Those macros work out whether a class has a destructor by placement-newing an
+// array of two of it and letting the compiler call the destructor on the
+// temporary, which is how _FRes_bHasDestructor gets set:
+//
+//     new( NULL, 0, 0, 0, 0 ) szClassName[2];
+//
+// The array is never meant to be built -- it is a compile-time probe. MSVC
+// elided the construction entirely, but GCC emits the default constructor's
+// initialising stores, so with the original NULL it wrote through address 0: the
+// first crash was CFLight's constructor storing 2 to a null pointer from
+// fang_Startup, via fdx8_Startup, fworld_ModuleStartup and fvis_ModuleStartup.
+//
+// Giving the probe real memory changes nothing that matters -- the objects are
+// still never read. One static buffer is enough: the probe only needs to survive
+// until the end of the full-expression it appears in, and Fang's allocator is
+// not thread-safe anyway (_FRes_bTestForDestructor is a plain global).
+//
+// Fixed at 4 KB because a member declaration cannot use sizeof on the class
+// being defined; each macro asserts from a function body that its class fits.
+// ---------------------------------------------------------------------------
+static u8 _FRes_AlignScratch[ 4096 ];
+
 #if FANG_PLATFORM_WIN & 0
 
 	// Fang uses stack-based memory allocation for the "new" and "delete" operators.
@@ -99,7 +125,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new( unsigned int nBytesToAlloc ) {											\
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -108,7 +134,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void *operator new( unsigned int nBytesToAlloc, cchar *pszFileName, int nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 					}																						\
@@ -119,7 +145,7 @@ extern BOOL _FRes_bHasDestructor;
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					FASSERT( !_FRes_bTestForDestructor );													\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -129,7 +155,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new []( unsigned int nBytesToAlloc, cchar *pszFileName, int nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					if( !_FRes_bTestForDestructor ) {														\
 						_FRes_bTestForDestructor = TRUE;													\
-						new( NULL, 0, 0, 0, 0 ) szClassName[2];												\
+						new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];												\
 						if( !_FRes_bHasDestructor ) {														\
 							return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 						}																					\
@@ -158,7 +184,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void operator delete []( void *pMemoryBlock ) {												\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						FASSERT_MSG( FRes_nDebugStackCount && (FRes_aDebugStack[FRes_nDebugStackCount-1].pMemBlock == pMemoryBlock), "Fang: Use 'fdelete_array()' instead of 'delete []'." ); \
 					} else {																				\
@@ -178,15 +204,15 @@ extern BOOL _FRes_bHasDestructor;
 				}
 
 
-		#define FCLASS_STACKMEM_NOALIGN( szClassName )														\
+#define FCLASS_STACKMEM_NOALIGN( szClassName )														\
 				public:																						\
 																											\
-				enum { CLASS_BYTE_ALIGNMENT = 4 };															\
-																											\
+				enum { CLASS_BYTE_ALIGNMENT = 4 };														\
+																														\
 				void *operator new( unsigned int nBytesToAlloc ) {											\
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -195,7 +221,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void *operator new( unsigned int nBytesToAlloc, cchar *pszFileName, int nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 					}																						\
@@ -206,7 +232,7 @@ extern BOOL _FRes_bHasDestructor;
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					FASSERT( !_FRes_bTestForDestructor );													\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -216,7 +242,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new []( unsigned int nBytesToAlloc, cchar *pszFileName, int nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					if( !_FRes_bTestForDestructor ) {														\
 						_FRes_bTestForDestructor = TRUE;													\
-						new( NULL, 0, 0, 0, 0 ) szClassName[2];												\
+						new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];												\
 						if( !_FRes_bHasDestructor ) {														\
 							return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 						}																					\
@@ -245,7 +271,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void operator delete []( void *pMemoryBlock ) {												\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						FASSERT_MSG( FRes_nDebugStackCount && (FRes_aDebugStack[FRes_nDebugStackCount-1].pMemBlock == pMemoryBlock), "Fang: Use 'fdelete_array()' instead of 'delete []'." ); \
 					} else {																				\
@@ -332,8 +358,8 @@ extern BOOL _FRes_bHasDestructor;
 		#define FCLASS_STACKMEM_NOALIGN( szClassName )														\
 				public:																						\
 																											\
-				enum { CLASS_BYTE_ALIGNMENT = 4 };															\
-																											\
+				enum { CLASS_BYTE_ALIGNMENT = 4 };														\
+																														\
 				void *operator new( unsigned int nBytesToAlloc ) {											\
 					return _fres_AlignedAlloc( nBytesToAlloc, CLASS_BYTE_ALIGNMENT );						\
 				}																							\
@@ -376,7 +402,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new( unsigned int nBytesToAlloc ) {											\
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -385,7 +411,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void *operator new( unsigned int nBytesToAlloc, cchar *pszFileName, int nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 					}																						\
@@ -396,7 +422,7 @@ extern BOOL _FRes_bHasDestructor;
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					FASSERT( !_FRes_bTestForDestructor );													\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -406,7 +432,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new []( unsigned int nBytesToAlloc, cchar *pszFileName, int nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					if( !_FRes_bTestForDestructor ) {														\
 						_FRes_bTestForDestructor = TRUE;													\
-						new( NULL, 0, 0, 0, 0 ) szClassName[2];												\
+						new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];												\
 						if( !_FRes_bHasDestructor ) {														\
 							return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 						}																					\
@@ -435,7 +461,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void operator delete []( void *pMemoryBlock ) {												\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						FASSERT_MSG( FRes_nDebugStackCount && (FRes_aDebugStack[FRes_nDebugStackCount-1].pMemBlock == pMemoryBlock), "Fang: Use 'fdelete_array()' instead of 'delete []'." ); \
 					} else {																				\
@@ -458,12 +484,12 @@ extern BOOL _FRes_bHasDestructor;
 		#define FCLASS_STACKMEM_NOALIGN( szClassName )														\
 				public:																						\
 																											\
-				enum { CLASS_BYTE_ALIGNMENT = 4 };															\
-																											\
+				enum { CLASS_BYTE_ALIGNMENT = 4 };														\
+																														\
 				void *operator new( unsigned int nBytesToAlloc ) {											\
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -472,7 +498,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void *operator new( unsigned int nBytesToAlloc, cchar *pszFileName, int nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];															\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];															\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 					}																						\
@@ -483,7 +509,7 @@ extern BOOL _FRes_bHasDestructor;
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					FASSERT( !_FRes_bTestForDestructor );													\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -493,7 +519,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new []( unsigned int nBytesToAlloc, cchar *pszFileName, int nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					if( !_FRes_bTestForDestructor ) {														\
 						_FRes_bTestForDestructor = TRUE;													\
-						new( NULL, 0, 0, 0, 0 ) szClassName[2];												\
+						new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];												\
 						if( !_FRes_bHasDestructor ) {														\
 							return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 						}																					\
@@ -522,7 +548,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void operator delete []( void *pMemoryBlock ) {												\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						FASSERT_MSG( FRes_nDebugStackCount && (FRes_aDebugStack[FRes_nDebugStackCount-1].pMemBlock == pMemoryBlock), "Fang: Use 'fdelete_array()' instead of 'delete []'." ); \
 					} else {																				\
@@ -598,8 +624,8 @@ extern BOOL _FRes_bHasDestructor;
 		#define FCLASS_STACKMEM_NOALIGN( szClassName )														\
 				public:																						\
 																											\
-				enum { CLASS_BYTE_ALIGNMENT = 4 };															\
-																											\
+				enum { CLASS_BYTE_ALIGNMENT = 4 };														\
+																														\
 				void *operator new( unsigned int nBytesToAlloc ) {											\
 					return _fres_AlignedAlloc( nBytesToAlloc, CLASS_BYTE_ALIGNMENT );						\
 				}																							\
@@ -717,7 +743,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new( u32 nBytesToAlloc ) {											\
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -726,7 +752,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void *operator new( u32 nBytesToAlloc, cchar *pszFileName, s32 nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 					}																						\
@@ -737,7 +763,7 @@ extern BOOL _FRes_bHasDestructor;
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					FASSERT( !_FRes_bTestForDestructor );													\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -747,7 +773,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new []( u32 nBytesToAlloc, cchar *pszFileName, s32 nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					if( !_FRes_bTestForDestructor ) {														\
 						_FRes_bTestForDestructor = TRUE;													\
-						new( NULL, 0, 0, 0, 0 ) szClassName[2];												\
+						new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];												\
 						if( !_FRes_bHasDestructor ) {														\
 							return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 						}																					\
@@ -776,7 +802,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void operator delete []( void *pMemoryBlock ) {												\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						FASSERT_MSG( FRes_nDebugStackCount && (FRes_aDebugStack[FRes_nDebugStackCount-1].pMemBlock == pMemoryBlock), "FangAlign (No Destructor): Use 'fdelete_array()' instead of 'delete []'." ); \
 					} else {																				\
@@ -799,12 +825,12 @@ extern BOOL _FRes_bHasDestructor;
 		#define FCLASS_STACKMEM_NOALIGN( szClassName )														\
 				public:																						\
 																											\
-				enum { CLASS_BYTE_ALIGNMENT = 4 };															\
-																											\
+				enum { CLASS_BYTE_ALIGNMENT = 4 };														\
+																														\
 				void *operator new( u32 nBytesToAlloc ) {											\
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -813,7 +839,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void *operator new( u32 nBytesToAlloc, cchar *pszFileName, s32 nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];															\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];															\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 					}																						\
@@ -824,7 +850,7 @@ extern BOOL _FRes_bHasDestructor;
 					FASSERT_NOW_MSG( "Fang: Use 'fnew' instead of 'new'." );								\
 					FASSERT( !_FRes_bTestForDestructor );													\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						return fres_Debug_AlignedAlloc( NULL, 0, nBytesToAlloc, CLASS_BYTE_ALIGNMENT );		\
 					}																						\
@@ -834,7 +860,7 @@ extern BOOL _FRes_bHasDestructor;
 				void *operator new []( u32 nBytesToAlloc, cchar *pszFileName, s32 nLineNum, u32 nDummy1, u32 nDummy2, u32 nDummy3 ) { \
 					if( !_FRes_bTestForDestructor ) {														\
 						_FRes_bTestForDestructor = TRUE;													\
-						new( NULL, 0, 0, 0, 0 ) szClassName[2];												\
+						new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];												\
 						if( !_FRes_bHasDestructor ) {														\
 							return fres_Debug_AlignedAlloc( pszFileName, nLineNum, nBytesToAlloc, CLASS_BYTE_ALIGNMENT ); \
 						}																					\
@@ -863,7 +889,7 @@ extern BOOL _FRes_bHasDestructor;
 																											\
 				void operator delete []( void *pMemoryBlock ) {												\
 					_FRes_bTestForDestructor = TRUE;														\
-					new( NULL, 0, 0, 0, 0 ) szClassName[2];													\
+					new( (void *)_FRes_AlignScratch, 0, 0, 0, 0 ) szClassName[2];													\
 					if( !_FRes_bHasDestructor ) {															\
 						FASSERT_MSG( FRes_nDebugStackCount && (FRes_aDebugStack[FRes_nDebugStackCount-1].pMemBlock == pMemoryBlock), "FangAlign (No Destructor): Use 'fdelete_array()' instead of 'delete []'." ); \
 					} else {																				\
@@ -941,8 +967,8 @@ extern BOOL _FRes_bHasDestructor;
 		#define FCLASS_STACKMEM_NOALIGN( szClassName )														\
 				public:																						\
 																											\
-				enum { CLASS_BYTE_ALIGNMENT = 4 };															\
-																											\
+				enum { CLASS_BYTE_ALIGNMENT = 4 };														\
+																														\
 				void *operator new( u32 nBytesToAlloc ) {											\
 					return _fres_AlignedAlloc( nBytesToAlloc, CLASS_BYTE_ALIGNMENT );						\
 				}																							\
@@ -1000,8 +1026,8 @@ extern BOOL _FRes_bHasDestructor;
 	#define FCLASS_STACKMEM_NOALIGN( szClassName )														\
 			public:																						\
 																										\
-			enum { CLASS_BYTE_ALIGNMENT = 4 };															\
-																										\
+			enum { CLASS_BYTE_ALIGNMENT = 4 };														\
+																													\
 			void *operator new( unsigned int nBytesToAlloc ) {											\
 				return _fres_AlignedAlloc( nBytesToAlloc, CLASS_BYTE_ALIGNMENT );						\
 			}																							\
