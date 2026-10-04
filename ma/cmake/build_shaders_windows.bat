@@ -36,12 +36,11 @@ if exist "out\_REPORT.txt" del "out\_REPORT.txt"
 REM Absolute paths: the assembler runs inside a staging directory.
 set "ROOT=%CD%"
 set "VSA=%ROOT%\tools\vsa.exe"
-REM psa/vsa here are the D3DX9 Shader Assembler 9.25 (from the November 2008
-REM DirectX SDK), not the DirectX 8.1 pair. 27 of the shaders are written in
-REM D3D9 assembly -- saturation modifiers (mov r0, r0_sat) and ps.1.1 tex with
-REM an implicit coordinate -- which the 8.1 assembler rejects outright. 9.25
-REM accepts both those and ps_1_1, so it assembles the whole set. It needs
-REM d3dx9_40.dll, which is bundled alongside.
+REM psa/vsa here are the DirectX 8.1 SDK assemblers (KERNEL32 + ADVAPI32 only).
+REM The D3DX9 Shader Assembler 9.25 was tried instead: it handles the saturation
+REM modifiers these shaders use, but it demands explicit dcl_position /
+REM dcl_texcoord varying declarations and so rejects 134 of the 239. See the
+REM comment in :one.
 set "PSA=%ROOT%\tools\psa.exe"
 set "SRCDIR=%ROOT%\src"
 
@@ -66,7 +65,7 @@ if "!_DEXP_TEST!"=="ok" (
   echo        script cannot run. That should not happen on Windows XP or later.
   goto :fail
 )
-echo Shader pack version: 6
+echo Shader pack version: 7
 echo.
 
 set /a OK=0
@@ -127,30 +126,39 @@ if not exist "%SRCDIR%\%SRC%" (
   goto :eof
 )
 
-REM ---- assemble ----
-REM Stage every header in src\ as well as the source itself: 106 of the sources
-REM do "#include fdx8vshader_const.h", which defines the CV_* constants they
-REM then use as c[CV_WORLDVIEWPROJ_0].
+REM ---- assemble in a clean directory ----
+REM These are the DirectX 8.1 assemblers, not the D3DX9 ones. The D3DX9 9.25
+REM assembler understands the saturation modifiers some of these shaders use,
+REM but it rejects 134 of them because it requires explicit "dcl_position" /
+REM "dcl_texcoord" varying declarations that this tree does not write -- it
+REM reports "Read of uninitialized components in v" over a thousand times. The
+REM DirectX 8.1 assembler infers varyings from usage and accepts them, so it is
+REM the right tool here; src\ has the few genuinely malformed shaders corrected.
+REM
+REM The 8.1 assembler takes "-h" to emit a header, but leaves both the output
+REM filename and the array name up to the caller, hence the glob and the rename
+REM below. (The D3DX9 assembler could do both with /Fh and /Vn, but could not
+REM assemble this source set at all.)
 set "STAGE=%ROOT%\work"
 if exist "%STAGE%" rd /s /q "%STAGE%"
 md "%STAGE%"
+REM Stage every header in src\ as well as the source itself: 106 of the sources
+REM do "#include fdx8vshader_const.h", which defines the CV_* constants they
+REM then use as c[CV_WORLDVIEWPROJ_0].
 for %%H in ("%SRCDIR%\*.h") do copy /y "%%H" "%STAGE%\" >nul
 copy /y "%SRCDIR%\%SRC%" "%STAGE%\%BASE%%EXT%" >nul
 
-REM The assembler writes the header itself, named and with its array named, so
-REM there is no globbing and no rewriting here:
-REM   /Fh<file>  output header file containing the object code
-REM   /Vn<name>  use <name> as the variable name in the header file
-REM   /I<dir>    where to resolve #include from
-REM (The DirectX 8.1 assemblers used "-h" and left both the filename and the
-REM variable name to be guessed afterwards. This one does not.)
-set "OUTFILE=%ROOT%\out\%HEADER%"
-for %%D in ("%OUTFILE%") do if not exist "%%~dpD" md "%%~dpD"
-if exist "%OUTFILE%" del "%OUTFILE%"
+pushd "%STAGE%"
+"!ASM!" -h "%BASE%%EXT%" >"%ROOT%\work\assembler.log" 2>&1
+popd
 
-"!ASM!" /nologo /I"%STAGE%" /Fo"%STAGE%\%BASE%.obj" /Fh"%OUTFILE%" /Vn%WANT% "%STAGE%\%BASE%%EXT%" >"%ROOT%\work\assembler.log" 2>&1
+REM Find the header the assembler produced. The #include headers staged above
+REM also match *.h, and fdx8vshader_const.h sorts last for most shader names, so
+REM it has to be excluded or its contents get copied out as the shader.
+set "PROD="
+for %%F in ("%STAGE%\*.h") do if /I not "%%~nxF"=="fdx8vshader_const.h" set "PROD=%%F"
 
-if not exist "%OUTFILE%" (
+if not defined PROD (
   set /a BAD+=1
   echo [!N!] NO OUTPUT FROM ASSEMBLER  %BASE%
   >>"%ROOT%\out\_REPORT.txt" echo [!HEADER!] ASSEMBLER PRODUCED NO .h ^(src %SRC%^)
@@ -158,9 +166,22 @@ if not exist "%OUTFILE%" (
   goto :eof
 )
 
-REM ---- verify: the right array name, and a complete declaration ----
-REM A truncated header ("DWORD dw...[ ] = {" with no closing brace) will not
-REM compile, so check for both.
+REM ---- rewrite the generic array name, and copy the whole file ----
+REM vsa emits "DWORD dwVertexShader[]", psa "DWORD dwPixelShader[]". Every line
+REM has to be written: stopping after the declaration leaves an unterminated
+REM array that will not compile.
+set "OUTFILE=%ROOT%\out\%HEADER%"
+for %%D in ("%OUTFILE%") do if not exist "%%~dpD" md "%%~dpD"
+if exist "%OUTFILE%" del "%OUTFILE%"
+
+for /f "usebackq delims=" %%L in ("%PROD%") do (
+  set "LINE=%%L"
+  set "LINE=!LINE:dwVertexShader[]=%WANT%[]!"
+  set "LINE=!LINE:dwPixelShader[]=%WANT%[]!"
+  >>"%OUTFILE%" echo !LINE!
+)
+
+REM ---- verify: right array name, and a complete declaration ----
 findstr /C:"DWORD %WANT%[]" "%OUTFILE%" >nul
 if errorlevel 1 (
   set /a BAD+=1
@@ -171,7 +192,7 @@ if errorlevel 1 (
 findstr /C:"};" "%OUTFILE%" >nul
 if errorlevel 1 (
   set /a BAD+=1
-  echo [!N!] TRUNCATED OUTPUT  %HEADER%
+  echo [!N!] TRUNCATED OUTPUT  %HEADER!
   >>"%ROOT%\out\_REPORT.txt" echo [!HEADER!] OUTPUT TRUNCATED - no closing brace
   goto :eof
 )
