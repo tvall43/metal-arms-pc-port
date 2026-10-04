@@ -65,7 +65,7 @@ if "!_DEXP_TEST!"=="ok" (
   echo        script cannot run. That should not happen on Windows XP or later.
   goto :fail
 )
-echo Shader pack version: 11
+echo Shader pack version: 12
 echo.
 
 set /a OK=0
