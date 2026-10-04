@@ -299,6 +299,26 @@ extern "C" HRESULT D3DXCreateCubeTexture(
 	for ( int i = 0; i < 6; i++ ) { if ( apFaces[i] ) apFaces[i]->Release(); }
 	if ( !pCube ) return E_OUTOFMEMORY;
 
+	// Prove every face is usable before handing the object over. The engine
+	// writes a ramp into each face via LockRect and trusts the array without
+	// re-checking, so an object containing a face that cannot be locked or
+	// described faults inside the shim rather than failing cleanly. Better to
+	// report failure here: the engine already handles a null cube map, losing
+	// per-pixel normalisation is a performance and appearance change only.
+	for ( int i = 0; i < 6; i++ )
+	{
+		D3DSURFACE_DESC d;
+		HRESULT hr = pCube->GetLevelDesc( 0, &d );
+		D3DLOCKED_RECT lr;
+		if ( SUCCEEDED( hr ) ) hr = pCube->LockRect( (D3DCUBEMAP_FACES)i, 0, &lr, NULL, D3DLOCK_READONLY );
+		if ( SUCCEEDED( hr ) ) pCube->UnlockRect( (D3DCUBEMAP_FACES)i, 0 );
+		if ( FAILED( hr ) )
+		{
+			pCube->Release();
+			return hr;
+		}
+	}
+
 	*ppCubeTexture = pCube;
 	return S_OK;
 }
