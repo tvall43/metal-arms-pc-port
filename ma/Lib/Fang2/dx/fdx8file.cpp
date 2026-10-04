@@ -242,7 +242,11 @@ FFileHandle ffile_OSDir_Open( cchar *pszFName, FFileOpenType_e nOpenMode, BOOL b
 
 	if ( hFile == INVALID_HANDLE_VALUE )
 	{
+		// This used to discard GetLastError() silently, so a failed open -- such
+		// as the asset log -- reported only "could not open". Say what failed.
 		DWORD nLastError = GetLastError();
+		DEVPRINTF( "ffile_OSDir_Open(): CreateFileA(\"%s\", mode %d) failed, error %u.\n",
+			pszFileName, (int)nOpenMode, (unsigned)nLastError );
 		return FFILE_ERROR_RET;
 	}
 
