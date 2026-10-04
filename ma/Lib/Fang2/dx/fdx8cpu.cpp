@@ -574,8 +574,26 @@ static float _MeasureFreqRDTSC( void ) {
 
 		// Convert ticks to one-hundred-thousandths of a tick...
 		//    hundred_thousandths_of_a_tick / ( 10 ticks/second ) = us
-		nTicks = nTicks * 100000;
-		nTicks = nTicks / ( nCountFreq.LowPart/10 );
+		//
+		// Done in 64 bits, and never allowed to reach zero. The original 32-bit
+		// form, 'nTicks = nTicks * 100000 / (nCountFreq.LowPart/10)', truncates to
+		// 0 whenever the sampled interval is shorter than the scaling unit. With a
+		// fast QueryPerformanceFrequency -- which is what real hardware on XP
+		// reports, unlike Wine -- the 50-tick minimum wait above is under a
+		// microsecond, so nTicks became 0 and the division at the end of this block
+		// faulted with EXCEPTION_INT_DIVIDE_BY_ZERO (0xC0000094, fdx8cpu.cpp:589).
+		{
+			const u64 nFreqPer10 = (u64)( nCountFreq.LowPart / 10 );
+			if( nFreqPer10 != 0 ) {
+				nTicks = (u32)( ((u64)nTicks * 100000ull) / nFreqPer10 );
+			}
+			if( nTicks == 0 ) {
+				// Sub-unit interval. A frequency estimate is meaningless at this
+				// resolution, but the divisions below still need a non-zero
+				// divisor, so clamp to one tick rather than fault.
+				nTicks = 1;
+			}
+		}
 
 		nTotalTicks += nTicks;
 		nTotalCycles += nCycles;
@@ -602,6 +620,12 @@ static float _MeasureFreqRDTSC( void ) {
 				 ( abs((int)(3*nFreq3 - nTotal)) > 3*_FREQ_TOLERANCE_MHZ )
 				)
 		   );
+
+	// The clamped nTicks above can leave the totals at zero if every sample was
+	// sub-unit; report 0 rather than dividing by zero for a frequency.
+	if( nTotalTicks == 0 ) {
+		return 0.0f;
+	}
 
 	return 1000000.0f * (float)nTotalCycles / (float)nTotalTicks;
 }
