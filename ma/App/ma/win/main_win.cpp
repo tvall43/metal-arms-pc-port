@@ -271,10 +271,15 @@ static LRESULT CALLBACK _DlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
 static void _AddCombo( HWND hwndDlg, int nID, int nX, int nY, int nW )
 {
+	// The height here is the height of the dropped list; the control's own
+	// height is set below. Leaving it at 200 pushed every following control
+	// 176px too far down, which put the Start and Cancel buttons outside a
+	// window that was not tall enough to contain them.
 	HWND hwnd = CreateWindowEx( 0, "COMBOBOX", "",
 		WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
 		nX, nY, nW, 200, hwndDlg, (HMENU)(INT_PTR)nID, _hInstance, NULL );
 	if( hwnd ) {
+		SetWindowPos( hwnd, HWND_TOP, nX, nY, nW, 24, SWP_NOZORDER | SWP_NOACTIVATE );
 		for( u32 i = 0; i < _cModes; i++ ) {
 			char szText[32];
 			snprintf( szText, sizeof(szText), "%u x %u", _aModes[i].nWidth, _aModes[i].nHeight );
@@ -327,13 +332,14 @@ static void _CreateDialogControls( HWND hwndDlg )
 
 	_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Resolution:" );
 	_AddCombo( hwndDlg, _ID_WIDTH, nCtrlX, nY, 120 );
-	nY += 200;
+	nY += 32;
 
 	_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Colour depth:" );
 	{
 		HWND hwnd = CreateWindowEx( 0, "COMBOBOX", "",
 			WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
 			nCtrlX, nY, 100, 120, hwndDlg, (HMENU)(INT_PTR)_ID_COLORBITS, _hInstance, NULL );
+		SetWindowPos( hwnd, HWND_TOP, nCtrlX, nY, 100, 24, SWP_NOZORDER | SWP_NOACTIVATE );
 		static const u32 aBits[] = { 32, 24, 16 };
 		for( int i = 0; i < 3; i++ ) {
 			char szText[16];
@@ -374,7 +380,7 @@ static BOOL _ShowStartupDialog( void )
 		WS_EX_DLGMODALFRAME | WS_EX_TOPMOST,
 		"MetalArmsStartup", "Metal Arms",
 		WS_POPUPWINDOW | WS_CAPTION | WS_VISIBLE,
-		CW_USEDEFAULT, CW_USEDEFAULT, 470, 330,
+		CW_USEDEFAULT, CW_USEDEFAULT, 470, 250,
 		NULL, NULL, _hInstance, NULL );
 	if( !hwndDlg ) {
 		return FALSE;
