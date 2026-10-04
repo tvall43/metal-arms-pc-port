@@ -32,9 +32,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 // Matches the retail PC defaults (App/ma/win/ma_winDlg.cpp).
-#define _MOVIE_BASE_PATH			"d:\\MOVIES\\"
+// The retail Xbox main hardcodes "d:\\MOVIES\\". Derive it from the master
+// file instead, so an install on any other drive still finds its movies.
+static char _szMoviePath[512] = "MOVIES\\";
+
+// ---------------------------------------------------------------------------
+// Diagnostics
+// ---------------------------------------------------------------------------
+//
+// The engine routes every DEVPRINTF through Fang_ConfigDefs.pFang_FcnPrintf.
+// Leaving that NULL, as this file originally did, throws all of it away, so a
+// failure during startup produced no output at all. Send it to stdout and to a
+// log file beside the executable, which survives being launched from a file
+// manager where stdout is lost.
+static FILE *_pLogFile = NULL;
+
+static void _Trace( const char *pszFormat, ... )
+{
+	char szBuf[2048];
+	va_list args;
+	va_start( args, pszFormat );
+	vsnprintf( szBuf, sizeof(szBuf), pszFormat, args );
+	va_end( args );
+
+	printf( "%s", szBuf );
+	fflush( stdout );
+	if ( _pLogFile ) {
+		fputs( szBuf, _pLogFile );
+		fflush( _pLogFile );
+	}
+}
+
+static void _OpenLog( void )
+{
+	char szExe[MAX_PATH] = "";
+	DWORD nLen = GetModuleFileName( NULL, szExe, MAX_PATH );
+	if ( nLen == 0 || nLen >= MAX_PATH ) return;
+
+	char szDir[MAX_PATH] = "";
+	memcpy( szDir, szExe, nLen + 1 );
+	char *pSlash = strrchr( szDir, '\\' );
+	if ( pSlash ) { *(pSlash+1) = '\0'; } else { szDir[0] = '\0'; }
+	strncat( szDir, "ma_win_log.txt", MAX_PATH - strlen(szDir) - 1 );
+	_pLogFile = fopen( szDir, "w" );
+}
+
+// The engine's own logging: same signature as FangFcnPrintf_t.
+static void _FangPrintf( const char *pszFormat, FANG_VA_LIST Args )
+{
+	char szBuf[2048];
+	vsnprintf( szBuf, sizeof(szBuf), pszFormat, Args );
+	_Trace( "%s", szBuf );
+}
 
 // ---------------------------------------------------------------------------
 // Global startup configuration, filled by the dialog and read by _RunGame.
@@ -421,14 +473,33 @@ static void _GameloopMinimizeFunction( void )
 
 static BOOL _RunGame( void )
 {
+	{
+		char szDir[512] = "";
+		strncpy( szDir, _szMasterFile, sizeof(szDir) - 1 );
+		char *pSlash = strrchr( szDir, '\\' );
+		if ( pSlash ) {
+			*(pSlash+1) = '\0';
+			strncat( szDir, "MOVIES\\", sizeof(szDir) - strlen(szDir) - 1 );
+		} else {
+			strncpy( szDir, "MOVIES\\", sizeof(szDir) - 1 );
+		}
+		strncpy( _szMoviePath, szDir, sizeof(_szMoviePath) - 1 );
+	}
+
+	_Trace( "[ma] ---- startup ----\n" );
+	_Trace( "[ma] master file : %s\n", _szMasterFile );
+	_Trace( "[ma] level       : %s\n", _szLevelFile[0] ? _szLevelFile : "(none)" );
+	_Trace( "[ma] video       : %ux%u %u-bit\n", _nScreenWidth, _nScreenHeight, _nColorBits );
+
 	fang_Init();
+	_Trace( "[ma] fang_Init done\n" );
 
 	// Same configuration the retail PC dialog used
 	// (App/ma/win/ma_winDlg.cpp, CMa_winDlg::OnInitDialog / OnButtonRun).
 	Fang_ConfigDefs.nRes_HeapBytes			= (64) * 1024 * 1024;
 	Fang_ConfigDefs.pszFile_MasterFilePathName	= _szMasterFile;
-	Fang_ConfigDefs.pszMovie_BasePathName		= _MOVIE_BASE_PATH;
-	Fang_ConfigDefs.pFang_FcnPrintf			= NULL;
+	Fang_ConfigDefs.pszMovie_BasePathName		= _szMoviePath;
+	Fang_ConfigDefs.pFang_FcnPrintf			= _FangPrintf;
 	Fang_ConfigDefs.nAudio_MaxSoundBytes		= (1024 * (36 * 1024));
 	Fang_ConfigDefs.nAMem_FastAuxiliaryMemoryBytes	= 4048000;
 	Fang_ConfigDefs.bCheckPoint_StartupSystem	= TRUE;
@@ -439,9 +510,13 @@ static BOOL _RunGame( void )
 	Fang_ConfigDefs.nMaxParticleEmitterSprites	= 1000;
 
 	if( !fang_Startup() ) {
-		MessageBoxA( NULL, "The Fang engine failed to start.", "Metal Arms", MB_OK | MB_ICONERROR );
+		_Trace( "[ma] fang_Startup FAILED\n" );
+		MessageBoxA( NULL, "The Fang engine failed to start.\n\n"
+						   "See ma_win_log.txt next to the executable for details.",
+						"Metal Arms", MB_OK | MB_ICONERROR );
 		return FALSE;
 	}
+	_Trace( "[ma] fang_Startup ok\n" );
 
 	// Re-read the master file in case it was rebuilt since launch.
 	Fang_ConfigDefs.pszFile_MasterFilePathName	= _szMasterFile;
@@ -501,7 +576,15 @@ static BOOL _RunGame( void )
 	pVidWin->pFcnSuspend		= NULL;
 	strcpy( pVidWin->szWindowTitle, "Mettle Arms" );
 
-	return gameloop_Start( &GameloopParms );
+	_Trace( "[ma] calling gameloop_Start...\n" );
+	const BOOL bStarted = gameloop_Start( &GameloopParms );
+	_Trace( "[ma] gameloop_Start returned %d\n", bStarted );
+	if( !bStarted ) {
+		MessageBoxA( NULL, "The game loop failed to start.\n\n"
+						   "See ma_win_log.txt next to the executable for details.",
+						"Metal Arms", MB_OK | MB_ICONERROR );
+	}
+	return bStarted;
 }
 
 // ---------------------------------------------------------------------------
@@ -515,6 +598,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	(void)nCmdShow;
 
 	_hInstance = hInstance;
+
+	_OpenLog();
+	_Trace( "[ma] WinMain, exe = %s\n", "?" );
 
 	CoInitialize( NULL );
 
