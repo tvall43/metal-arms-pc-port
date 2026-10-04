@@ -2827,17 +2827,31 @@ BOOL _CreateNormalizationCubeMap(u32 nWidth)
 
 	u32 nD3DFormat = D3DFMT_X8R8G8B8;
 	u32 i, x, y;
+	BOOL _bCubeMapFailed = FALSE;
 
-	for (i = 0; i < 6; i++)
+	for (i = 0; i < 6 && !_bCubeMapFailed; i++)
 	{
 		D3DLOCKED_RECT Locked;
 		D3DXVECTOR3 Normal;
 		float w,h;
 		D3DSURFACE_DESC ddsdDesc;
 		
-		_pNormalizeCube->GetLevelDesc(0, &ddsdDesc);
-		_pNormalizeCube->LockRect((D3DCUBEMAP_FACES)i, 0, &Locked, NULL, 0);
-
+		// Check both calls. The normalisation cube is an optimisation for per-pixel
+		// lighting, so failing to build it is not fatal -- but the writes below go
+		// through D3DLOCKED_RECT::pBits unconditionally, and if LockRect failed
+		// that is NULL. It fails when the D3D8 device is not in a usable state,
+		// which is easy to hit: a display mode change that the OS rejects leaves
+		// surfaces un-lockable.
+		if( FAILED( _pNormalizeCube->GetLevelDesc(0, &ddsdDesc) ) ) {
+			DEVPRINTF( "_CreateNormalizationCubeMap(): GetLevelDesc failed for face %u.\n", (unsigned)i );
+			_bCubeMapFailed = TRUE;
+			break;
+		}
+		if( FAILED( _pNormalizeCube->LockRect((D3DCUBEMAP_FACES)i, 0, &Locked, NULL, 0) ) ) {
+			DEVPRINTF( "_CreateNormalizationCubeMap(): LockRect failed for face %u.\n", (unsigned)i );
+			_bCubeMapFailed = TRUE;
+			break;
+		}
 
 		for (y = 0; y < ddsdDesc.Height; y++)
 		{
@@ -2888,6 +2902,14 @@ BOOL _CreateNormalizationCubeMap(u32 nWidth)
 			}
 		}
 		_pNormalizeCube->UnlockRect((D3DCUBEMAP_FACES)i, 0);
+	}
+
+	if( _bCubeMapFailed ) {
+		// Do not leave a half-initialised cube map behind for the shader to sample.
+		DEVPRINTF( "_CreateNormalizationCubeMap(): giving up; per-pixel lighting will run without it.\n" );
+		_pNormalizeCube->Release();
+		_pNormalizeCube = NULL;
+		return E_FAIL;
 	}
 
 	return TRUE;
