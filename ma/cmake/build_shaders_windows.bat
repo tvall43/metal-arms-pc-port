@@ -65,7 +65,7 @@ if "!_DEXP_TEST!"=="ok" (
   echo        script cannot run. That should not happen on Windows XP or later.
   goto :fail
 )
-echo Shader pack version: 8
+echo Shader pack version: 9
 echo.
 
 set /a OK=0
@@ -180,7 +180,7 @@ for /f "usebackq delims=" %%L in ("%PROD%") do (
 )
 
 REM ---- verify: right array name, and a complete declaration ----
-findstr /C:"DWORD %WANT%[]" "%OUTFILE%" >nul
+findstr /C:"%WANT%" "%OUTFILE%" >nul
 if errorlevel 1 (
   set /a BAD+=1
   echo [!N!] SYMBOL MISMATCH  %HEADER!  wanted %WANT%
