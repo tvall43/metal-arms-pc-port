@@ -2273,6 +2273,10 @@ static BOOL _CreateWindow( void )
 {
 	DWORD nClearFlags;
 
+	DEVPRINTF( "fvid: _CreateWindow() entered, mode %ux%u %u-bit\n",
+		(unsigned)FVid_Mode.nPixelsAcross, (unsigned)FVid_Mode.nPixelsDown,
+		(unsigned)FVid_Mode.nColorBits );
+
 //	D3DPERF_SetShowFrameRateInterval( 5000 );
 //	D3DPERF_GetStatistics()->m_dwDumpFPSInfoMask |= D3DPERF_DUMP_FPS_PERFPROFILE;
 
@@ -2955,6 +2959,7 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 
 	case WM_CLOSE:
 		// User requested to close the window...
+		DEVPRINTF( "fvid: WM_CLOSE received on the render window.\n" );
 		_bUserClickedClose = TRUE;
 		floop_PauseGameloop( FALSE );
 		return 0;

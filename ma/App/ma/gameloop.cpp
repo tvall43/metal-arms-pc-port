@@ -911,6 +911,8 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 	fperf_TimerReport( FPERF_SIM, FPERF_TIMER_START );
 
 	if( bExitRequest || _bExitGameloop ) {
+		DEVPRINTF( "gameloop: exit (bExitRequest=%d _bExitGameloop=%d).\n",
+			(int)bExitRequest, (int)_bExitGameloop );
 		return FALSE;
 	}
 
@@ -956,6 +958,7 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 		// Windows-specific code...
 
 		if( fvid_HasUserClosedWindow() ) {
+			DEVPRINTF( "gameloop: exit because the render window was closed.\n" );
 			return FALSE;
 		}
 
