@@ -90,6 +90,52 @@ static void _FangPrintf( const char *pszFormat, FANG_VA_LIST Args )
 }
 
 // ---------------------------------------------------------------------------
+// Crash logging
+// ---------------------------------------------------------------------------
+//
+// A vectored exception handler installed before anything else runs, so a crash
+// is recorded with its faulting address even when Windows Error Reporting
+// swallows the process into a dialog. The address is what matters: ma_win.exe is
+// built with DWARF, so it can be resolved to a source line afterwards.
+//
+// This deliberately logs only. Handling the fault would turn a hard crash into
+// undefined behaviour.
+static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
+{
+	if( !pEP || !pEP->ExceptionRecord ) return EXCEPTION_CONTINUE_SEARCH;
+
+	const EXCEPTION_RECORD *pRec = pEP->ExceptionRecord;
+	_Trace( "\n[ma] *** CRASH ***\n" );
+	_Trace( "[ma] exception code : 0x%08lX\n", (unsigned long)pRec->ExceptionCode );
+	_Trace( "[ma] faulting addr  : 0x%08lX\n", (unsigned long)pRec->ExceptionAddress );
+	_Trace( "[ma] EAX=%08lX EBX=%08lX ECX=%08lX EDX=%08lX\n",
+		(unsigned long)pRec->ExceptionInformation[0], (unsigned long)pRec->ExceptionInformation[1],
+		(unsigned long)pRec->ExceptionInformation[2], (unsigned long)pRec->ExceptionInformation[3] );
+
+	// Name the module the address belongs to, so a fault inside a DLL is
+	// distinguishable from one in our own code.
+	HMODULE hMod = NULL;
+	if( GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+	                        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+	                        (LPCTSTR)pRec->ExceptionAddress, &hMod ) )
+	{
+		char szMod[MAX_PATH] = "";
+		if( GetModuleFileNameA( hMod, szMod, MAX_PATH ) )
+		{
+			_Trace( "[ma] in module      : %s\n", szMod );
+		}
+		_Trace( "[ma] module base    : 0x%08lX  (offset 0x%08lX)\n",
+			(unsigned long)(ULONG_PTR)hMod,
+			(unsigned long)( (ULONG_PTR)pRec->ExceptionAddress - (ULONG_PTR)hMod ) );
+	}
+	_Trace( "[ma] ma_win.exe base: 0x%08lX\n", (unsigned long)(ULONG_PTR)GetModuleHandleA( "ma_win.exe" ) );
+
+	fflush( stdout );
+	if( _pLogFile ) fflush( _pLogFile );
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
+// ---------------------------------------------------------------------------
 // Global startup configuration, filled by the dialog and read by _RunGame.
 // ---------------------------------------------------------------------------
 
@@ -631,7 +677,12 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	_hInstance = hInstance;
 
 	_OpenLog();
-	_Trace( "[ma] WinMain, exe = %s\n", "?" );
+	AddVectoredExceptionHandler( 1, _CrashLogger );
+	{
+		char szExe[MAX_PATH] = "";
+		GetModuleFileNameA( NULL, szExe, MAX_PATH );
+		_Trace( "[ma] WinMain, exe = %s\n", szExe );
+	}
 
 	CoInitialize( NULL );
 
