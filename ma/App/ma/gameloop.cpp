@@ -1037,6 +1037,7 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 	if( _pFcnWork ) {
 		if( !_pFcnWork() ) {
 			PROTRACK_ENDBLOCK();	//"Work
+			DEVPRINTF( "gameloop: exit because the game work function failed.\n" );
 			return FALSE;
 		}
 	}
@@ -1062,6 +1063,7 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 	if(Gameloop_bSwapEnabled)
 	{
 		if( !fvid_Swap() ) {
+			DEVPRINTF( "gameloop: exit because fvid_Swap() failed.\n" );
 			return FALSE;
 		}
 	}
@@ -1080,6 +1082,7 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 			if( !_pFcnDraw() ) {
 				PROTRACK_ENDBLOCK();	//"Draw
 				fvid_End();
+				DEVPRINTF( "gameloop: exit because the game draw function failed.\n" );
 				return FALSE;
 			}
 		}
