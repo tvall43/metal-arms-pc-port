@@ -22,12 +22,10 @@
 #include "fvid.h" 
 #include "fclib.h"
 #include <stdio.h>
-#include "ijl.h"
  
 //====================
 // private definitions
 
-#pragma comment(lib, "ijl15l.lib")
 
 #define _TGA_SIGNATURE				"TRUEVISION-XFILE.\0"
 #define _TGA_HEADER_SIZE_IN_BYTES	18
@@ -89,7 +87,7 @@ static TgaFooter_t _TGAFooter;
 
 static void _Reset();
 static cchar *_CreateFullFileName( BOOL bSingle );
-static BOOL _SaveAsJPEG( cchar *pszPathName, const u8 *pn24BitImageData );
+static BOOL _SaveAsBMP( cchar *pszPathName, const u8 *pn24BitImageData );
 static void _ConvertToJpegFilename( void );
 
 //=================
@@ -270,7 +268,7 @@ BOOL screengrab_CaptureTheScreen( BOOL bSingle, ScreenGrabOutputType_e nOutputTy
 	case SCREEN_GRAB_OUTPUT_TYPE_JPEG:
 		// write out a jpeg file
 		_ConvertToJpegFilename();
-		bReturnVal = _SaveAsJPEG( _pszFullFileName, (const u8 *)_pDiskImage );
+		bReturnVal = _SaveAsBMP( _pszFullFileName, (const u8 *)_pDiskImage );
 		break;
 	}
 
@@ -315,58 +313,81 @@ static cchar *_CreateFullFileName( BOOL bSingle ) {
 	return _pszFullFileName;
 }
 
-static BOOL _SaveAsJPEG( cchar *pszPathName, const u8 *pn24BitImageData ) {
-    JPEG_CORE_PROPERTIES image;
+// Writes the 24-bit BGR buffer as an uncompressed 24-bit BMP.
+//
+// This used to encode a JPEG through the Intel JPEG Library (ijl15l.lib). That
+// library is an MSVC-compiled static library whose objects reference _except_list
+// and _aullshr from the MSVC C runtime, neither of which mingw provides, so it
+// cannot be linked into this build at all -- it took ScreenGrab.cpp out of the
+// target and with it the in-game screenshot feature. The capture itself is
+// independent of the file format, so writing a BMP keeps the feature working.
+static BOOL _SaveAsBMP( cchar *pszPathName, const u8 *pn24BitImageData ) {
+	const s32 nWidth  = (s32)FVid_Mode.nPixelsAcross;
+	const s32 nHeight = (s32)FVid_Mode.nPixelsDown;
+	if ( nWidth <= 0 || nHeight <= 0 ) return FALSE;
 
-    ZeroMemory( &image, sizeof( JPEG_CORE_PROPERTIES ) );
+	// Each BMP scanline is padded to a 4-byte boundary.
+	const s32 nRowBytes = ( (nWidth * 3 + 3) / 4 ) * 4;
+	const DWORD dwPixelBytes = (DWORD)nRowBytes * (DWORD)nHeight;
+	const DWORD dwFileSize = 14 + 40 + dwPixelBytes;
 
-	if( ijlInit( &image ) != IJL_OK ) {
-		DEVPRINTF( "Can't initialize Intel(R) JPEG library\n" );
+	BITMAPFILEHEADER bf;
+	ZeroMemory( &bf, sizeof(bf) );
+	bf.bfType      = 0x4D42;               // 'BM'
+	bf.bfSize      = dwFileSize;
+	bf.bfOffBits   = 14 + 40;
+	bf.bfReserved1 = 0;
+	bf.bfReserved2 = 0;
+
+	BITMAPINFOHEADER bi;
+	ZeroMemory( &bi, sizeof(bi) );
+	bi.biSize          = 40;
+	bi.biWidth         = nWidth;
+	bi.biHeight        = -nHeight;        // negative: top-down rows
+	bi.biPlanes        = 1;
+	bi.biBitCount      = 24;
+	bi.biCompression   = BI_RGB;
+	bi.biSizeImage     = dwPixelBytes;
+
+	FILE *pFile = fopen( pszPathName, "wb" );
+	if ( !pFile ) {
+		DEVPRINTF( "Could not open '%s' for writing\n", pszPathName );
 		return FALSE;
 	}
+	BOOL bOK = (fwrite( &bf, sizeof(bf), 1, pFile) == 1)
+	        && (fwrite( &bi, sizeof(bi), 1, pFile) == 1);
 
-    // Setup DIB
-	image.DIBWidth			= FVid_Mode.nPixelsAcross;
-    image.DIBHeight			= FVid_Mode.nPixelsDown;
-    image.DIBBytes			= (unsigned char *)pn24BitImageData;
-							
-    // Setup JPEG			
-    image.JPGFile			= pszPathName;
-    image.JPGWidth			= FVid_Mode.nPixelsAcross;
-    image.JPGHeight			= FVid_Mode.nPixelsDown;
-
-	image.DIBColor			= IJL_BGR;
-	image.DIBChannels		= 3;
-	image.DIBPadBytes		= 0;
-	image.JPGColor			= IJL_YCBCR;
-	image.JPGChannels		= 3;
-	image.JPGSubsampling	= IJL_422;
-	image.jquality			= 100;
-
-	image.jprops.upsampling_type = IJL_TRIANGLE_FILTER; 
-	image.jprops.progressive_found = 1; 
-        
-	if( ijlWrite( &image, IJL_JFILE_WRITEWHOLEIMAGE ) != IJL_OK ) {
-		DEVPRINTF( "Can't write image\n" );
-		ijlFree( &image );	
+	// Bottom-up in the file, so the rows go out in reverse.
+	u8 *pRow = (u8 *)malloc( nRowBytes );
+	if ( !pRow ) {
+		fclose( pFile );
 		return FALSE;
 	}
-	
-	if( ijlFree( &image ) != IJL_OK ) {
-		DEVPRINTF( "Can't free Intel(R) JPEG library\n" );
-		return FALSE;
+	for ( s32 y = 0; bOK && y < nHeight; y++ ) {
+		memset( pRow, 0, nRowBytes );
+		memcpy( pRow, pn24BitImageData + (size_t)y * (size_t)nWidth * 3, (size_t)nWidth * 3 );
+		bOK = (fwrite( pRow, 1, nRowBytes, pFile) == (size_t)nRowBytes);
 	}
+	free( pRow );
+	fclose( pFile );
 
-    return TRUE;
+	if ( !bOK ) {
+		DEVPRINTF( "Could not write '%s'\n", pszPathName );
+	}
+	return bOK;
 }
 
 static void _ConvertToJpegFilename( void ) {
+	// Only the extension is changed. _SaveAsBMP writes a BMP (see its comment),
+	// so the file has to be named .bmp rather than .jpg. The function keeps its
+	// original name because SCREEN_GRAB_OUTPUT_TYPE_JPEG and its callers are
+	// unchanged.
 	s32 nLen = fclib_strlen( _pszFullFileName );
 	if( nLen > 3 ) {
 		// assume that the last 3 characters are the extension
-		_pszFullFileName[nLen-3] = 'J';
-		_pszFullFileName[nLen-2] = 'P';
-		_pszFullFileName[nLen-1] = 'G';
+		_pszFullFileName[nLen-3] = 'B';
+		_pszFullFileName[nLen-2] = 'M';
+		_pszFullFileName[nLen-1] = 'P';
 	}
 }
  
