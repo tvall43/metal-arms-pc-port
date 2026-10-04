@@ -1,4 +1,7 @@
 @echo off
+REM Delayed expansion is required: :one reads !ASM!, !LINE! etc. at execution
+REM time, and the counters are updated inside a subroutine.
+setlocal EnableDelayedExpansion
 REM ===========================================================================
 REM  build_all.bat -- assemble the Metal Arms Direct3D8 shaders.
 REM
@@ -13,7 +16,7 @@ REM
 REM  Usage:  build_all.bat
 REM
 REM  manifest.txt lines are:
-REM      <header to write>|<source file under src\>|<array name the engine uses>
+REM      <header to write>|<source file under src\>|<array name the engine uses>|<aliases>
 REM
 REM  The third field matters: the assembler always emits a generically named
 REM  array ("dwVertexShader" / "dwPixelShader"), but the engine expects a
@@ -49,7 +52,7 @@ set /a OK=0
 set /a BAD=0
 set /a N=0
 
-for /f "usebackq tokens=1,2,3 delims=|" %%A in ("%ROOT%\manifest.txt") do call :one "%%A" "%%B" "%%C"
+for /f "usebackq tokens=1,2,3,4 delims=|" %%A in ("%ROOT%\manifest.txt") do call :one "%%A" "%%B" "%%C" "%%D"
 
 echo.
 echo ============================================================
@@ -66,13 +69,17 @@ if not "!BAD!"=="0" (
 exit /b 0
 
 REM ---------------------------------------------------------------------------
-REM  :one  <target header>  <source file>  <array name>
+REM  :one  <target header>  <source file>  <array name>  <aliases>
 REM ---------------------------------------------------------------------------
 :one
 set /a N+=1
 set "HEADER=%~1"
 set "SRC=%~2"
 set "WANT=%~3"
+REM Aliases are ";"-separated. Three shaders are referenced by the engine under
+REM both the fdx8 and fxb spellings but only ship one header, so the header
+REM has to answer to both names.
+set "ALIASES=%~4"
 
 REM ---- derive the assembler's input basename from the required header name ----
 REM   CompiledVShaderfdx8PassThru_1tc.h  ->  fdx8PassThru_1tc
@@ -125,7 +132,7 @@ if not defined PROD (
 REM ---- rewrite the generic array name to the one the engine expects ----
 REM vsa emits "DWORD dwVertexShader[]", psa emits "DWORD dwPixelShader[]".
 set "OUTFILE=%ROOT%\out\%HEADER%"
-for %%D in ("%OUTFILE%") do if not "%%~dpD"=="%ROOT%\out\" md "%%~dpD"
+for %%D in ("%OUTFILE%") do if not exist "%%~dpD" md "%%~dpD"
 
 set "WROTE="
 for /f "usebackq delims=" %%L in ("%PROD%") do (
@@ -136,6 +143,11 @@ for /f "usebackq delims=" %%L in ("%PROD%") do (
     >"%OUTFILE%" echo !LINE!
     set "WROTE=1"
   )
+)
+
+REM Append the alternate names, if this shader has any.
+if defined ALIASES (
+  for %%A in ("!ALIASES:";=" ") do >>"%OUTFILE%" echo #define %%A %WANT%
 )
 
 if not defined WROTE (
