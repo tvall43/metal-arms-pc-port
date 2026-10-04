@@ -544,25 +544,6 @@ static BOOL _RunGame( void )
 		strncpy( _szMoviePath, szDir, sizeof(_szMoviePath) - 1 );
 	}
 
-	// Name the asset log before the gameloop starts. ffile_LogStart() only sets
-	// _bLogSystemOK if it can open this file, and ffile_LogStop() asserts on that
-	// flag -- gameloop.cpp:641 calls LogStart and :826/:839 call LogStop. With no
-	// filename set the open fails, the flag stays false, and the assert fires on
-	// XP. The retail dialog did the same thing (ma_winDlg.cpp:431), appending
-	// "_asset_log.txt" to the executable's own path.
-	{
-		char szLogPath[MAX_PATH] = "";
-		if( GetModuleFileNameA( NULL, szLogPath, MAX_PATH ) ) {
-			char *pDot = strrchr( szLogPath, '.' );
-			if( pDot ) *pDot = '\0';
-			strncat( szLogPath, "_asset_log.txt", MAX_PATH - strlen(szLogPath) - 1 );
-			_Trace( "[ma] asset log    : %s\n", szLogPath );
-			if( !ffile_LogSetFilename( szLogPath ) ) {
-				_Trace( "[ma] could not open the asset log; logging will be disabled\n" );
-			}
-		}
-	}
-
 	_Trace( "[ma] ---- startup ----\n" );
 	_Trace( "[ma] master file : %s\n", _szMasterFile );
 	_Trace( "[ma] level       : %s\n", _szLevelFile[0] ? _szLevelFile : "(none)" );
@@ -594,6 +575,30 @@ static BOOL _RunGame( void )
 		return FALSE;
 	}
 	_Trace( "[ma] fang_Startup ok\n" );
+
+	// Name the asset log once the file module is up. ffile_LogStart() only sets
+	// _bLogSystemOK if it can open this file, and ffile_LogStop() asserts on that
+	// flag -- gameloop.cpp:641 calls LogStart and :826/:839 call LogStop. With no
+	// filename set the open fails and the flag stays false.
+	//
+	// This has to happen after fang_Startup(), not before it: ffile_OSDir_Open()
+	// uses the file module's cookie table and its _bModuleInitialized flag, and
+	// neither exists until the module has started. The retail dialog did the same thing (ma_winDlg.cpp:431), appending
+	// "_asset_log.txt" to the executable's own path.
+	{
+		char szLogPath[MAX_PATH] = "";
+		if( GetModuleFileNameA( NULL, szLogPath, MAX_PATH ) ) {
+			char *pDot = strrchr( szLogPath, '.' );
+			if( pDot ) *pDot = '\0';
+			strncat( szLogPath, "_asset_log.txt", MAX_PATH - strlen(szLogPath) - 1 );
+			_Trace( "[ma] asset log    : %s\n", szLogPath );
+			if( !ffile_LogSetFilename( szLogPath ) ) {
+				_Trace( "[ma] could not open the asset log; logging will be disabled\n" );
+			}
+		}
+	}
+
+
 
 	// Re-read the master file in case it was rebuilt since launch.
 	Fang_ConfigDefs.pszFile_MasterFilePathName	= _szMasterFile;
