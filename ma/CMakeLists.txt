@@ -58,6 +58,17 @@ add_compile_options(
   -Wno-long-long
 )
 
+# Link the MinGW runtime statically. Otherwise ma_win.exe imports
+# libgcc_s_dw2-1.dll and libstdc++-6.dll, which then have to be shipped next to
+# it -- Wine reported exactly that as a load failure. -static-libgcc and
+# -static-libstdc++ remove those two, and -static also folds in winpthread, so
+# the executable is self-contained.
+if (MINGW)
+  # -static rather than the individual -static-lib* flags: CMake reorders the
+  # libraries after them, which left libwinpthread-1.dll still imported.
+  add_link_options(-static)
+endif()
+
 include(cmake/sources_smallamx.cmake)
 include(cmake/sources_fang2win.cmake)
 include(cmake/sources_ma_win.cmake)
