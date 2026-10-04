@@ -26,6 +26,7 @@
 #include "../gameloop.h"
 #include "Settings.h"
 #include "floop.h"
+#include "ffile.h"
 
 #include <windows.h>
 #include <commdlg.h>
@@ -539,6 +540,23 @@ static BOOL _RunGame( void )
 			strncpy( szDir, "MOVIES\\", sizeof(szDir) - 1 );
 		}
 		strncpy( _szMoviePath, szDir, sizeof(_szMoviePath) - 1 );
+	}
+
+	// Name the asset log before the gameloop starts. ffile_LogStart() only sets
+	// _bLogSystemOK if it can open this file, and ffile_LogStop() asserts on that
+	// flag -- gameloop.cpp:641 calls LogStart and :826/:839 call LogStop. With no
+	// filename set the open fails, the flag stays false, and the assert fires on
+	// XP. The retail dialog did the same thing (ma_winDlg.cpp:431), appending
+	// "_asset_log.txt" to the executable's own path.
+	{
+		char szLogPath[MAX_PATH] = "";
+		if( GetModuleFileNameA( NULL, szLogPath, MAX_PATH ) ) {
+			char *pDot = strrchr( szLogPath, '.' );
+			if( pDot ) *pDot = '\0';
+			strncat( szLogPath, "_asset_log.txt", MAX_PATH - strlen(szLogPath) - 1 );
+			_Trace( "[ma] asset log    : %s\n", szLogPath );
+			ffile_LogSetFilename( szLogPath );
+		}
 	}
 
 	_Trace( "[ma] ---- startup ----\n" );
