@@ -105,6 +105,14 @@ static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
 	if( !pEP || !pEP->ExceptionRecord ) return EXCEPTION_CONTINUE_SEARCH;
 
 	const EXCEPTION_RECORD *pRec = pEP->ExceptionRecord;
+
+	// 0x40010006 is DBG_PRINTEXCEPTION_C, which kernel32 raises internally for
+	// OutputDebugString when nothing is attached to read it. It is not a fault
+	// and execution continues, so logging it only buries the real one.
+	if( pRec->ExceptionCode == 0x40010006u ) {
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
+
 	_Trace( "\n[ma] *** CRASH ***\n" );
 	_Trace( "[ma] exception code : 0x%08lX\n", (unsigned long)pRec->ExceptionCode );
 	_Trace( "[ma] faulting addr  : 0x%08lX\n", (unsigned long)pRec->ExceptionAddress );

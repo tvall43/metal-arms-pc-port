@@ -552,9 +552,16 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 	}
 	if( i == _nAdapterArrayCount ) 
 	{
-		// Adapter not found...
-		//return FALSE;
-
+		// Adapter not found. Falling back to the first adapter is only meaningful
+		// if there is one: with no adapters enumerated _pAdapterArray is NULL and
+		// &_pAdapterArray[0] is NULL, which was then dereferenced a few lines
+		// below. Report it instead of faulting.
+		DEVPRINTF( "fvid_CreateWindow(): adapter '%s' not found (%u enumerated).\n",
+			pWinInfo->VidDev.szName, (unsigned)_nAdapterArrayCount );
+		if( _nAdapterArrayCount == 0 || _pAdapterArray == NULL ) {
+			DEVPRINTF( "fvid_CreateWindow(): no D3D adapters available at all.\n" );
+			return FALSE;
+		}
 		pCurAdapterInfo = &_pAdapterArray[0];
 	}
 
@@ -586,8 +593,20 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 	}
 	if( i == pCurAdapterInfo->nVidModeCount ) 
 	{
-		// Mode not found...
-		//return FALSE;
+		// Mode not found. The fallback to the first enumerated mode is only valid
+		// when there is one. With an empty mode array -- which is what happens
+		// when D3D8 enumerates no modes for the requested renderer, e.g. a
+		// machine with no usable hardware D3D8 device -- pVidModeArray is NULL and
+		// the fallback yields NULL, and the assignment below faults. That is the
+		// access violation at fdx8vid.cpp:597.
+		DEVPRINTF( "fvid_CreateWindow(): %ux%u %u-bit not found among %u enumerated modes for adapter '%s'.\n",
+			(unsigned)pWinInfo->VidMode.nPixelsAcross, (unsigned)pWinInfo->VidMode.nPixelsDown,
+			(unsigned)pWinInfo->VidMode.nColorBits,
+			(unsigned)pCurAdapterInfo->nVidModeCount, pCurAdapterInfo->VidDev.szName );
+		if( pCurAdapterInfo->nVidModeCount == 0 || pCurAdapterInfo->pVidModeArray == NULL ) {
+			DEVPRINTF( "fvid_CreateWindow(): that adapter reports no video modes.\n" );
+			return FALSE;
+		}
 		pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[0];
 	}
 
