@@ -688,6 +688,7 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 //
 void fvid_DestroyWindow( void ) 
 {
+	DEVPRINTF( "fvid: fvid_DestroyWindow()\n" );
 	FASSERT( _bModuleInitialized );
 
 	if( FVid_bOnline ) 
@@ -3014,6 +3015,14 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 			break;
 		}
 		break;
+
+	case WM_DESTROY:
+		DEVPRINTF( "fvid: WM_DESTROY on the render window.\n" );
+		break;
+
+	case WM_SHOWWINDOW:
+		DEVPRINTF( "fvid: WM_SHOWWINDOW (fShow=%d)\n", (int)wParam );
+		return 0;
 
 	case WM_CLOSE:
 		// User requested to close the window...

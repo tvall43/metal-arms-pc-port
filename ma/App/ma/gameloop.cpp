@@ -905,6 +905,15 @@ static void _GameTerm( FLoopTermCode_t nTermCode, void *pParameter ) {
 // Called once per game loop.
 static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 	GameloopInitParm_t *pParm = (GameloopInitParm_t *)pParameter;
+	static u32 _nFramesSeen = 0;
+
+	// A window that appears and then vanishes needs to be distinguishable from a
+	// loop that has stopped: report the first few frames, then every 300th.
+	_nFramesSeen++;
+	if( _nFramesSeen <= 3 || (_nFramesSeen % 300) == 0 ) {
+		DEVPRINTF( "gameloop: frame %u (focus=%d windowOpen=%d)\n",
+			(unsigned)_nFramesSeen, (int)fdx8vid_HaveFocus(), (int)fvid_HasUserClosedWindow() );
+	}
 
 	fperf_TimerReport( FPERF_FRAME, FPERF_TIMER_END );
 	fperf_TimerReport( FPERF_FRAME, FPERF_TIMER_START );
