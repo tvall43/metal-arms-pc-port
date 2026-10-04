@@ -42,7 +42,7 @@ REM modifiers these shaders use, but it demands explicit dcl_position /
 REM dcl_texcoord varying declarations and so rejects 134 of the 239. See the
 REM comment in :one.
 set "PSA=%ROOT%\tools\psa.exe"
-set "SRCDIR=%ROOT%\src"
+set "SRCDIR=%ROOT%\flat"
 
 if not exist "%VSA%" (
   echo ERROR: cannot find "%VSA%".
@@ -65,7 +65,7 @@ if "!_DEXP_TEST!"=="ok" (
   echo        script cannot run. That should not happen on Windows XP or later.
   goto :fail
 )
-echo Shader pack version: 7
+echo Shader pack version: 8
 echo.
 
 set /a OK=0
@@ -142,21 +142,19 @@ REM assemble this source set at all.)
 set "STAGE=%ROOT%\work"
 if exist "%STAGE%" rd /s /q "%STAGE%"
 md "%STAGE%"
-REM Stage every header in src\ as well as the source itself: 106 of the sources
-REM do "#include fdx8vshader_const.h", which defines the CV_* constants they
-REM then use as c[CV_WORLDVIEWPROJ_0].
-for %%H in ("%SRCDIR%\*.h") do copy /y "%%H" "%STAGE%\" >nul
+REM Sources come from flat\, which are preprocessed: the 8.1 assembler has no
+REM preprocessor at all ("preprocessor directives are not supported"), so
+REM #include and #define are expanded ahead of time. Nothing else is staged, so
+REM the only .h in STAGE is the one the assembler writes.
 copy /y "%SRCDIR%\%SRC%" "%STAGE%\%BASE%%EXT%" >nul
 
 pushd "%STAGE%"
 "!ASM!" -h "%BASE%%EXT%" >"%ROOT%\work\assembler.log" 2>&1
 popd
 
-REM Find the header the assembler produced. The #include headers staged above
-REM also match *.h, and fdx8vshader_const.h sorts last for most shader names, so
-REM it has to be excluded or its contents get copied out as the shader.
+REM The only .h in STAGE is the one the assembler wrote.
 set "PROD="
-for %%F in ("%STAGE%\*.h") do if /I not "%%~nxF"=="fdx8vshader_const.h" set "PROD=%%F"
+for %%F in ("%STAGE%\*.h") do set "PROD=%%F"
 
 if not defined PROD (
   set /a BAD+=1
