@@ -48,6 +48,21 @@ if not exist "%PSA%" (
   goto :fail
 )
 
+REM Fail fast if delayed expansion is not actually working. Without it every
+REM !VAR! below reaches the command line literally, which produced 239
+REM identical-looking "ASSEMBLER PRODUCED NO .h" errors instead of one clear
+REM message.
+set "_DEXP_TEST=ok"
+if "!_DEXP_TEST!"=="ok" (
+  echo.
+) else (
+  echo ERROR: delayed expansion is not working in this cmd.exe, so this
+  echo        script cannot run. That should not happen on Windows XP or later.
+  goto :fail
+)
+echo Shader pack version: 3
+echo.
+
 set /a OK=0
 set /a BAD=0
 set /a N=0
