@@ -575,26 +575,48 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 	// among 48 enumerated modes' even though the device supports it, and the
 	// fallback below then selected 320x200 16-bit -- a paletted mode -- which
 	// the renderer's cube map cannot use.
+	//
+	// fvid_Enumerate() builds this table from the adapter's *windowed* mode list
+	// and tags each entry FVID_MODEFLAG_WINDOWED (fdx8vid.cpp:1843). So a caller
+	// asking for FVID_MODEFLAG_NONE can never match anything: on an Intel G45/G43
+	// all 44 of those entries are windowed, and only four 1024x768 entries are
+	// not. Match on resolution and colour depth and ignore the flags and the
+	// depth/stencil pair, which the enumeration sets independently.
+	//
+	// If the requested colour depth is not offered at all -- that adapter
+	// enumerates 16-bit modes exclusively -- fall back to the deepest mode at the
+	// requested resolution rather than to mode[0]. Falling back to mode[0] picks
+	// 320x200 16-bit, a paletted mode the renderer's cube map cannot use, which
+	// then faults.
+	u32 nBestColour = 0;
+	BOOL bHaveResolutionMatch = FALSE;
 	for( i=0; i<pCurAdapterInfo->nVidModeCount; i++ ) 
 	{
-		pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[i];
+		const FVidMode_t *pM = &pCurAdapterInfo->pVidModeArray[i].VidMode;
 
-		if( pCurVidModeInfo->VidMode.nFlags == pWinInfo->VidMode.nFlags ) 
-		{
-			if( pCurVidModeInfo->VidMode.nColorBits == pWinInfo->VidMode.nColorBits ) 
-			{
-				if( pCurVidModeInfo->VidMode.nPixelsAcross == pWinInfo->VidMode.nPixelsAcross ) 
-				{
-					if( pCurVidModeInfo->VidMode.nPixelsDown == pWinInfo->VidMode.nPixelsDown ) 
-					{
-						// This is the matching mode...
-						break;
-					}
-				}
-			}
+		if( pM->nPixelsAcross != pWinInfo->VidMode.nPixelsAcross ) continue;
+		if( pM->nPixelsDown  != pWinInfo->VidMode.nPixelsDown )  continue;
+
+		if( pM->nColorBits == pWinInfo->VidMode.nColorBits ) {
+			// Exact colour depth match...
+			pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[i];
+			bHaveResolutionMatch = TRUE;
+			break;
+		}
+
+		if( !bHaveResolutionMatch || pM->nColorBits > nBestColour ) {
+			nBestColour = pM->nColorBits;
+			pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[i];
+			bHaveResolutionMatch = TRUE;
 		}
 	}
-	if( i == pCurAdapterInfo->nVidModeCount ) 
+	if( bHaveResolutionMatch && pCurVidModeInfo->VidMode.nColorBits != pWinInfo->VidMode.nColorBits ) {
+		DEVPRINTF( "fvid_CreateWindow(): %u-bit not available at %ux%u; using %u-bit instead.\n",
+			(unsigned)pWinInfo->VidMode.nColorBits,
+			(unsigned)pWinInfo->VidMode.nPixelsAcross, (unsigned)pWinInfo->VidMode.nPixelsDown,
+			(unsigned)pCurVidModeInfo->VidMode.nColorBits );
+	}
+	if( !bHaveResolutionMatch )
 	{
 		// Mode not found. The fallback to the first enumerated mode is only valid
 		// when there is one. With an empty mode array -- which is what happens

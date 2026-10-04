@@ -615,7 +615,10 @@ static BOOL _RunGame( void )
 	pVidWin->VidDev.nRenderer	= FVID_RENDERER_HARDWARE;
 	strcpy( pVidWin->VidDev.szName, "Default" );
 
-	pVidWin->VidMode.nFlags		= FVID_MODEFLAG_NONE;
+	// The engine enumerates the adapter's *windowed* modes and tags each
+	// FVID_MODEFLAG_WINDOWED (fdx8vid.cpp:1843), so asking for FVID_MODEFLAG_NONE
+	// matches nothing and forces a fullscreen mode change the OS may refuse.
+	pVidWin->VidMode.nFlags		= FVID_MODEFLAG_WINDOWED;
 	pVidWin->VidMode.nColorBits	= (u8)_nColorBits;
 	pVidWin->VidMode.nDepthBits	= 24;
 	pVidWin->VidMode.nStencilBits	= 8;
