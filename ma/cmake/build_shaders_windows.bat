@@ -66,7 +66,7 @@ if "!_DEXP_TEST!"=="ok" (
   echo        script cannot run. That should not happen on Windows XP or later.
   goto :fail
 )
-echo Shader pack version: 5
+echo Shader pack version: 6
 echo.
 
 set /a OK=0
@@ -127,30 +127,30 @@ if not exist "%SRCDIR%\%SRC%" (
   goto :eof
 )
 
-REM ---- assemble in a clean directory ----
-REM The assembler's output filename is undocumented, so take whatever single
-REM .h it leaves behind rather than assuming a name.
+REM ---- assemble ----
+REM Stage every header in src\ as well as the source itself: 106 of the sources
+REM do "#include fdx8vshader_const.h", which defines the CV_* constants they
+REM then use as c[CV_WORLDVIEWPROJ_0].
 set "STAGE=%ROOT%\work"
 if exist "%STAGE%" rd /s /q "%STAGE%"
 md "%STAGE%"
-REM Stage every header in src\ as well as the source itself. 106 of the
-REM sources do "#include fdx8vshader_const.h", which defines the CV_* constants
-REM they then use as c[CV_WORLDVIEWPROJ_0]. Without it the assembler reports
-REM "invalid register 'CV_WORLDVIEWPROJ_0'" and emits no output at all.
 for %%H in ("%SRCDIR%\*.h") do copy /y "%%H" "%STAGE%\" >nul
 copy /y "%SRCDIR%\%SRC%" "%STAGE%\%BASE%%EXT%" >nul
 
-pushd "%STAGE%"
-"!ASM!" -h "%BASE%%EXT%" >"%ROOT%\work\assembler.log" 2>&1
-popd
+REM The assembler writes the header itself, named and with its array named, so
+REM there is no globbing and no rewriting here:
+REM   /Fh<file>  output header file containing the object code
+REM   /Vn<name>  use <name> as the variable name in the header file
+REM   /I<dir>    where to resolve #include from
+REM (The DirectX 8.1 assemblers used "-h" and left both the filename and the
+REM variable name to be guessed afterwards. This one does not.)
+set "OUTFILE=%ROOT%\out\%HEADER%"
+for %%D in ("%OUTFILE%") do if not exist "%%~dpD" md "%%~dpD"
+if exist "%OUTFILE%" del "%OUTFILE%"
 
-REM Find the header the assembler produced. The #include headers staged above
-REM also match *.h, and fdx8vshader_const.h sorts last for most shader names, so
-REM it has to be excluded or its contents get copied out as the shader.
-set "PROD="
-for %%F in ("%STAGE%\*.h") do if /I not "%%~nxF"=="fdx8vshader_const.h" set "PROD=%%F"
+"!ASM!" /nologo /I"%STAGE%" /Fo"%STAGE%\%BASE%.obj" /Fh"%OUTFILE%" /Vn%WANT% "%STAGE%\%BASE%%EXT%" >"%ROOT%\work\assembler.log" 2>&1
 
-if not defined PROD (
+if not exist "%OUTFILE%" (
   set /a BAD+=1
   echo [!N!] NO OUTPUT FROM ASSEMBLER  %BASE%
   >>"%ROOT%\out\_REPORT.txt" echo [!HEADER!] ASSEMBLER PRODUCED NO .h ^(src %SRC%^)
@@ -158,46 +158,27 @@ if not defined PROD (
   goto :eof
 )
 
-REM ---- rewrite the generic array name to the one the engine expects ----
-REM vsa emits "DWORD dwVertexShader[]", psa emits "DWORD dwPixelShader[]".
-set "OUTFILE=%ROOT%\out\%HEADER%"
-for %%D in ("%OUTFILE%") do if not exist "%%~dpD" md "%%~dpD"
-
-REM Write every line, rewriting the generic array name to the one the engine
-REM expects. vsa emits "DWORD dwVertexShader[]", psa "DWORD dwPixelShader[]".
-REM All of the file has to be copied: stopping after the declaration line leaves
-REM an unterminated array that will not compile.
-set "OUTFILE=%ROOT%\out\%HEADER%"
-for %%D in ("%OUTFILE%") do if not exist "%%~dpD" md "%%~dpD"
-if exist "%OUTFILE%" del "%OUTFILE%"
-
-for /f "usebackq delims=" %%L in ("%PROD%") do (
-  set "LINE=%%L"
-  set "LINE=!LINE:dwVertexShader[]=%WANT%[]!"
-  set "LINE=!LINE:dwPixelShader[]=%WANT%[]!"
-  >>"%OUTFILE%" echo !LINE!
-)
-
-REM Append the alternate name, if this shader has one. Using %ALIASES% rather
-REM than !ALIASES! here because there is at most one alias per shader, and the
-REM '"' -> '" ' substitution form is not parsed reliably by cmd.exe.
-if not "%ALIASES%"=="" >>"%OUTFILE%" echo #define %ALIASES% %WANT%
-
-if not defined WROTE (
-  set /a BAD+=1
-  echo [!N!] COULD NOT REWRITE SYMBOL  %HEADER%
-  >>"%ROOT%\out\_REPORT.txt" echo [!HEADER!] COULD NOT REWRITE SYMBOL %WANT%
-  goto :eof
-)
-
-REM ---- verify, so a silent mismatch cannot slip through ----
-findstr /C:"%WANT%" "%OUTFILE%" >nul
+REM ---- verify: the right array name, and a complete declaration ----
+REM A truncated header ("DWORD dw...[ ] = {" with no closing brace) will not
+REM compile, so check for both.
+findstr /C:"DWORD %WANT%[]" "%OUTFILE%" >nul
 if errorlevel 1 (
   set /a BAD+=1
   echo [!N!] SYMBOL MISMATCH  %HEADER!  wanted %WANT%
   >>"%ROOT%\out\_REPORT.txt" echo [!HEADER!] SYMBOL %WANT% NOT FOUND IN OUTPUT
   goto :eof
 )
+findstr /C:"};" "%OUTFILE%" >nul
+if errorlevel 1 (
+  set /a BAD+=1
+  echo [!N!] TRUNCATED OUTPUT  %HEADER%
+  >>"%ROOT%\out\_REPORT.txt" echo [!HEADER!] OUTPUT TRUNCATED - no closing brace
+  goto :eof
+)
+
+REM Three shaders are referenced by the engine under both the fdx8 and fxb
+REM spellings but only ship one header, so it answers to both names.
+if not "%ALIASES%"=="" >>"%OUTFILE%" echo #define %ALIASES% %WANT%
 
 set /a OK+=1
 goto :eof
