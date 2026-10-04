@@ -389,7 +389,16 @@ BOOL ffile_LogSetFilename( cchar *pszFilename )
 void ffile_LogStart( cchar *pszLevelName ) 
 {
 #if FANG_PLATFORM_WIN
-	FASSERT( _bLogSystemOK );
+	// Not an assertion. Both this function and ffile_LogStop() guard their bodies
+	// with 'if( _bLogSystemOK && _bLogFiles )', so the code is explicitly written
+	// to work with the asset log unavailable -- which is what happens when
+	// ffile_LogSetFilename() cannot open or write the file, for instance on a
+	// path with spaces in it. The asserts contradicted that and stopped the game
+	// for a purely cosmetic feature. Report it and carry on.
+	if( !_bLogSystemOK ) {
+		DEVPRINTF( "ffile_LogStart(\"%s\"): no asset log; continuing without one.\n",
+			pszLevelName ? pszLevelName : "" );
+	}
 
 	_bLogFiles = TRUE;
 
@@ -442,8 +451,7 @@ void ffile_AddToLogFile( cchar *pszFilename ) {
 void ffile_LogStop( void ) 
 {
 #if FANG_PLATFORM_WIN
-	FASSERT( _bLogSystemOK );
-
+	// See ffile_LogStart(): logging is optional, so stopping it is not an error.
 	_bLogFiles = FALSE;
 #endif
 }

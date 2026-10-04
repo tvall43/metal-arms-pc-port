@@ -555,7 +555,9 @@ static BOOL _RunGame( void )
 			if( pDot ) *pDot = '\0';
 			strncat( szLogPath, "_asset_log.txt", MAX_PATH - strlen(szLogPath) - 1 );
 			_Trace( "[ma] asset log    : %s\n", szLogPath );
-			ffile_LogSetFilename( szLogPath );
+			if( !ffile_LogSetFilename( szLogPath ) ) {
+				_Trace( "[ma] could not open the asset log; logging will be disabled\n" );
+			}
 		}
 	}
 
