@@ -566,6 +566,15 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 	}
 
 	// Attempt to locate the specified mode in the enumeration table...
+	//
+	// Matched on resolution, colour depth and flags only. Depth and stencil are
+	// taken from the enumerated mode rather than compared: the caller states a
+	// desired depth/stencil but the driver may offer a different combination for
+	// the same resolution and colour depth, and requiring equality then rejects
+	// every candidate. On an Intel G45/G43 that left 640x480 32-bit 'not found
+	// among 48 enumerated modes' even though the device supports it, and the
+	// fallback below then selected 320x200 16-bit -- a paletted mode -- which
+	// the renderer's cube map cannot use.
 	for( i=0; i<pCurAdapterInfo->nVidModeCount; i++ ) 
 	{
 		pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[i];
@@ -574,18 +583,12 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 		{
 			if( pCurVidModeInfo->VidMode.nColorBits == pWinInfo->VidMode.nColorBits ) 
 			{
-				if( pCurVidModeInfo->VidMode.nDepthBits == pWinInfo->VidMode.nDepthBits ) 
+				if( pCurVidModeInfo->VidMode.nPixelsAcross == pWinInfo->VidMode.nPixelsAcross ) 
 				{
-					if( pCurVidModeInfo->VidMode.nStencilBits == pWinInfo->VidMode.nStencilBits ) 
+					if( pCurVidModeInfo->VidMode.nPixelsDown == pWinInfo->VidMode.nPixelsDown ) 
 					{
-						if( pCurVidModeInfo->VidMode.nPixelsAcross == pWinInfo->VidMode.nPixelsAcross ) 
-						{
-							if( pCurVidModeInfo->VidMode.nPixelsDown == pWinInfo->VidMode.nPixelsDown ) 
-							{
-								// This is the matching mode...
-								break;
-							}
-						}
+						// This is the matching mode...
+						break;
 					}
 				}
 			}
