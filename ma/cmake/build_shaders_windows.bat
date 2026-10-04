@@ -65,7 +65,7 @@ if "!_DEXP_TEST!"=="ok" (
   echo        script cannot run. That should not happen on Windows XP or later.
   goto :fail
 )
-echo Shader pack version: 9
+echo Shader pack version: 10
 echo.
 
 set /a OK=0
@@ -180,14 +180,14 @@ for /f "usebackq delims=" %%L in ("%PROD%") do (
 )
 
 REM ---- verify: right array name, and a complete declaration ----
-findstr /C:"%WANT%" "%OUTFILE%" >nul
+find "%WANT%" "%OUTFILE%" >nul
 if errorlevel 1 (
   set /a BAD+=1
   echo [!N!] SYMBOL MISMATCH  %HEADER!  wanted %WANT%
   >>"%ROOT%\out\_REPORT.txt" echo [!HEADER!] SYMBOL %WANT% NOT FOUND IN OUTPUT
   goto :eof
 )
-findstr /C:"};" "%OUTFILE%" >nul
+find /c "};" "%OUTFILE%" >nul
 if errorlevel 1 (
   set /a BAD+=1
   echo [!N!] TRUNCATED OUTPUT  %HEADER!
