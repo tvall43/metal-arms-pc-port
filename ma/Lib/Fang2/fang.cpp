@@ -740,6 +740,11 @@ void fang_Assert( cchar *pszFile, int nLine, cchar *pszExpr ) {
 	static char szMsgString[__MAX_MSG_LEN+1];
 	int nReturnValue;
 
+	// Also write it to the engine log. The dialog demands a click and cannot be
+	// copied out of a screenshot legibly, whereas the log already carries every
+	// DEVPRINTF through Fang_ConfigDefs.pFang_FcnPrintf.
+	DEVPRINTF( "*** FANG ASSERTION FAILURE ***  %s(%i): %s\n", pszFile, nLine, pszExpr );
+
 	_snprintf( szMsgString, __MAX_MSG_LEN, "*** FANG ASSERTION FAILURE ***\n\nFile: %s\nLine: %i\nExpression: %s\n\nClick Ok to continue or Cancel to abort.", pszFile, nLine, pszExpr );
 
 #ifdef _UNICODE
