@@ -606,6 +606,20 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 			(unsigned)pWinInfo->VidMode.nPixelsAcross, (unsigned)pWinInfo->VidMode.nPixelsDown,
 			(unsigned)pWinInfo->VidMode.nColorBits,
 			(unsigned)pCurAdapterInfo->nVidModeCount, pCurAdapterInfo->VidDev.szName );
+		// Dump what the adapter actually offers. Guessing at which field fails to
+		// match wastes a build for a test cycle, and the enumeration is small.
+		DEVPRINTF( "fvid_CreateWindow(): wanted %ux%u, colour %u, depth %u, stencil %u, flags 0x%02X.\n",
+			(unsigned)pWinInfo->VidMode.nPixelsAcross, (unsigned)pWinInfo->VidMode.nPixelsDown,
+			(unsigned)pWinInfo->VidMode.nColorBits, (unsigned)pWinInfo->VidMode.nDepthBits,
+			(unsigned)pWinInfo->VidMode.nStencilBits, (unsigned)pWinInfo->VidMode.nFlags );
+		for( u32 nMode = 0; nMode < pCurAdapterInfo->nVidModeCount; nMode++ ) {
+			const FVidMode_t *pM = &pCurAdapterInfo->pVidModeArray[nMode].VidMode;
+			DEVPRINTF( "    mode[%2u] %4ux%-4u colour %2u depth %2u stencil %2u flags 0x%02X\n",
+				(unsigned)nMode, (unsigned)pM->nPixelsAcross, (unsigned)pM->nPixelsDown,
+				(unsigned)pM->nColorBits, (unsigned)pM->nDepthBits, (unsigned)pM->nStencilBits,
+				(unsigned)pM->nFlags );
+		}
+
 		if( pCurAdapterInfo->nVidModeCount == 0 || pCurAdapterInfo->pVidModeArray == NULL ) {
 			DEVPRINTF( "fvid_CreateWindow(): that adapter reports no video modes.\n" );
 			return FALSE;
