@@ -36,6 +36,12 @@ if exist "out\_REPORT.txt" del "out\_REPORT.txt"
 REM Absolute paths: the assembler runs inside a staging directory.
 set "ROOT=%CD%"
 set "VSA=%ROOT%\tools\vsa.exe"
+REM psa/vsa here are the D3DX9 Shader Assembler 9.25 (from the November 2008
+REM DirectX SDK), not the DirectX 8.1 pair. 27 of the shaders are written in
+REM D3D9 assembly -- saturation modifiers (mov r0, r0_sat) and ps.1.1 tex with
+REM an implicit coordinate -- which the 8.1 assembler rejects outright. 9.25
+REM accepts both those and ps_1_1, so it assembles the whole set. It needs
+REM d3dx9_40.dll, which is bundled alongside.
 set "PSA=%ROOT%\tools\psa.exe"
 set "SRCDIR=%ROOT%\src"
 
@@ -60,7 +66,7 @@ if "!_DEXP_TEST!"=="ok" (
   echo        script cannot run. That should not happen on Windows XP or later.
   goto :fail
 )
-echo Shader pack version: 4
+echo Shader pack version: 5
 echo.
 
 set /a OK=0
@@ -138,8 +144,11 @@ pushd "%STAGE%"
 "!ASM!" -h "%BASE%%EXT%" >"%ROOT%\work\assembler.log" 2>&1
 popd
 
+REM Find the header the assembler produced. The #include headers staged above
+REM also match *.h, and fdx8vshader_const.h sorts last for most shader names, so
+REM it has to be excluded or its contents get copied out as the shader.
 set "PROD="
-for %%F in ("%STAGE%\*.h") do set "PROD=%%F"
+for %%F in ("%STAGE%\*.h") do if /I not "%%~nxF"=="fdx8vshader_const.h" set "PROD=%%F"
 
 if not defined PROD (
   set /a BAD+=1
@@ -154,21 +163,25 @@ REM vsa emits "DWORD dwVertexShader[]", psa emits "DWORD dwPixelShader[]".
 set "OUTFILE=%ROOT%\out\%HEADER%"
 for %%D in ("%OUTFILE%") do if not exist "%%~dpD" md "%%~dpD"
 
-set "WROTE="
+REM Write every line, rewriting the generic array name to the one the engine
+REM expects. vsa emits "DWORD dwVertexShader[]", psa "DWORD dwPixelShader[]".
+REM All of the file has to be copied: stopping after the declaration line leaves
+REM an unterminated array that will not compile.
+set "OUTFILE=%ROOT%\out\%HEADER%"
+for %%D in ("%OUTFILE%") do if not exist "%%~dpD" md "%%~dpD"
+if exist "%OUTFILE%" del "%OUTFILE%"
+
 for /f "usebackq delims=" %%L in ("%PROD%") do (
-  if not defined WROTE (
-    set "LINE=%%L"
-    set "LINE=!LINE:dwVertexShader[]=%WANT%[]!"
-    set "LINE=!LINE:dwPixelShader[]=%WANT%[]!"
-    >"%OUTFILE%" echo !LINE!
-    set "WROTE=1"
-  )
+  set "LINE=%%L"
+  set "LINE=!LINE:dwVertexShader[]=%WANT%[]!"
+  set "LINE=!LINE:dwPixelShader[]=%WANT%[]!"
+  >>"%OUTFILE%" echo !LINE!
 )
 
 REM Append the alternate name, if this shader has one. Using %ALIASES% rather
 REM than !ALIASES! here because there is at most one alias per shader, and the
 REM '"' -> '" ' substitution form is not parsed reliably by cmd.exe.
-if defined ALIASES >>"%OUTFILE%" echo #define %ALIASES% %WANT%
+if not "%ALIASES%"=="" >>"%OUTFILE%" echo #define %ALIASES% %WANT%
 
 if not defined WROTE (
   set /a BAD+=1
