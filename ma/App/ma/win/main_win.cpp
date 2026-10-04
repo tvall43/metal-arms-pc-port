@@ -25,6 +25,7 @@
 
 #include "../gameloop.h"
 #include "Settings.h"
+#include "floop.h"
 
 #include <windows.h>
 #include <commdlg.h>
@@ -579,6 +580,36 @@ static BOOL _RunGame( void )
 	_Trace( "[ma] calling gameloop_Start...\n" );
 	const BOOL bStarted = gameloop_Start( &GameloopParms );
 	_Trace( "[ma] gameloop_Start returned %d\n", bStarted );
+
+	if( bStarted ) {
+		// On Windows the gameloop does not run here. The Windows build of
+		// floop_InstallGameloop only installs it -- it spawns a CGameThread and
+		// returns TRUE immediately (the while(TRUE) version at fdx8loop.cpp:825
+		// is the #else, the console path). The main thread's job is to pump
+		// messages for the render window, which is what MFC's CWinApp::Run used
+		// to do. Returning from WinMain without doing so tore the process down,
+		// and the game thread with it, which is why the game appeared to do
+		// nothing at all.
+		_Trace( "[ma] pumping messages\n" );
+		BOOL bQuit = FALSE;
+		MSG msg;
+		while( !bQuit && floop_IsGameloopRunning() ) {
+			while( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) {
+				if( msg.message == WM_QUIT ) {
+					_Trace( "[ma] WM_QUIT -- ending the gameloop\n" );
+					gameloop_End();
+					bQuit = TRUE;
+					break;
+				}
+				TranslateMessage( &msg );
+				DispatchMessage( &msg );
+			}
+			if( !bQuit ) Sleep( 1 );
+		}
+		_Trace( "[ma] gameloop no longer running, returning from WinMain\n" );
+		return TRUE;
+	}
+
 	if( !bStarted ) {
 		MessageBoxA( NULL, "The game loop failed to start.\n\n"
 						   "See ma_win_log.txt next to the executable for details.",
