@@ -355,11 +355,13 @@ BOOL ffile_LogSetFilename( cchar *pszFilename )
 
 	if ( !pszFilename ) 
 	{
+		DEVPRINTF( "ffile_LogSetFilename(): no filename given.\n" );
 		return FALSE;
 	}
 	FFileHandle hFile = ffile_OSDir_Open( pszFilename, FFILE_OPEN_TRUNC_OR_CREATE_WONLY );
 	if ( FFILE_IS_VALID_HANDLE( hFile ) == FALSE ) 
 	{
+		DEVPRINTF( "ffile_LogSetFilename(): could not create '%s'.\n", pszFilename );
 		return FALSE;
 	}
 	// write a few lines out to the new file
@@ -369,6 +371,7 @@ BOOL ffile_LogSetFilename( cchar *pszFilename )
 
 	if ( ffile_OSDir_Write( &FFile_paFileCookie[hFile], fclib_strlen( szBuffer ), szBuffer ) <= 0 ) 
 	{
+		DEVPRINTF( "ffile_LogSetFilename(): could not write the header to '%s'.\n", pszFilename );
 		ffile_OSDir_Close( &FFile_paFileCookie[hFile] );
 		return FALSE;
 	}

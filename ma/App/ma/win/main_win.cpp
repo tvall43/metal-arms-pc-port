@@ -107,10 +107,12 @@ static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
 
 	const EXCEPTION_RECORD *pRec = pEP->ExceptionRecord;
 
-	// 0x40010006 is DBG_PRINTEXCEPTION_C, which kernel32 raises internally for
-	// OutputDebugString when nothing is attached to read it. It is not a fault
-	// and execution continues, so logging it only buries the real one.
-	if( pRec->ExceptionCode == 0x40010006u ) {
+	// 0x40010005 and 0x40010006 are the OutputDebugString family (the ANSI and
+	// Unicode variants), raised inside kernel32/kernelbase when nothing is
+	// attached to read the string. They are not faults -- execution continues --
+	// and they arrive in bursts, including from the console Ctrl-C handler during
+	// shutdown, so logging them only buries a real one.
+	if( pRec->ExceptionCode == 0x40010005u || pRec->ExceptionCode == 0x40010006u ) {
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
 
