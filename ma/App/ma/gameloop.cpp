@@ -1144,57 +1144,6 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 
 	fvid_Begin();
 
-	// TEMPORARY DIAGNOSTIC -- draw through the engine's own path.
-	//
-	// The previous version of this test created its own vertex buffer and reported
-	// stride=66 with FVF 0x0010 (D3DFVF_NORMAL) while writing 16-byte XYZ+colour
-	// vertices, and fdx8vb_Lock's call to fdx8sh_SetVertexType then overrode the
-	// FVF it had been given. With no position in the format the rasteriser had
-	// nothing to place, so the draw was discarded while returning D3D_OK. That was
-	// a fault in the test, not evidence about the device.
-	//
-	// So test one level up instead: activate the engine's own full-screen ortho
-	// viewport and submit a triangle through fdraw_PrimList, which uses the
-	// engine's correctly typed vertex buffer and FVF. Pixel shader cleared and the
-	// texture left alone.
-	//
-	// If this appears, the engine's draw path works and the fault is specific to
-	// the ftext path. If it does not, the fault is in fdraw/_DrawPrim or below, and
-	// no further tracing inside ftext can help.
-	{
-		// Pixel coordinates, not NDC. FViewport_pDefaultOrtho is an orthographic
-		// projection over [0,nPixelsAcross] x [0,nPixelsDown], so NDC values land
-		// outside the screen. The previous version of this test used [-1,3] and
-		// therefore produced a sub-pixel speck at the origin -- a fault in the
-		// test, not evidence about the renderer.
-		static const FDrawVtx_t _aTri[3] = {
-			{    0.0f,   0.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
-			{    0.0f, 480.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
-			{  640.0f,   0.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
-		};
-		static u32 _nDiagFrames = 0;
-		_nDiagFrames++;
-
-		fviewport_SetActive( FViewport_pDefaultOrtho );
-		FDX8_pDev->SetPixelShader( NULL );
-		fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
-		fdx8_SetRenderState_ALPHABLENDENABLE( FALSE );
-		// fdx8draw_Renderer_Open() leaves D3DRS_ALPHATESTENABLE TRUE, and the XB
-		// branch of that function is the only place a pixel shader gets cleared on
-		// Windows. With no texture bound the diffuse alpha is zero, so an enabled
-		// alpha test rejects every fragment. Disable it for this draw.
-		fdx8_SetRenderState_ALPHATESTENABLE( FALSE );
-		FDX8_pDev->SetRenderState( D3DRS_ZENABLE, FALSE );
-
-		// fdraw_PrimList asserts on the active renderer, so push one first.
-		frenderer_Push( FRENDERER_DRAW, NULL );
-		fdraw_PrimList( FDRAW_PRIMTYPE_TRILIST, _aTri, 3 );
-		frenderer_Pop();
-		if( _nDiagFrames <= 3 ) {
-			DEVPRINTF( "[ma] diag triangle submitted via fdraw_PrimList on frame %u\r\n",
-				_nDiagFrames );
-		}
-	}
 
 	if(Gameloop_bDrawEnabled)
 	{
