@@ -31,10 +31,6 @@
 // fmesh, so counting mesh DrawIndexedPrimitive calls says nothing about
 // whether any text reaches the GPU: an empty back buffer and a successful
 // text draw look identical from outside the window.
-u32 ftext_nCharsSubmitted = 0;
-u32 ftext_nPagesWithText = 0;
-u32 ftext_nPushFailures = 0;
-u32 ftext_nPoolFailures = 0;
 
 
 
@@ -71,7 +67,6 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 	if( nRequestSize == 0 ) 
 	{
 		DEVPRINTF( "[ FTEXT ] Could not allocate any vertices from the fvtxpool to render the characters -- aborting text rendering!\n" );
-		ftext_nPoolFailures++;
 		return;
 	}
 
@@ -79,7 +74,6 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 	// It builds quads from the vertex pool and submits with fdraw_PrimList; the
 	// BeginPush/EndPush version further down is the non-WIN branch. Counted the
 	// wrong one for several rounds, which is why it always read zero.
-	ftext_nPagesWithText++;
 
 	u32 nCharactersRendered = 0;
 	u32 nCharactersPrepped = 0;
@@ -140,28 +134,8 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 			nLetterArrayIndex++;
 		}
 		
-		//
-		// TEMPORARY DIAGNOSTIC. Clear and Present are proven working, and 123
-		// characters reach here per frame, so the glyphs must be positioned
-		// outside the visible area. Log the first quad's corners and the vertex
-		// shader/transform in force so the actual coordinates can be compared
-		// against the render target size.
-		{
-			static u32 _nLogged = 0;
-			if( _nLogged < 3 && nPoolVerticesUsed >= 6 ) {
-				_nLogged++;
-				DEVPRINTF( "[ma] ftext glyph #%u: v0=(%.1f, %.1f) v2=(%.1f, %.1f) v5=(%.1f, %.1f) verts=%u\r\n",
-					_nLogged,
-					pVertices[0].Pos_MS.x, pVertices[0].Pos_MS.y,
-					pVertices[2].Pos_MS.x, pVertices[2].Pos_MS.y,
-					pVertices[5].Pos_MS.x, pVertices[5].Pos_MS.y,
-					nPoolVerticesUsed );
-			}
-		}
-
 		//draw the vertices
 		fdraw_PrimList( FDRAW_PRIMTYPE_TRILIST, pVertices, nPoolVerticesUsed );
-		ftext_nCharsSubmitted += nPoolVerticesUsed / 6;
 		nCharactersRendered = nCharactersPrepped;
 	}
 
@@ -222,7 +196,6 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 	DWORD *pPush;
 	if ( FDX8_pDev->BeginPush( uPushSizeInDWORDs + 4 + uArrayCount, &pPush ) != S_OK )
 	{
-		ftext_nPushFailures++;
 		DEVPRINTF( "[ma] ftext: BeginPush failed for %u characters (%u arrays, %u DWORDs requested)\n",
 			nCharactersToRender, (u32)uArrayCount, (u32)uPushSizeInDWORDs );
 		return;

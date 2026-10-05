@@ -31,6 +31,7 @@
 #include "fviewport.h"
 #include "fclib.h"
 #include "fdraw.h"
+#include "fvid.h"						// FVid_Mode, for the render target aspect ratio
 #include "frenderer.h"
 
 #if FANG_PLATFORM_GC
@@ -47,8 +48,37 @@
 #define _FTEXT_SHOW_TEXT_SAFE_AREA_OUTLINE_640_480		FALSE
 #define _FTEXT_STUB_ONLY_RUNTIME_OUT					FALSE
 #define _BLINKING_TYPE_COUNT							11
-#define _PHYSICAL_DEVICE_ASPECT_RATIO_HoW				( 3.0f / 4.0f )
-#define _PHYSICAL_DEVICE_ASPECT_RATIO_WoH				( 4.0f / 3.0f )
+	//
+	// Aspect correction for text layout.
+	//
+	// These used to be hardcoded 3/4 and 4/3, i.e. an assumption of a 4:3
+	// display. That is fine for the Xbox's fixed output but wrong for a
+	// desktop window, and it pushed every glyph off the bottom of the screen:
+	// the Y cursor is multiplied by _oH, so at 640x480 -- a 4:3 window -- the
+	// text landed at Y 525..722 in a target only 480 tall.
+	//
+	// Derive it from the render target that is actually in use instead. When
+	// the mode is not known yet, fall back to 1.0 rather than 4/3, because an
+	// unnecessary correction is worse than none: it moves text on screen.
+	//
+static f32 _fPhysicalAspectRatio_WoH = 1.0f;
+static f32 _fPhysicalAspectRatio_HoW = 1.0f;
+
+static void _UpdatePhysicalAspectRatio( void )
+{
+	const f32 fAcross = (f32)FVid_Mode.nPixelsAcross;
+	const f32 fDown   = (f32)FVid_Mode.nPixelsDown;
+	if( fAcross > 0.0f && fDown > 0.0f ) {
+		_fPhysicalAspectRatio_WoH = fAcross / fDown;
+		_fPhysicalAspectRatio_HoW = fDown / fAcross;
+	} else {
+		_fPhysicalAspectRatio_WoH = 1.0f;
+		_fPhysicalAspectRatio_HoW = 1.0f;
+	}
+}
+
+#define _PHYSICAL_DEVICE_ASPECT_RATIO_HoW				_fPhysicalAspectRatio_HoW
+#define _PHYSICAL_DEVICE_ASPECT_RATIO_WoH				_fPhysicalAspectRatio_WoH
 
 #define _GC_FRAMEBUFFER_WIDTH							( 512.f )
 #define _GC_EXTERNAL_DISPLAY_WIDTH						( 640.f )
@@ -141,10 +171,6 @@ static u32 _nLettersUsed;
 // dropped before it reaches the push buffer. These counters separate the
 // possibilities: Printf not entered, letters parsed but no font to attribute
 // them to, or letters queued but never counted onto a texture page.
-u32 ftext_nPrintfsSeen = 0;
-u32 ftext_nParseLetterCalls = 0;
-u32 ftext_nParseLetterBails = 0;
-static BOOL ftext_bLoggedLetter = FALSE;
 static u32 _nLettersInCurrentLine;
 static u32 _nLettersInCurrentWord;
 
@@ -1213,8 +1239,6 @@ void ftext_Printf( const f32 fX, const f32 fY, cchar *pszFormat, ... )
 	return;
 #endif
 
-	extern u32 ftext_nPrintfsSeen;
-	ftext_nPrintfsSeen++;
 
 	va_list	oVAList;
 	va_start( oVAList, pszFormat );
@@ -1688,22 +1712,6 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 		_fTempResX = pVP->Res.x * _FRAMEBUFFER_X_SCALEFACTOR;
 		_fTempResY = pVP->Res.y;
 
-		// TEMPORARY DIAGNOSTIC: report the text viewport's geometry. Glyph
-		// positions are derived from Res and ScreenCorners, so if those are zero
-		// or wrong for this render target every letter lands off-screen while
-		// still being submitted. One-shot is plenty.
-		{
-			static u32 _nLoggedVp = 0;
-			if( _nLoggedVp < 2 ) {
-				_nLoggedVp++;
-				DEVPRINTF( "[ma] ftext viewport: Res=%.1fx%.1f corners=(%.1f,%.1f)-(%.1f,%.1f) vpLeft=%.1f vpTop=%.1f xScale=%.3f\r\n",
-					pVP->Res.x, pVP->Res.y,
-					pVP->ScreenCorners.m_UpperLeft.x, pVP->ScreenCorners.m_UpperLeft.y,
-					pVP->ScreenCorners.m_LowerRight.x, pVP->ScreenCorners.m_LowerRight.y,
-					fVpLeft, fVpTop, (f32)_FRAMEBUFFER_X_SCALEFACTOR );
-			}
-		}
-
 		// XY area cursor.
 		_fTempX = _fTempCursorOriginX = fVpLeft + ( _fTempResX * ( _poTempArea->oAttributes.fUpperLeftX + _poTempArea->oAttributes.fBorderThicknessX * _FRAMEBUFFER_X_SCALEFACTOR + ( fX * ( _poTempArea->oAttributes.fLowerRightX - _poTempArea->oAttributes.fUpperLeftX - ( 2.0f * _poTempArea->oAttributes.fBorderThicknessX * _FRAMEBUFFER_X_SCALEFACTOR ) ) ) ) );
 		_fTempY = _fTempCursorOriginY = fVpTop + ( _fTempResY * ( _poTempArea->oAttributes.fUpperLeftY + _poTempArea->oAttributes.fBorderThicknessY + ( fY * ( _poTempArea->oAttributes.fLowerRightY - _poTempArea->oAttributes.fUpperLeftY - ( 2.0f * _poTempArea->oAttributes.fBorderThicknessY ) ) ) ) ) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH;
@@ -2057,12 +2065,10 @@ BOOL _ParseEscapeCode ( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWSt
 //	FALSE - Indicates error of some sort occured and parsing of rest of text string should be HALTED.
 BOOL _ParseLetter( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWString, const f32 fZ ) {
 
-	ftext_nParseLetterCalls++;
 
 	// No font means every character below dereferences _poTempFont. That is a
 	// silent no-op path worth naming explicitly.
 	if( !_poTempFont ) {
-		ftext_nParseLetterBails++;
 	}
 
 	//check to see if we have a free letter available
@@ -2075,7 +2081,6 @@ BOOL _ParseLetter( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWString,
 				DEVPRINTF( "[ FTEXT ] Warning %u: The previous warning will not be issued anymore !!!\n", __LINE__ );
 			}
 		}
-		ftext_nParseLetterBails++;
 		return FALSE;
 	}
 
@@ -2172,13 +2177,7 @@ BOOL _ParseLetter( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWString,
 
 	//increment the counter on the texture page indicator
 	_uTemp = _poTempLetter->uTexurePage;
-	if( !ftext_bLoggedLetter ) {
-		ftext_bLoggedLetter = TRUE;
-		DEVPRINTF( "[ma] ftext: first letter queued. font=%p uTexPages=%u page=%u lettersInPage[0]=%u nMaxChars=%u\n",
-			(void *)_poTempFont, (u32)_poTempFont->uTexPages, (u32)_uTemp,
-			( _uTemp < _poTempFont->uTexPages ) ? _poTempFont->pauTextLengthPerTexturePages[ _uTemp ] : 0,
-			(u32)Fang_ConfigDefs.nText_MaxCharsPerFrame );
-	}
+
 	_poTempFont->pauTextLengthPerTexturePages[ _uTemp ]++;
 
 	_nLettersUsed++;
@@ -2669,39 +2668,13 @@ void ftext_ClearAllPending( void )
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
-void ftext_ResetFrameStats( void )
-{
-	DEVPRINTF( "[ma] ftext queue: %u printfs, %u _ParseLetter calls, %u early bails, %u letters queued, chars/frame cap=%u\n",
-		ftext_nPrintfsSeen, ftext_nParseLetterCalls, ftext_nParseLetterBails,
-		_nLettersUsed, Fang_ConfigDefs.nText_MaxCharsPerFrame );
-	// Walk the font list the draw loop iterates, and total the per-page counters.
-	// If letters were queued against a font that is not in this list, or against a
-	// page index outside uTexPages, the totals here stay zero.
-	for( FDataFntFile_Font_t *pF = _poFontsHead; pF; pF = pF->poFontNext ) {
-		u32 uTotal = 0;
-		for( u32 uPg = 0; uPg < pF->uTexPages; ++uPg ) {
-			uTotal += pF->pauTextLengthPerTexturePages[ uPg ];
-		}
-		DEVPRINTF( "[ma]   font %p: uTexPages=%u lettersInPages=%u\r\n",
-			(void *)pF, (u32)pF->uTexPages, uTotal );
-	}
-	{
-		extern u32 ftext_nPagesWithText, ftext_nCharsSubmitted, ftext_nPushFailures, ftext_nPoolFailures;
-		DEVPRINTF( "[ma] ftext submit: %u pages drawn, %u chars, %u pool failures, %u push failures\n",
-			ftext_nPagesWithText, ftext_nCharsSubmitted, ftext_nPoolFailures, ftext_nPushFailures );
-		ftext_nPagesWithText = 0;
-		ftext_nCharsSubmitted = 0;
-		ftext_nPoolFailures = 0;
-		ftext_nPushFailures = 0;
-	}
-	ftext_nPrintfsSeen = 0;
-	ftext_nParseLetterCalls = 0;
-	ftext_nParseLetterBails = 0;
-	_nLettersUsed = 0;
-}
 
+	// Refresh the aspect ratio from the mode in use; text is laid out during
+	// ftext_Printf, so this must run before the queue is built, and cheap
+	// enough to do every frame.
 void ftext_Draw( void )
 {
+	_UpdatePhysicalAspectRatio();
 //	FASSERT_MSG( _bModuleInstalled, "[ FTEXT ] Error: System not installed !!!" );
 
 	if( ! _bModuleInstalled )

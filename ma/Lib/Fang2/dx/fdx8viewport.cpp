@@ -329,43 +329,6 @@ void fviewport_Clear( u32 nClearFlag, f32 fUnitRed, f32 fUnitGreen, f32 fUnitBlu
 		nStencil = nStencilValue & ((1<<nStencilBitCount) - 1);
 	}
 
-	//
-	// TEMPORARY DIAGNOSTIC.
-	//
-	// The window is black or transparent while ftext reports 3 pages and 123
-	// characters submitted every frame, so text reaches the GPU and the fault is
-	// in the clear or the present. Report the Clear arguments and its HRESULT,
-	// which currently report nothing on failure. Remove once identified.
-	//
-	// Paired with the magenta override above, the three outcomes separate cleanly:
-	//   window turns magenta -> Clear and Present both work, so the glyphs are
-	//                         being transformed off-screen;
-	//   window stays black   -> the Clear is failing or is overwritten;
-	//   window stays see-through -> nothing is being presented.
-	static u32 _nClearCount = 0;
-	_nClearCount++;
-	HRESULT _hrClear;
-	if( _pCurrentViewport->pViewportIS->bCoversEntireRenderTarget) {
-		_hrClear = FDX8_pDev->Clear( 0, NULL, nFlags, D3DColor, fDepth, nStencil );
-	} else {
-		D3DRECT Rect;
-
-		Rect.x1 = _pCurrentViewport->nScreenLeftX;
-		Rect.y1 = _pCurrentViewport->nScreenTopY;
-		Rect.x2 = _pCurrentViewport->nScreenRightX;
-		Rect.y2 = _pCurrentViewport->nScreenBottomY;
-
-		_hrClear = FDX8_pDev->Clear( 1, &Rect, nFlags, D3DColor, fDepth, nStencil );
-		if( _nClearCount <= 4 ) {
-			DEVPRINTF( "[ma] clear: partial rect %d,%d .. %d,%d\r\n",
-				(int)Rect.x1, (int)Rect.y1, (int)Rect.x2, (int)Rect.y2 );
-		}
-	}
-	if( _nClearCount <= 4 || FAILED( _hrClear ) ) {
-		DEVPRINTF( "[ma] clear #%u: flags=0x%x color=0x%08x depthBits=%u covers=%d hr=0x%08x\r\n",
-			_nClearCount, nFlags, (u32)D3DColor, nDepthBitCount,
-			(int)_pCurrentViewport->pViewportIS->bCoversEntireRenderTarget, (u32)_hrClear );
-	}
 }
 
 void fdx8viewport_RestoreState( void ) {
