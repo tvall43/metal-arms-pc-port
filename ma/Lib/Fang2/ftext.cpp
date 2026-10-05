@@ -1752,6 +1752,23 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 		_fTempX = _fTempCursorOriginX = fVpLeft + ( _fTempResX * fX );
 		_fTempY = _fTempCursorOriginY = fVpTop + ( _fTempResY * fY ) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH;
 
+		// TEMPORARY DIAGNOSTIC.
+		// The bootup menu is still black. Glyph Y coordinates came out around 525..722
+		// in a 480-tall target, and fY=0.075 should give roughly Y=36, so this
+		// expression is producing a value near the bottom of the screen for a
+		// coordinate near the top. Log every term so it is visible which one is
+		// wrong: fVpTop, _fTempResY (the active viewport's resolution), fY itself,
+		// the aspect ratio, and the result. Three of these per frame is plenty.
+		{
+			static u32 _nLoggedXY = 0;
+			if( _nLoggedXY < 3 ) {
+				_nLoggedXY++;
+				DEVPRINTF( "[ma] ftext XY: fY=%.4f fVpTop=%.1f vpResY=%.1f vpResX=%.1f aspect=%.4f -> Y=%.1f (X=%.1f)\r\n",
+					fY, fVpTop, (f32)_fTempResY, (f32)_fTempResX,
+					(f32)_PHYSICAL_DEVICE_ASPECT_RATIO_WoH, (f32)_fTempY, (f32)_fTempX );
+			}
+		}
+
 		_oTempHorzAlign = _poTempArea->oAttributes.oHorzAlign;
 
 		if( FTEXT_HORZ_ALIGN_LEFT == _oTempHorzAlign )
