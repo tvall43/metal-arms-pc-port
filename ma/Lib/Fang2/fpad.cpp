@@ -152,6 +152,17 @@ u32 fpad_UpdateSamples( void )
 	FASSERT_MSG( _bModuleInstalled,    "[ FPAD ] Error: System not installed !!!" );
 	FASSERT_MSG( fpadio_IsInstalled(), "[ FPAD ] Error: FPADIO not installed !!!" );
 
+	// If there is no input device there is nothing to sample, and fpadio has
+	// not created its mutex or sample arrays. The FASSERT above only reports;
+	// it does not stop execution, so continuing dereferences a NULL sample
+	// pointer and crashes. Return zero so the caller sees 'no samples'.
+	//
+	// This is reachable on a PC with no controller attached, where
+	// fpadio_Install fails and the gameloop carries on regardless.
+	if( !_bModuleInstalled || !fpadio_IsInstalled() ) {
+		return 0;
+	}
+
 	f32 fTemp, fTempMin, fTempMax, *pafDelay, *pfDelay, *pafInitialDelay, *pfInitialDelay;
 	BOOL *pabFirstInitialDelay, *pbFirstInitialDelay;
 	u32 uValidSamples, uConnected, uIndex, uDev;

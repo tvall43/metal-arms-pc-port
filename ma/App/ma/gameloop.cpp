@@ -677,7 +677,16 @@ static BOOL _GameInit( void *pParameter ) {
 	} else {
 		DEVPRINTF( "[ma] input driver (fpadio) installed.\n" );
 	}
-	if( FPAD_NO_ERROR != fpad_Install( 0.5f, 0.1f ) ) {
+	//
+	// fpad depends on fpadio: it pulls samples through fpadio_GetSamples()
+	// every frame. Installing fpad after fpadio failed leaves a half-installed
+	// input stack, so only install it once fpadio is genuinely up. When fpadio
+	// failed there is no controller to sample and fpad has nothing to do;
+	// fpad_UpdateSamples() now also returns early in that state.
+	//
+	if( !fpadio_IsInstalled() ) {
+		DEVPRINTF( "[ma] input driver (fpad) not installed: fpadio is unavailable, so there is nothing to sample.\n" );
+	} else if( FPAD_NO_ERROR != fpad_Install( 0.5f, 0.1f ) ) {
 		DEVPRINTF( "Could not install input driver (fpad); continuing.\n" );
 	} else {
 		DEVPRINTF( "[ma] input driver (fpad) installed.\n" );

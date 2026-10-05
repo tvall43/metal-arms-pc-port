@@ -653,6 +653,17 @@ void fpadio_GetSamples( u32 *puValidSamples, FPadio_Sample_t ***ppapaoSamples )
 	FASSERT_MSG( puValidSamples,    "[ FPADIO ] Error: NULL pointer !!!" );
 	FASSERT_MSG( ppapaoSamples,     "[ FPADIO ] Error: NULL pointer !!!" );
 
+	// When fpadio_Install failed -- no input device enumerated -- the module is
+	// not installed, _hSamplesAndDevicesMutex is NULL and the sample arrays do
+	// not exist. The FASSERTs above only report. Without this guard the code
+	// waits on a NULL handle and hands back NULL samples, which the caller then
+	// dereferences. Report 'no samples' instead.
+	if( !_bModuleInstalled || !_hSamplesAndDevicesMutex ) {
+		*puValidSamples = 0;
+		*ppapaoSamples = NULL;
+		return;
+	}
+
 	WaitForSingleObject( _hSamplesAndDevicesMutex, INFINITE );
 
 	*puValidSamples = _uValidSamples;
