@@ -140,6 +140,25 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 			nLetterArrayIndex++;
 		}
 		
+		//
+		// TEMPORARY DIAGNOSTIC. Clear and Present are proven working, and 123
+		// characters reach here per frame, so the glyphs must be positioned
+		// outside the visible area. Log the first quad's corners and the vertex
+		// shader/transform in force so the actual coordinates can be compared
+		// against the render target size.
+		{
+			static u32 _nLogged = 0;
+			if( _nLogged < 3 && nPoolVerticesUsed >= 6 ) {
+				_nLogged++;
+				DEVPRINTF( "[ma] ftext glyph #%u: v0=(%.1f, %.1f) v2=(%.1f, %.1f) v5=(%.1f, %.1f) verts=%u\r\n",
+					_nLogged,
+					pVertices[0].Pos_MS.x, pVertices[0].Pos_MS.y,
+					pVertices[2].Pos_MS.x, pVertices[2].Pos_MS.y,
+					pVertices[5].Pos_MS.x, pVertices[5].Pos_MS.y,
+					nPoolVerticesUsed );
+			}
+		}
+
 		//draw the vertices
 		fdraw_PrimList( FDRAW_PRIMTYPE_TRILIST, pVertices, nPoolVerticesUsed );
 		ftext_nCharsSubmitted += nPoolVerticesUsed / 6;

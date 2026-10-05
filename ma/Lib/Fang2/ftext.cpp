@@ -1688,6 +1688,22 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 		_fTempResX = pVP->Res.x * _FRAMEBUFFER_X_SCALEFACTOR;
 		_fTempResY = pVP->Res.y;
 
+		// TEMPORARY DIAGNOSTIC: report the text viewport's geometry. Glyph
+		// positions are derived from Res and ScreenCorners, so if those are zero
+		// or wrong for this render target every letter lands off-screen while
+		// still being submitted. One-shot is plenty.
+		{
+			static u32 _nLoggedVp = 0;
+			if( _nLoggedVp < 2 ) {
+				_nLoggedVp++;
+				DEVPRINTF( "[ma] ftext viewport: Res=%.1fx%.1f corners=(%.1f,%.1f)-(%.1f,%.1f) vpLeft=%.1f vpTop=%.1f xScale=%.3f\r\n",
+					pVP->Res.x, pVP->Res.y,
+					pVP->ScreenCorners.m_UpperLeft.x, pVP->ScreenCorners.m_UpperLeft.y,
+					pVP->ScreenCorners.m_LowerRight.x, pVP->ScreenCorners.m_LowerRight.y,
+					fVpLeft, fVpTop, (f32)_FRAMEBUFFER_X_SCALEFACTOR );
+			}
+		}
+
 		// XY area cursor.
 		_fTempX = _fTempCursorOriginX = fVpLeft + ( _fTempResX * ( _poTempArea->oAttributes.fUpperLeftX + _poTempArea->oAttributes.fBorderThicknessX * _FRAMEBUFFER_X_SCALEFACTOR + ( fX * ( _poTempArea->oAttributes.fLowerRightX - _poTempArea->oAttributes.fUpperLeftX - ( 2.0f * _poTempArea->oAttributes.fBorderThicknessX * _FRAMEBUFFER_X_SCALEFACTOR ) ) ) ) );
 		_fTempY = _fTempCursorOriginY = fVpTop + ( _fTempResY * ( _poTempArea->oAttributes.fUpperLeftY + _poTempArea->oAttributes.fBorderThicknessY + ( fY * ( _poTempArea->oAttributes.fLowerRightY - _poTempArea->oAttributes.fUpperLeftY - ( 2.0f * _poTempArea->oAttributes.fBorderThicknessY ) ) ) ) ) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH;
