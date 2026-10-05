@@ -27,6 +27,14 @@
 #include "fdx8xfm.h"
 #include "frenderer.h"
 #include "fdx8sh.h"
+// Characters submitted to the push buffer. The text path does not go through
+// fmesh, so counting mesh DrawIndexedPrimitive calls says nothing about
+// whether any text reaches the GPU: an empty back buffer and a successful
+// text draw look identical from outside the window.
+u32 ftext_nCharsSubmitted = 0;
+u32 ftext_nPagesWithText = 0;
+u32 ftext_nPushFailures = 0;
+
 
 
 extern FText_FTextPrintfLetter_t *FText_paoPrintfLetters;
@@ -186,6 +194,9 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 	DWORD *pPush;
 	if ( FDX8_pDev->BeginPush( uPushSizeInDWORDs + 4 + uArrayCount, &pPush ) != S_OK )
 	{
+		ftext_nPushFailures++;
+		DEVPRINTF( "[ma] ftext: BeginPush failed for %u characters (%u arrays, %u DWORDs requested)\n",
+			nCharactersToRender, (u32)uArrayCount, (u32)uPushSizeInDWORDs );
 		return;
 	}
 
@@ -332,3 +343,16 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 
 
 
+
+void ftext_ResetFrameStats( void )
+{
+	static u32 _nFrames = 0;
+	_nFrames++;
+	if( _nFrames <= 4 || ftext_nCharsSubmitted ) {
+		DEVPRINTF( "[ma] ftext frame %u: %u pages with text, %u chars submitted, %u push failures\n",
+			_nFrames, ftext_nPagesWithText, ftext_nCharsSubmitted, ftext_nPushFailures );
+	}
+	ftext_nPagesWithText = 0;
+	ftext_nCharsSubmitted = 0;
+	ftext_nPushFailures = 0;
+}

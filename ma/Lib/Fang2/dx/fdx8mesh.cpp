@@ -29,8 +29,6 @@
 // Counts actual GPU draw submissions. Nothing in the engine reports these, so
 // there is no way to tell 'the renderer produced no geometry' from 'geometry was
 // submitted and came out black' -- the window looks identical either way.
-u32 fmesh_nDrawsSubmitted = 0;
-static u32 _nFramesReported = 0;
 
 #include "fdx8.h"
 #include "fdx8shadow.h"
@@ -666,7 +664,6 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 			// Render the tri-list...
 			if ( pCluster->TriList.nTriCount )
 			{
-				fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLELIST,
 					pCluster->TriList.nVtxIndexMin,
@@ -689,7 +686,6 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 			FDX8MeshStrip_t *pStrip;
 			for ( nStrip=0, pStrip = pCluster->paStripBuffer; nStrip < pCluster->nStripCount; nStrip++, pStrip++ ) 
 			{
-				fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLESTRIP,
 					pStrip->nVtxIndexMin,
@@ -928,7 +924,6 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		// Render the tri-list...
 		if ( pCluster->TriList.nTriCount )
 		{
-			fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 				D3DPT_TRIANGLELIST,
 				pCluster->TriList.nVtxIndexMin,
@@ -951,7 +946,6 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		FDX8MeshStrip_t *pStrip;
 		for ( nStrip=0, pStrip = pCluster->paStripBuffer; nStrip < pCluster->nStripCount; nStrip++, pStrip++ ) 
 		{
-			fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 				D3DPT_TRIANGLESTRIP,
 				pStrip->nVtxIndexMin,
@@ -1165,7 +1159,6 @@ void CFMeshInst::DrawMaterialSpecular_P( FViewportPlanesMask_t nCrossesPlanesMas
 		// Render the tri-list...
 		if ( pCluster->TriList.nTriCount )
 		{
-			fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 				D3DPT_TRIANGLELIST,
 				pCluster->TriList.nVtxIndexMin,
@@ -1188,7 +1181,6 @@ void CFMeshInst::DrawMaterialSpecular_P( FViewportPlanesMask_t nCrossesPlanesMas
 		FDX8MeshStrip_t *pStrip;
 		for ( nStrip=0, pStrip = pCluster->paStripBuffer; nStrip < pCluster->nStripCount; nStrip++, pStrip++ ) 
 		{
-			fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 				D3DPT_TRIANGLESTRIP,
 				pStrip->nVtxIndexMin,
@@ -1430,7 +1422,6 @@ void CFMeshInst::DrawMaterialTranslucency_P( FViewportPlanesMask_t nCrossesPlane
 			// Render the tri-list...
 			if ( pCluster->TriList.nTriCount )
 			{
-				fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLELIST,
 					pCluster->TriList.nVtxIndexMin,
@@ -1453,7 +1444,6 @@ void CFMeshInst::DrawMaterialTranslucency_P( FViewportPlanesMask_t nCrossesPlane
 			FDX8MeshStrip_t *pStrip;
 			for ( nStrip=0, pStrip = pCluster->paStripBuffer; nStrip < pCluster->nStripCount; nStrip++, pStrip++ ) 
 			{
-				fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLESTRIP,
 					pStrip->nVtxIndexMin,
@@ -2094,7 +2084,6 @@ void CFMeshInst::DrawShadow_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMa
 			// Render the tri-list...
 			if ( pCluster->TriList.nTriCount )
 			{
-				fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLELIST,
 					pCluster->TriList.nVtxIndexMin,
@@ -2118,7 +2107,6 @@ void CFMeshInst::DrawShadow_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMa
 			FDX8MeshStrip_t *pStrip;
 			for ( nStrip=0, pStrip = pCluster->paStripBuffer; nStrip < pCluster->nStripCount; nStrip++, pStrip++ ) 
 			{
-				fmesh_nDrawsSubmitted++;
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLESTRIP,
 					pStrip->nVtxIndexMin,
@@ -2318,11 +2306,6 @@ static void _ResLoadDestroy( void *pBase )
 
 void fmesh_Renderer_Open( void ) 
 {
-	if( fmesh_nDrawsSubmitted || _nFramesReported < 4 ) {
-		DEVPRINTF( "[ma] draw submissions: last frame %u\n", fmesh_nDrawsSubmitted );
-	}
-	if( _nFramesReported < 4 ) { _nFramesReported++; }
-	fmesh_nDrawsSubmitted = 0;
 
 	fdx8_SetRenderState_NORMALIZENORMALS( FALSE );
 	fmesh_SetCullDir( FMESH_CULLDIR_CW );

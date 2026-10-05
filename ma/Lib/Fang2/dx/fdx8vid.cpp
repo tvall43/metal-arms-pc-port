@@ -798,6 +798,10 @@ void fvid_End( void )
 //		}
 //
 		ftext_Draw();
+		{
+			extern void ftext_ResetFrameStats( void );
+			ftext_ResetFrameStats();
+		}
 
 		if( _pFcnDrawOverlay ) {
 			_pFcnDrawOverlay();
