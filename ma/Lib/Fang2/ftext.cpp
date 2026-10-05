@@ -144,6 +144,7 @@ static u32 _nLettersUsed;
 u32 ftext_nPrintfsSeen = 0;
 u32 ftext_nParseLetterCalls = 0;
 u32 ftext_nParseLetterBails = 0;
+static BOOL ftext_bLoggedLetter = FALSE;
 static u32 _nLettersInCurrentLine;
 static u32 _nLettersInCurrentWord;
 
@@ -2155,6 +2156,13 @@ BOOL _ParseLetter( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWString,
 
 	//increment the counter on the texture page indicator
 	_uTemp = _poTempLetter->uTexurePage;
+	if( !ftext_bLoggedLetter ) {
+		ftext_bLoggedLetter = TRUE;
+		DEVPRINTF( "[ma] ftext: first letter queued. font=%p uTexPages=%u page=%u lettersInPage[0]=%u nMaxChars=%u\n",
+			(void *)_poTempFont, (u32)_poTempFont->uTexPages, (u32)_uTemp,
+			( _uTemp < _poTempFont->uTexPages ) ? _poTempFont->pauTextLengthPerTexturePages[ _uTemp ] : 0,
+			(u32)Fang_ConfigDefs.nText_MaxCharsPerFrame );
+	}
 	_poTempFont->pauTextLengthPerTexturePages[ _uTemp ]++;
 
 	_nLettersUsed++;
@@ -2647,9 +2655,20 @@ void ftext_ClearAllPending( void )
 
 void ftext_ResetFrameStats( void )
 {
-	DEVPRINTF( "[ma] ftext queue: %u printfs, %u _ParseLetter calls, %u early bails, %u letters queued, fonts=%p, chars/frame cap=%u\n",
+	DEVPRINTF( "[ma] ftext queue: %u printfs, %u _ParseLetter calls, %u early bails, %u letters queued, chars/frame cap=%u\n",
 		ftext_nPrintfsSeen, ftext_nParseLetterCalls, ftext_nParseLetterBails,
-		_nLettersUsed, (void *)_poFontsHead, Fang_ConfigDefs.nText_MaxCharsPerFrame );
+		_nLettersUsed, Fang_ConfigDefs.nText_MaxCharsPerFrame );
+	// Walk the font list the draw loop iterates, and total the per-page counters.
+	// If letters were queued against a font that is not in this list, or against a
+	// page index outside uTexPages, the totals here stay zero.
+	for( FDataFntFile_Font_t *pF = _poFontsHead; pF; pF = pF->poFontNext ) {
+		u32 uTotal = 0;
+		for( u32 uPg = 0; uPg < pF->uTexPages; ++uPg ) {
+			uTotal += pF->pauTextLengthPerTexturePages[ uPg ];
+		}
+		DEVPRINTF( "[ma]   font %p: uTexPages=%u lettersInPages=%u\r\n",
+			(void *)pF, (u32)pF->uTexPages, uTotal );
+	}
 	ftext_nPrintfsSeen = 0;
 	ftext_nParseLetterCalls = 0;
 	ftext_nParseLetterBails = 0;
