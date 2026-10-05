@@ -652,7 +652,16 @@ BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle,
 		// make sure that the field and entry data types jive
 		if( !_DoFieldAndEntryTypesMatch( pField, pEntry ) ) {
 			DEVPRINTF( "fgamedata_GetTableData(): Data type mismatch - Field %d of table '%s' is not of the type desired.\n", nFieldIndex, fgamedata_GetTableName(hTableHandle) );
-			return FALSE;
+
+			// Report both sides so it is clear which one moved: the vocab entry
+			// is what this source tree expects, the field comes from the retail
+			// data and may have been authored against a newer schema.
+			// FDataGameFile_DataType_e is 0=UNSPECIFIED 1=STRING 2=FLOAT 3=WIDESTRING.
+			DEVPRINTF( "[ma]   mismatch: table '%s' field %d -- retail type %u, vocab expects %u%s%s\n",
+				fgamedata_GetTableName(hTableHandle), (int)nFieldIndex,
+				(unsigned) pField->nDataType, (unsigned) pEntry->GetDataType(),
+				( ( pField->nDataType == FDATA_GAMEFILE_DATA_TYPE_STRING ) && pField->pszValue ) ? ", retail value: " : "",
+				( ( pField->nDataType == FDATA_GAMEFILE_DATA_TYPE_STRING ) && pField->pszValue ) ? pField->pszValue : "" );			return FALSE;
 		}
 		
 		// calculate the number of bytes needed to store the requested data
