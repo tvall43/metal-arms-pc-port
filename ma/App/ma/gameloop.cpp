@@ -1188,6 +1188,30 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 			fdx8_SetTextureState_COLOROP( 0, D3DTOP_SELECTARG1 );
 			FDX8_pDev->SetTexture( 0, NULL );
 
+			// Clear and DrawPrimitive differ in one important respect: a full-target
+			// Clear (FVIEWPORT_CLEARFLAG_ALL with bCoversEntireRenderTarget) ignores
+			// the device viewport, while DrawPrimitive is clipped by it entirely. The
+			// magenta Clear test put visible pixels on screen, so the device, back
+			// buffer and Present are all proven good -- yet a trivially configured
+			// triangle drawing nothing. A degenerate viewport rect explains both.
+			// Report whatever the viewport currently is, then force it to the whole
+			// back buffer for this draw.
+			{
+				D3DVIEWPORT8 _vpOld;
+				if( SUCCEEDED( FDX8_pDev->GetViewport( &_vpOld ) ) && _nDiagFrames <= 3 ) {
+					DEVPRINTF( "[ma] diag triangle: device viewport is %u,%u %ux%u minZ=%.3f maxZ=%.3f\r\n",
+						(unsigned)_vpOld.X, (unsigned)_vpOld.Y,
+						(unsigned)_vpOld.Width, (unsigned)_vpOld.Height,
+						_vpOld.MinZ, _vpOld.MaxZ );
+				}
+				D3DVIEWPORT8 _vpFull;
+				_vpFull.X = 0; _vpFull.Y = 0;
+				_vpFull.Width  = FVid_Mode.nPixelsAcross;
+				_vpFull.Height = FVid_Mode.nPixelsDown;
+				_vpFull.MinZ = 0.0f; _vpFull.MaxZ = 1.0f;
+				FDX8_pDev->SetViewport( &_vpFull );
+			}
+
 			struct { float x, y, z; DWORD c; } _av[3] = {
 				{ -1.0f, -1.0f, 0.5f, 0xFFFF00FF },
 				{ -1.0f,  3.0f, 0.5f, 0xFFFF00FF },
