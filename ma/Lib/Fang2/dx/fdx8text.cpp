@@ -155,6 +155,24 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 		// D3DCULL_NONE in fdx8psprite.cpp and fdx8sh.cpp.
 		fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
 
+		// TEMPORARY DIAGNOSTIC -- bisect the pixel shader.
+		//
+		// Draws are genuinely issued: fdraw_PrimList and _DrawPrim are both traced,
+		// and the Windows path calls DrawPrimitive via _FillVertexBufferAndDrawPrim.
+		// Clear and present both demonstrably work and glyph coordinates are correct,
+		// yet no pixels appear.
+		//
+		// ftext_Draw sets FDRAW_COLORFUNC_DIFFUSETEX_AIAT, which binds a pixel shader,
+		// and _SetupPixelShaders() fails at index 63 because _apPShaderFunc[63]
+		// duplicates [62]. A D3D8 device discards draws when pixel shading is enabled
+		// but the bound shader is unusable, and it does so silently. That fits every
+		// observation, including wined3d's err:d3d:state_undefined appearing on the
+		// render thread exactly when glyphs are first drawn.
+		//
+		// Unbind the pixel shader so the fixed-function path is used. If text appears,
+		// the shader is at fault and index 63 is worth fixing properly.
+		FDX8_pDev->SetPixelShader( NULL );
+
 		//draw the vertices
 		fdraw_PrimList( FDRAW_PRIMTYPE_TRILIST, pVertices, nPoolVerticesUsed );
 		nCharactersRendered = nCharactersPrepped;
