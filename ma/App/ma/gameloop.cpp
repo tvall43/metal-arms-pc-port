@@ -1144,105 +1144,45 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 
 	fvid_Begin();
 
-	// TEMPORARY DIAGNOSTIC -- an absolute-minimum draw, bypassing everything.
+	// TEMPORARY DIAGNOSTIC -- draw through the engine's own path.
 	//
-	// Establishes whether the device can rasterise *anything* at all. State is set
-	// directly: identity projection, view and world; no pixel shader; colour op
-	// forced to the vertex colour; no blending, culling, depth test or texture.
-	// Three vertices filling NDC go into a dedicated vertex buffer created for the
-	// test, and are submitted with DrawPrimitive.
+	// The previous version of this test created its own vertex buffer and reported
+	// stride=66 with FVF 0x0010 (D3DFVF_NORMAL) while writing 16-byte XYZ+colour
+	// vertices, and fdx8vb_Lock's call to fdx8sh_SetVertexType then overrode the
+	// FVF it had been given. With no position in the format the rasteriser had
+	// nothing to place, so the draw was discarded while returning D3D_OK. That was
+	// a fault in the test, not evidence about the device.
 	//
-	// If this magenta triangle does not appear, nothing in the engine's text,
-	// fdraw, vertex-pool or projection code is at fault -- the problem is at the
-	// device or window level (back buffer, Present parameters, or a window that
-	// is not the one being presented to), and further tracing inside the renderer
-	// is wasted effort. If it does appear, the fault is in the engine layers above
-	// and can be bisected back down from here.
+	// So test one level up instead: activate the engine's own full-screen ortho
+	// viewport and submit a triangle through fdraw_PrimList, which uses the
+	// engine's correctly typed vertex buffer and FVF. Pixel shader cleared and the
+	// texture left alone.
+	//
+	// If this appears, the engine's draw path works and the fault is specific to
+	// the ftext path. If it does not, the fault is in fdraw/_DrawPrim or below, and
+	// no further tracing inside ftext can help.
 	{
-		static FDX8VB_t *s_pDiagVB = NULL;
+		static const FDrawVtx_t _aTri[3] = {
+			{ -1.0f, -1.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
+			{ -1.0f,  3.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
+			{  3.0f, -1.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
+		};
 		static u32 _nDiagFrames = 0;
 		_nDiagFrames++;
-		if( !s_pDiagVB ) {
-			s_pDiagVB = (FDX8VB_t *)malloc( sizeof(FDX8VB_t) );
-			if( s_pDiagVB ) {
-				fang_MemZero( s_pDiagVB, sizeof(FDX8VB_t) );
-				if( !fdx8vb_CreateFVF( s_pDiagVB, 4, FDX8VB_TYPE_C1, TRUE, FALSE ) ) {
-					DEVPRINTF( "[ma] diag triangle: could not create a vertex buffer\n" );
-					s_pDiagVB = NULL;
-				}
-			}
-		}
-		if( s_pDiagVB ) {
-			// A plain D3DMATRIX identity: 1 down the diagonal, 0 elsewhere.
-			D3DMATRIX _sIdent;
-			fang_MemZero( &_sIdent, sizeof(_sIdent) );
-			_sIdent._11 = _sIdent._22 = _sIdent._33 = _sIdent._44 = 1.0f;
-			FDX8_pDev->SetTransform( D3DTS_PROJECTION, &_sIdent );
-			FDX8_pDev->SetTransform( D3DTS_VIEW, &_sIdent );
-			FDX8_pDev->SetTransform( D3DTS_WORLD, &_sIdent );
-			FDX8_pDev->SetPixelShader( NULL );
-			FDX8_pDev->SetVertexShader( D3DFVF_XYZ | D3DFVF_DIFFUSE );
-			FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
-			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
-			FDX8_pDev->SetRenderState( D3DRS_ZENABLE, FALSE );
-			fdx8_SetTextureState_COLOROP( 0, D3DTOP_SELECTARG1 );
-			FDX8_pDev->SetTexture( 0, NULL );
 
-			// Clear and DrawPrimitive differ in one important respect: a full-target
-			// Clear (FVIEWPORT_CLEARFLAG_ALL with bCoversEntireRenderTarget) ignores
-			// the device viewport, while DrawPrimitive is clipped by it entirely. The
-			// magenta Clear test put visible pixels on screen, so the device, back
-			// buffer and Present are all proven good -- yet a trivially configured
-			// triangle drawing nothing. A degenerate viewport rect explains both.
-			// Report whatever the viewport currently is, then force it to the whole
-			// back buffer for this draw.
-			{
-				D3DVIEWPORT8 _vpOld;
-				if( SUCCEEDED( FDX8_pDev->GetViewport( &_vpOld ) ) && _nDiagFrames <= 3 ) {
-					DEVPRINTF( "[ma] diag triangle: device viewport is %u,%u %ux%u minZ=%.3f maxZ=%.3f\r\n",
-						(unsigned)_vpOld.X, (unsigned)_vpOld.Y,
-						(unsigned)_vpOld.Width, (unsigned)_vpOld.Height,
-						_vpOld.MinZ, _vpOld.MaxZ );
-				}
-				D3DVIEWPORT8 _vpFull;
-				_vpFull.X = 0; _vpFull.Y = 0;
-				_vpFull.Width  = FVid_Mode.nPixelsAcross;
-				_vpFull.Height = FVid_Mode.nPixelsDown;
-				_vpFull.MinZ = 0.0f; _vpFull.MaxZ = 1.0f;
-				FDX8_pDev->SetViewport( &_vpFull );
-			}
+		fviewport_SetActive( FViewport_pDefaultOrtho );
+		FDX8_pDev->SetPixelShader( NULL );
+		fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
+		fdx8_SetRenderState_ALPHABLENDENABLE( FALSE );
+		FDX8_pDev->SetRenderState( D3DRS_ZENABLE, FALSE );
 
-			struct { float x, y, z; DWORD c; } _av[3] = {
-				{ -1.0f, -1.0f, 0.5f, 0xFFFF00FF },
-				{ -1.0f,  3.0f, 0.5f, 0xFFFF00FF },
-				{  3.0f, -1.0f, 0.5f, 0xFFFF00FF },
-			};
-			void *_pLock = fdx8vb_Lock( s_pDiagVB, 0, 3 );
-			if( _pLock ) {
-				memcpy( _pLock, _av, sizeof(_av) );
-				fdx8vb_Unlock( s_pDiagVB );
-
-				// Report what the draw actually did. Every state field has been verified
-				// correct -- viewport 0,0 640x480, identity transforms, no pixel shader,
-				// no cull/blend/depth/texture, stage 0 on vertex colour, vertex buffer
-				// bound -- and nothing appears, while a full-target Clear does. So check
-				// the two things that would make a draw fail silently: the FVF actually
-				// in force (fdx8vb_Lock calls fdx8sh_SetVertexType, which may override
-				// what we set) and the DrawPrimitive return code.
-				if( _nDiagFrames <= 3 ) {
-					DWORD _hrFVF = s_pDiagVB->hVertexShader;
-					DEVPRINTF( "[ma] diag triangle: VB stride=%u, VB FVF=0x%08lX\r\n",
-						(unsigned long)_hrFVF, (unsigned)s_pDiagVB->nBytesPerVertex );
-				}
-
-				HRESULT _hrDraw = FDX8_pDev->DrawPrimitive( D3DPT_TRIANGLELIST, 0, 1 );
-				if( _nDiagFrames <= 3 ) {
-					DEVPRINTF( "[ma] diag triangle submitted on frame %u, hr = 0x%08lX\r\n",
-						_nDiagFrames, (unsigned long)_hrDraw );
-				}
-			} else {
-				DEVPRINTF( "[ma] diag triangle: fdx8vb_Lock failed\n" );
-			}
+		// fdraw_PrimList asserts on the active renderer, so push one first.
+		frenderer_Push( FRENDERER_DRAW, NULL );
+		fdraw_PrimList( FDRAW_PRIMTYPE_TRILIST, _aTri, 3 );
+		frenderer_Pop();
+		if( _nDiagFrames <= 3 ) {
+			DEVPRINTF( "[ma] diag triangle submitted via fdraw_PrimList on frame %u\r\n",
+				_nDiagFrames );
 		}
 	}
 
