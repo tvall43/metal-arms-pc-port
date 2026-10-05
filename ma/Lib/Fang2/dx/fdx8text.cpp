@@ -49,6 +49,19 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 	fdraw_SetTexture( &pFont->paoTexInsts[ nTexturePageIdx ] );
 
 	u32 nCharactersToRender = pFont->pauTextLengthPerTexturePages[ nTexturePageIdx ];
+
+	// TEMPORARY DIAGNOSTIC. Text is queued -- the ftext XY trace proves
+	// _ftext_PrintString runs, with correct coordinates -- but _DrawPrim is never
+	// reached. Something between ftext_Draw and fdraw_PrimList is not happening.
+	// Log entry to this function so that link can be checked directly.
+	{
+		static u32 _nDbg = 0;
+		_nDbg++;
+		if( _nDbg <= 3 ) {
+			DEVPRINTF( "[ma] ftext submit WIN #%u: charsToRender=%u font=%p texPages=%u\r\n",
+				_nDbg, nCharactersToRender, (void *)pFont, (u32)pFont->uTexPages );
+		}
+	}
 	//grab a pool of vertices large enough to render all these characters
 
 	FDrawVtx_t *pVertices = NULL;

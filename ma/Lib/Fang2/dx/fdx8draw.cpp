@@ -386,6 +386,15 @@ void fdraw_PrimList( FDrawPrimType_e nPrimType, const FDrawVtx_t *paVertices, u3
 {
 	FASSERT( _bWindowCreated );
 	FASSERT( frenderer_GetActive() == FRENDERER_DRAW );
+	// TEMPORARY DIAGNOSTIC: confirm this entry point is reached at all.
+	{
+		static u32 _nDbg = 0;
+		_nDbg++;
+		if( _nDbg <= 3 ) {
+			DEVPRINTF( "[ma] fdraw_PrimList #%u: primType=%d verts=%u renderer=%d\r\n",
+				_nDbg, (int)nPrimType, nVtxCount, (int)frenderer_GetActive() );
+		}
+	}
 	_DrawPrim( nPrimType, paVertices, nVtxCount );
 }
 
