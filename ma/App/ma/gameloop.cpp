@@ -1221,9 +1221,24 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 			if( _pLock ) {
 				memcpy( _pLock, _av, sizeof(_av) );
 				fdx8vb_Unlock( s_pDiagVB );
-				FDX8_pDev->DrawPrimitive( D3DPT_TRIANGLELIST, 0, 1 );
+
+				// Report what the draw actually did. Every state field has been verified
+				// correct -- viewport 0,0 640x480, identity transforms, no pixel shader,
+				// no cull/blend/depth/texture, stage 0 on vertex colour, vertex buffer
+				// bound -- and nothing appears, while a full-target Clear does. So check
+				// the two things that would make a draw fail silently: the FVF actually
+				// in force (fdx8vb_Lock calls fdx8sh_SetVertexType, which may override
+				// what we set) and the DrawPrimitive return code.
 				if( _nDiagFrames <= 3 ) {
-					DEVPRINTF( "[ma] diag triangle submitted on frame %u\n", _nDiagFrames );
+					DWORD _hrFVF = s_pDiagVB->hVertexShader;
+					DEVPRINTF( "[ma] diag triangle: VB stride=%u, VB FVF=0x%08lX\r\n",
+						(unsigned long)_hrFVF, (unsigned)s_pDiagVB->nBytesPerVertex );
+				}
+
+				HRESULT _hrDraw = FDX8_pDev->DrawPrimitive( D3DPT_TRIANGLELIST, 0, 1 );
+				if( _nDiagFrames <= 3 ) {
+					DEVPRINTF( "[ma] diag triangle submitted on frame %u, hr = 0x%08lX\r\n",
+						_nDiagFrames, (unsigned long)_hrDraw );
 				}
 			} else {
 				DEVPRINTF( "[ma] diag triangle: fdx8vb_Lock failed\n" );
