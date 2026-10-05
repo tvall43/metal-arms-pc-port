@@ -343,16 +343,3 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 
 
 
-
-void ftext_ResetFrameStats( void )
-{
-	static u32 _nFrames = 0;
-	_nFrames++;
-	if( _nFrames <= 4 || ftext_nCharsSubmitted ) {
-		DEVPRINTF( "[ma] ftext frame %u: %u pages with text, %u chars submitted, %u push failures\n",
-			_nFrames, ftext_nPagesWithText, ftext_nCharsSubmitted, ftext_nPushFailures );
-	}
-	ftext_nPagesWithText = 0;
-	ftext_nCharsSubmitted = 0;
-	ftext_nPushFailures = 0;
-}

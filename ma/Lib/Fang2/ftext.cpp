@@ -135,6 +135,15 @@ static _FTextArea_t _oAreaDefault;
 
 // FText Printf Letter structures
 static u32 _nLettersUsed;
+
+// Once-per-frame report of the text queue state. _BootupDraw calls ftext_Printf
+// every frame, yet no texture page ever gets characters, so text is being
+// dropped before it reaches the push buffer. These counters separate the
+// possibilities: Printf not entered, letters parsed but no font to attribute
+// them to, or letters queued but never counted onto a texture page.
+u32 ftext_nPrintfsSeen = 0;
+u32 ftext_nParseLetterCalls = 0;
+u32 ftext_nParseLetterBails = 0;
 static u32 _nLettersInCurrentLine;
 static u32 _nLettersInCurrentWord;
 
@@ -1203,6 +1212,9 @@ void ftext_Printf( const f32 fX, const f32 fY, cchar *pszFormat, ... )
 	return;
 #endif
 
+	extern u32 ftext_nPrintfsSeen;
+	ftext_nPrintfsSeen++;
+
 	va_list	oVAList;
 	va_start( oVAList, pszFormat );
 	if( -1 == _vsnprintf( (char *)_pszTemp, Fang_ConfigDefs.nText_MaxCharsPerPrintf, pszFormat, oVAList ) )
@@ -2028,6 +2040,14 @@ BOOL _ParseEscapeCode ( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWSt
 //	FALSE - Indicates error of some sort occured and parsing of rest of text string should be HALTED.
 BOOL _ParseLetter( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWString, const f32 fZ ) {
 
+	ftext_nParseLetterCalls++;
+
+	// No font means every character below dereferences _poTempFont. That is a
+	// silent no-op path worth naming explicitly.
+	if( !_poTempFont ) {
+		ftext_nParseLetterBails++;
+	}
+
 	//check to see if we have a free letter available
 	if( _nLettersUsed >= Fang_ConfigDefs.nText_MaxCharsPerFrame ) {
 		if( _uTextBufferOverflowErrors ) {
@@ -2038,6 +2058,7 @@ BOOL _ParseLetter( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWString,
 				DEVPRINTF( "[ FTEXT ] Warning %u: The previous warning will not be issued anymore !!!\n", __LINE__ );
 			}
 		}
+		ftext_nParseLetterBails++;
 		return FALSE;
 	}
 
@@ -2622,6 +2643,18 @@ void ftext_ClearAllPending( void )
 } // ftext_ClearAllPending
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+void ftext_ResetFrameStats( void )
+{
+	DEVPRINTF( "[ma] ftext queue: %u printfs, %u _ParseLetter calls, %u early bails, %u letters queued, fonts=%p, chars/frame cap=%u\n",
+		ftext_nPrintfsSeen, ftext_nParseLetterCalls, ftext_nParseLetterBails,
+		_nLettersUsed, (void *)_poFontsHead, Fang_ConfigDefs.nText_MaxCharsPerFrame );
+	ftext_nPrintfsSeen = 0;
+	ftext_nParseLetterCalls = 0;
+	ftext_nParseLetterBails = 0;
+	_nLettersUsed = 0;
+}
 
 void ftext_Draw( void )
 {
