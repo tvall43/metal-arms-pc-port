@@ -663,13 +663,24 @@ static BOOL _GameInit( void *pParameter ) {
 	oPadioInit.DX8ONLY_pszInputEmulationDevName = pParm->pszInputEmulationDevName;
 #endif
 
+	//
+	// Input is not fatal. fpadio enumerates DirectInput game controllers, and
+	// fpadio_Install fails with "Nothing has been enumerated" when the machine
+	// has none -- which is the normal case on a PC without a controller
+	// attached, and always the case under Wine. The Xbox build can treat this
+	// as fatal because a controller is guaranteed to be present; a PC build
+	// must not, or the game refuses to render on any keyboard-only machine.
+	// Carry on without a pad so rendering can proceed; fpad still gets its
+	// timing below because it does not need a device.
 	if( FPADIO_NO_ERROR != fpadio_Install( &oPadioInit ) ) {
-		DEVPRINTF( "Could not install input driver (fpadio).\n" );
-		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
+		DEVPRINTF( "Could not install input driver (fpadio); continuing without a controller.\n" );
+	} else {
+		DEVPRINTF( "[ma] input driver (fpadio) installed.\n" );
 	}
 	if( FPAD_NO_ERROR != fpad_Install( 0.5f, 0.1f ) ) {
-		DEVPRINTF( "Could not install input driver (fpad).\n" );
-		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
+		DEVPRINTF( "Could not install input driver (fpad); continuing.\n" );
+	} else {
+		DEVPRINTF( "[ma] input driver (fpad) installed.\n" );
 	}
 
 	PROTRACK_INITSYSTEM();	 //couldn't stick in init table because this is a macro that will mean nothing in some builds
