@@ -745,6 +745,27 @@ void fang_Assert( cchar *pszFile, int nLine, cchar *pszExpr ) {
 	// DEVPRINTF through Fang_ConfigDefs.pFang_FcnPrintf.
 	DEVPRINTF( "*** FANG ASSERTION FAILURE ***  %s(%i): %s\n", pszFile, nLine, pszExpr );
 
+	//
+	// Do not put a modal dialog on screen for every assertion. Assertions are
+	// compiled in for this port, and anything asserted inside the per-frame loop
+	// -- fpad not installed, for one -- fires once per frame, which turns a
+	// diagnostic into an unclickable queue of dialogs and stalls the game.
+	// The DEVPRINTF above already reaches the log and ma_win_log.txt, so report
+	// there and continue.
+	//
+	// Fang_ConfigDefs.bAssertShowsDialog still enables the dialog, and even when
+	// it is off the first few are shown, so a genuine one-off failure is noticed
+	// while a per-frame repeat does not become a wall of dialogs.
+	static u32 _nAssertCount = 0;
+	const u32 _MAX_DIALOGS = 3;
+	_nAssertCount++;
+	if( !Fang_ConfigDefs.bAssertShowsDialog || _nAssertCount > _MAX_DIALOGS ) {
+		return;
+	}
+	if( _nAssertCount == _MAX_DIALOGS ) {
+		DEVPRINTF( "*** further Fang assertions will be logged only, not shown as dialogs ***\n" );
+	}
+
 	_snprintf( szMsgString, __MAX_MSG_LEN, "*** FANG ASSERTION FAILURE ***\n\nFile: %s\nLine: %i\nExpression: %s\n\nClick Ok to continue or Cancel to abort.", pszFile, nLine, pszExpr );
 
 #ifdef _UNICODE

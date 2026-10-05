@@ -562,6 +562,11 @@ typedef struct {
 	u32 nMaxDecals;							// maximum number of decals that can be drawn at once
 	u32 nMaxDecalVertices;					// maximum number of vertices that can be used at once by the decal system
 
+	BOOL bAssertShowsDialog;					// TRUE to put a modal dialog up for each Fang assertion. FALSE logs only.
+											// A per-frame assertion would otherwise produce one dialog
+											// per frame, so the default is FALSE and only the first
+											// few are shown.
+
 } FangConfigDef_t;
 
 
