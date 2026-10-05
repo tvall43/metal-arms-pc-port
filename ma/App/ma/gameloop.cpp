@@ -18,7 +18,11 @@
 // 06/14/02	Link		Added LaserBeam system.
 //////////////////////////////////////////////////////////////////////////////////////
 #include "fang.h"
+#include <cstdlib>
 #include "gameloop.h"
+#include "fdx8.h"
+#include "fdx8vb.h"
+#include "fdx8sh.h"
 #include "fresload.h"
 #if FANG_PLATFORM_WIN
 	#include "dx/fdx8vid.h"
@@ -1139,6 +1143,69 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 	}
 
 	fvid_Begin();
+
+	// TEMPORARY DIAGNOSTIC -- an absolute-minimum draw, bypassing everything.
+	//
+	// Establishes whether the device can rasterise *anything* at all. State is set
+	// directly: identity projection, view and world; no pixel shader; colour op
+	// forced to the vertex colour; no blending, culling, depth test or texture.
+	// Three vertices filling NDC go into a dedicated vertex buffer created for the
+	// test, and are submitted with DrawPrimitive.
+	//
+	// If this magenta triangle does not appear, nothing in the engine's text,
+	// fdraw, vertex-pool or projection code is at fault -- the problem is at the
+	// device or window level (back buffer, Present parameters, or a window that
+	// is not the one being presented to), and further tracing inside the renderer
+	// is wasted effort. If it does appear, the fault is in the engine layers above
+	// and can be bisected back down from here.
+	{
+		static FDX8VB_t *s_pDiagVB = NULL;
+		static u32 _nDiagFrames = 0;
+		_nDiagFrames++;
+		if( !s_pDiagVB ) {
+			s_pDiagVB = (FDX8VB_t *)malloc( sizeof(FDX8VB_t) );
+			if( s_pDiagVB ) {
+				fang_MemZero( s_pDiagVB, sizeof(FDX8VB_t) );
+				if( !fdx8vb_CreateFVF( s_pDiagVB, 4, FDX8VB_TYPE_C1, TRUE, FALSE ) ) {
+					DEVPRINTF( "[ma] diag triangle: could not create a vertex buffer\n" );
+					s_pDiagVB = NULL;
+				}
+			}
+		}
+		if( s_pDiagVB ) {
+			// A plain D3DMATRIX identity: 1 down the diagonal, 0 elsewhere.
+			D3DMATRIX _sIdent;
+			fang_MemZero( &_sIdent, sizeof(_sIdent) );
+			_sIdent._11 = _sIdent._22 = _sIdent._33 = _sIdent._44 = 1.0f;
+			FDX8_pDev->SetTransform( D3DTS_PROJECTION, &_sIdent );
+			FDX8_pDev->SetTransform( D3DTS_VIEW, &_sIdent );
+			FDX8_pDev->SetTransform( D3DTS_WORLD, &_sIdent );
+			FDX8_pDev->SetPixelShader( NULL );
+			FDX8_pDev->SetVertexShader( D3DFVF_XYZ | D3DFVF_DIFFUSE );
+			FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
+			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
+			FDX8_pDev->SetRenderState( D3DRS_ZENABLE, FALSE );
+			fdx8_SetTextureState_COLOROP( 0, D3DTOP_SELECTARG1 );
+			FDX8_pDev->SetTexture( 0, NULL );
+
+			struct { float x, y, z; DWORD c; } _av[3] = {
+				{ -1.0f, -1.0f, 0.5f, 0xFFFF00FF },
+				{ -1.0f,  3.0f, 0.5f, 0xFFFF00FF },
+				{  3.0f, -1.0f, 0.5f, 0xFFFF00FF },
+			};
+			void *_pLock = fdx8vb_Lock( s_pDiagVB, 0, 3 );
+			if( _pLock ) {
+				memcpy( _pLock, _av, sizeof(_av) );
+				fdx8vb_Unlock( s_pDiagVB );
+				FDX8_pDev->DrawPrimitive( D3DPT_TRIANGLELIST, 0, 1 );
+				if( _nDiagFrames <= 3 ) {
+					DEVPRINTF( "[ma] diag triangle submitted on frame %u\n", _nDiagFrames );
+				}
+			} else {
+				DEVPRINTF( "[ma] diag triangle: fdx8vb_Lock failed\n" );
+			}
+		}
+	}
 
 	if(Gameloop_bDrawEnabled)
 	{
