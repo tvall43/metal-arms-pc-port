@@ -349,6 +349,23 @@ void fviewport_Clear( u32 nClearFlag, f32 fUnitRed, f32 fUnitGreen, f32 fUnitBlu
 
 		FDX8_pDev->Clear( 1, &Rect, nFlags, D3DColor, fDepth, nStencil );
 	}
+
+	//
+	// TEMPORARY DIAGNOSTIC -- ordered log of every clear. The back buffer ends
+	// each frame holding 0x000007 (launcher.cpp's 0.03 blue) even though every
+	// draw is provably issued into the same surface, so either the draws do not
+	// rasterize or a clear follows them. Logged in sequence with the _DiagProbe
+	// samples in fdx8vid.cpp to show which. Remove with those.
+	//
+	{
+		static u32 _nClearDiag = 0;
+		_nClearDiag++;
+		if( _nClearDiag <= 40 ) {
+			DEVPRINTF( "[ma] clear #%u: flags=0x%08X color=%08X depth=%.3f stencil=%u %s\r\n",
+						_nClearDiag, nFlags, D3DColor, fDepth, nStencil,
+						(_pCurrentViewport->pViewportIS->bCoversEntireRenderTarget) ? "full" : "rect" );
+		}
+	}
 }
 
 void fdx8viewport_RestoreState( void ) {

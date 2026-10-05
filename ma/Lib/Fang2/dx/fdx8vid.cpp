@@ -742,6 +742,10 @@ BOOL fvid_HasUserClosedWindow( void )
 //
 //
 //
+#if FANG_PLATFORM_WIN
+static void _DiagProbe( const char *pTag );
+#endif
+
 BOOL fvid_Begin( void ) 
 {
 	FASSERT( _bModuleInitialized );
@@ -756,10 +760,113 @@ BOOL fvid_Begin( void )
 
 	FDX8_pDev->BeginScene();
 
+#if FANG_PLATFORM_WIN
+	_DiagProbe( "begin" );
+#endif
+
 	// If the graphics window is minimized or if the device is lost,
 	// there's no need to have the game render anything...
 	return !(_bMinimized || _bDeviceLost);
 }
+
+
+//
+// TEMPORARY DIAGNOSTIC -- sample the back buffer at several points inside ONE
+// frame.
+//
+// The device readback is clean: right FVF and stride, the diagnostic triangle's
+// own vertices (0,0)/(0,480)/(640,0) in magenta, GetRenderTarget returning the
+// same pointer as GetBackBuffer, a projection that maps them across the whole
+// screen, and DrawPrimitive returning D3D_OK. Against that, the buffer still
+// holds only the clear colour afterwards -- so either the draw never rasterizes
+// or something after it clears the frame. Sampling the same frame at several
+// points separates the two without either assumption.
+//
+#if FANG_PLATFORM_WIN
+static BOOL _DiagProbeThisFrame( void )
+{
+	static const u32 _anProbeFrames[] = { 1, 2, 3, 4, 5, 8, 16, 32 };
+	u32 i;
+
+	for( i = 0; i < sizeof(_anProbeFrames)/sizeof(_anProbeFrames[0]); i++ ) {
+		if( FVid_nFrameCounter == _anProbeFrames[i] ) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static void _DiagProbe( const char *pTag )
+{
+	IDirect3DSurface8	*pSurf = NULL;
+	D3DSURFACE_DESC		Desc;
+	D3DLOCKED_RECT		LockedRect;
+	HRESULT				hRes;
+	u32					x, y;
+	u32					nSamples = 0;
+	u32					nChanged = 0;		// pixels that are not the clear colour 0x000007
+	u32					nMagenta = 0;
+	u32					nProbeA = 0;
+	u32					nProbeB = 0;
+
+	if( !_DiagProbeThisFrame() || FDX8_pDev == NULL ) {
+		return;
+	}
+
+	hRes = FDX8_pDev->GetBackBuffer( 0, D3DBACKBUFFER_TYPE_MONO, &pSurf );
+	if( FAILED( hRes ) || pSurf == NULL ) {
+		DEVPRINTF( "[ma] probe %-8s frame %u: GetBackBuffer failed 0x%08X\r\n", pTag, FVid_nFrameCounter, hRes );
+		return;
+	}
+
+	pSurf->GetDesc( &Desc );
+	if( (Desc.Format != D3DFMT_X8R8G8B8 && Desc.Format != D3DFMT_A8R8G8B8) || Desc.Width < 640 || Desc.Height < 480 ) {
+		DEVPRINTF( "[ma] probe %-8s frame %u: unexpected format %d %ux%u\r\n", pTag, FVid_nFrameCounter, (int)Desc.Format, Desc.Width, Desc.Height );
+		pSurf->Release();
+		return;
+	}
+
+	hRes = pSurf->LockRect( &LockedRect, NULL, D3DLOCK_READONLY );
+	if( FAILED( hRes ) ) {
+		DEVPRINTF( "[ma] probe %-8s frame %u: LockRect failed 0x%08X\r\n", pTag, FVid_nFrameCounter, hRes );
+		pSurf->Release();
+		return;
+	}
+
+	// Every 8th pixel in both axes: 80x60 samples, enough to catch anything
+	// larger than a glyph.
+	for( y = 0; y < Desc.Height; y += 8 ) {
+		const u8 *pRow = (const u8*)LockedRect.pBits + (y * LockedRect.Pitch);
+		for( x = 0; x < Desc.Width; x += 8 ) {
+			u32 nPix = *(const u32*)( pRow + (x * 4) );
+			u32 nR = (nPix >> 16) & 0xFF;
+			u32 nG = (nPix >> 8) & 0xFF;
+			u32 nB = nPix & 0xFF;
+
+			nSamples++;
+			if( nPix != 0x000007 ) {
+				nChanged++;
+			}
+			if( nR > 192 && nB > 192 && nG < 96 ) {
+				nMagenta++;
+			}
+			if( x == 8 && y == 8 ) {
+				nProbeA = nPix & 0xFFFFFF;
+			}
+			if( x == 600 && y == 400 ) {
+				nProbeB = nPix & 0xFFFFFF;
+			}
+		}
+	}
+
+	pSurf->UnlockRect();
+	pSurf->Release();
+
+	DEVPRINTF( "[ma] probe %-8s frame %u: changed=%u/%u magenta=%u (8,8)=%06X (600,400)=%06X\r\n",
+				pTag, FVid_nFrameCounter, nChanged, nSamples, nMagenta, nProbeA, nProbeB );
+}
+#endif // FANG_PLATFORM_WIN
+
 
 
 //
@@ -1004,6 +1111,10 @@ static void _DiagDumpBackBuffer( const char *pTag, u32 nFrame )
 //		}
 //
 		ftext_Draw();
+#if FANG_PLATFORM_WIN
+		_DiagProbe( "text" );
+#endif
+
 
 		//
 		// TEMPORARY DIAGNOSTIC -- full-screen magenta triangle, drawn last.
@@ -1047,14 +1158,24 @@ static void _DiagDumpBackBuffer( const char *pTag, u32 nFrame )
 				DEVPRINTF( "[ma] diag triangle drawn last in scene, frame %u\r\n", _nDiagFrames );
 			}
 		}
+#if FANG_PLATFORM_WIN
+		_DiagProbe( "tri" );
+#endif
 
 		if( _pFcnDrawOverlay ) {
 			_pFcnDrawOverlay();
 		}
+#if FANG_PLATFORM_WIN
+		_DiagProbe( "postovl" );
+#endif
 
 		FVid_bBegin = FALSE;
 
 		FDX8_pDev->EndScene();
+#if FANG_PLATFORM_WIN
+		_DiagProbe( "endscene" );
+#endif
+
 
 #if FANG_PLATFORM_WIN
 		//
@@ -2563,6 +2684,7 @@ static BOOL _SwapBuffers( void )
 	_nXBPresentCalls++;
 */
 	FDX8_pDev->Present( NULL, NULL, NULL, NULL );
+	_DiagProbe( "present" );
 #endif
 
 	FVid_nSwapCounter++;
