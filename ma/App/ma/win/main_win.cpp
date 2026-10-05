@@ -674,21 +674,30 @@ static BOOL _RunGame( void )
 		// to do. Returning from WinMain without doing so tore the process down,
 		// and the game thread with it, which is why the game appeared to do
 		// nothing at all.
-		_Trace( "[ma] pumping messages\n" );
-		BOOL bQuit = FALSE;
-		MSG msg;
-		while( !bQuit && floop_IsGameloopRunning() ) {
-			while( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) {
-				if( msg.message == WM_QUIT ) {
-					_Trace( "[ma] WM_QUIT -- ending the gameloop\n" );
-					gameloop_End();
-					bQuit = TRUE;
-					break;
-				}
-				TranslateMessage( &msg );
-				DispatchMessage( &msg );
-			}
-			if( !bQuit ) Sleep( 1 );
+		//
+		// Do NOT pump messages here.
+		//
+		// The Windows floop runs the gameloop on CGameThread, and that thread has
+		// its own message loop (fdx8loop.cpp:577):
+		//
+		//     while( TRUE ) {
+		//         if( PeekMessage( &Msg, NULL, 0, 0, PM_NOREMOVE ) ) {
+		//             if( !PumpMessage() ) break;      // WM_QUIT
+		//         } else {
+		//             bCallGameloop = _ExecOneLoop();   // <-- the actual frame
+		//         }
+		//     }
+		//
+		// The gameloop only advances when the queue is *empty*. Draining it from
+		// the main thread means it is never empty when the game thread looks, so
+		// _ExecOneLoop() is never called and not a single frame is drawn -- which
+		// is exactly the symptom: the window is created and shown, then nothing
+		// renders and the process winds down.
+		//
+		// The main thread's only job is to stay alive until the gameloop stops.
+		_Trace( "[ma] waiting for the gameloop thread\n" );
+		while( floop_IsGameloopRunning() ) {
+			Sleep( 10 );
 		}
 		_Trace( "[ma] gameloop no longer running, returning from WinMain\n" );
 		return TRUE;
