@@ -1257,6 +1257,18 @@ u32 _nDrawPrimPushFailures = 0;
 
 static void _DrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrcVertices, u32 nVtxCount ) 
 {
+	// TEMPORARY DIAGNOSTIC. fdraw_PrimList's trace fires but this one does not,
+	// even though both strings are verified present in the binary. Trace the
+	// first statement to establish whether _DrawPrim is entered at all.
+	{
+		static u32 _nEnter = 0;
+		_nEnter++;
+		if( _nEnter <= 3 ) {
+			DEVPRINTF( "[ma] _DrawPrim ENTER #%u: primType=%d verts=%u\r\n",
+				_nEnter, (int)nPrimType, nVtxCount );
+		}
+	}
+
 	if ( nVtxCount == 0 ) 
 	{
 		// Exit if no vertices...
@@ -1584,9 +1596,7 @@ static void _DrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrcVertice
 		// pixel coordinates, so without this they project far outside NDC and never
 		// rasterise. This is almost certainly the remaining cause of the black
 		// window after _DrawPrim started issuing draws.
-		fdx8xfm_SetDXMatrices( FALSE );
-
-		// TEMPORARY DIAGNOSTIC: confirm draws are actually issued, and report the
+		// TEMPORARY DIAGNOSTIC: confirm draws are actually issued.
 		// transform that is in force.
 		{
 			static u32 _nDbg = 0;
