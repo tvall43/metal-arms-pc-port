@@ -1120,6 +1120,24 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 	// Do game drawing...
 	PROTRACK_BEGINBLOCK("Draw");
 
+	//
+	// Report whether anything is actually going to be drawn. _pFcnDraw is NULL
+	// until a state installs handlers via gameloop_SetLoopHandlers(), and
+	// gameloop_Start() leaves it NULL. With it NULL the loop runs, fvid_Begin /
+	// fvid_End bracket an empty scene, and fvid_Swap presents an empty back
+	// buffer -- a stable loop that never draws anything, which looks exactly
+	// like a black window from the outside.
+	//
+	// Once is enough; this is not a per-frame condition.
+	//
+	static BOOL _bReportedDrawHandler = FALSE;
+	if( !_bReportedDrawHandler ) {
+		_bReportedDrawHandler = TRUE;
+		DEVPRINTF( "[ma] first frame: work=%p draw=%p init=%p -- %s\n",
+			(void *)_pFcnWork, (void *)_pFcnDraw, (void *)_pFcnInit,
+			_pFcnDraw ? "a draw handler is installed" : "NO DRAW HANDLER: nothing will be rendered" );
+	}
+
 	fvid_Begin();
 
 	if(Gameloop_bDrawEnabled)
