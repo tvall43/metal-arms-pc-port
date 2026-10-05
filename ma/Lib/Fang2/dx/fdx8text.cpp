@@ -160,6 +160,20 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 
 	fdraw_SetTexture( &pFont->paoTexInsts[ nTexturePageIdx ] );
 
+	// Do not cull text quads.
+	//
+	// The device default is D3DCULL_CCW (see __InitRenderState in fdx8.cpp). Glyphs
+	// are built as two triangles in screen-aligned order, and with the device
+	// projection that winding faces away, so every glyph was back-face culled:
+	// queued, positioned and submitted correctly, and then discarded before
+	// rasterisation. That is why the window stayed black even with the cursor
+	// coordinates verified correct and 123 characters a frame reaching
+	// fdraw_PrimList.
+	//
+	// The engine already disables culling for the other 2D paths for the same
+	// reason -- see D3DCULL_NONE in fdx8psprite.cpp and fdx8sh.cpp.
+	fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
+
 	// Set fill mode...
 	fdx8_SetRenderState_FILLMODE( FRenderer_nD3DFillMode );
 
