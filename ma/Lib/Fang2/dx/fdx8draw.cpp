@@ -1244,6 +1244,8 @@ static void _DrawIndexedPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrc
 //
 //
 //
+u32 _nDrawPrimPushFailures = 0;
+
 static void _DrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrcVertices, u32 nVtxCount ) 
 {
 	if ( nVtxCount == 0 ) 
@@ -1299,6 +1301,24 @@ static void _DrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrcVertice
 		uMaxVertCountPerArray = 340; // We can submit a max of 2047 DWORDS of data at a time
 	}
 
+	// TEMPORARY DIAGNOSTIC. This is the one link in the text path never verified:
+	// whether _DrawPrim issues a draw at all. Both early-outs below are silent, and
+	// the glyph quads may exceed uMaxVertCountPerArray and take a different path.
+	{
+		static u32 _nCalls = 0, _nPushFail = 0, _nMulti = 0;
+		_nCalls++;
+		if( nVtxCount > uMaxVertCountPerArray ) { _nMulti++; }
+		if( _nCalls <= 3 || nVtxCount > uMaxVertCountPerArray ) {
+			DEVPRINTF( "[ma] _DrawPrim #%u: primType=%d verts=%u maxPerArray=%u bytesPerVtx=%u multi=%u\r\n",
+				_nCalls, (int)nPrimType, nVtxCount, uMaxVertCountPerArray, uBytesPerVertex,
+				( nVtxCount > uMaxVertCountPerArray ) ? 1 : 0 );
+		}
+		if( _nPushFail || _nCalls == 200 ) {
+			DEVPRINTF( "[ma] _DrawPrim: %u calls, %u BeginPush failures, %u over maxPerArray\r\n",
+				_nCalls, _nPushFail, _nMulti );
+		}
+	}
+
 	if ( nVtxCount <= uMaxVertCountPerArray )
 	{
 		u32 uPushSizeInDWORDs = (uBytesPerVertex * nVtxCount) >> 2;
@@ -1308,6 +1328,10 @@ static void _DrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrcVertice
 		DWORD* pPush;
 		if ( FDX8_pDev->BeginPush( uPushSizeInDWORDs + 5, &pPush ) != S_OK )
 		{
+			extern u32 _nDrawPrimPushFailures;
+			_nDrawPrimPushFailures++;
+			DEVPRINTF( "[ma] _DrawPrim: BeginPush FAILED for %u verts (%u DWORDs requested)\r\n",
+				nVtxCount, uPushSizeInDWORDs + 5 );
 			return;
 		}
 
