@@ -575,24 +575,37 @@ CGameThread::~CGameThread() {
 int CGameThread::Run() {
 	MSG Msg;
 	BOOL bCallGameloop = TRUE;
+	static u32 _nSpins = 0;
 
 	while( TRUE ) {
 		if( PeekMessage( &Msg, NULL, 0, 0, PM_NOREMOVE) ) {
 			// There is a message waiting...
 
+			// The frame only runs on the else branch, so a thread that never
+			// reaches it draws nothing while appearing to work. Count both paths.
+			if( _nSpins < 5 || (_nSpins % 2000) == 0 ) {
+				DEVPRINTF( "CGameThread::Run: iteration %u, message 0x%04lX waiting, pumping\n",
+					(unsigned)_nSpins, (unsigned long)Msg.message );
+			}
+			_nSpins++;
+
 			if( !PumpMessage() ) {
 				// WM_QUIT...
+				DEVPRINTF( "CGameThread::Run: PumpMessage returned FALSE (WM_QUIT) after %u iterations.\n",
+					(unsigned)_nSpins );
 				break;
 			}
 		} else {
 			// No message waiting. Execute one game loop...
 
+			DEVPRINTF( "CGameThread::Run: queue empty, running one loop.\n" );
 			if( bCallGameloop ) {
 				bCallGameloop = _ExecOneLoop();
 			}
 		}
 	}
 
+	DEVPRINTF( "CGameThread::Run: exiting.\n" );
 	return ExitInstance();
 }
 
