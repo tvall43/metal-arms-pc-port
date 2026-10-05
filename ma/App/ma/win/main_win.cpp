@@ -52,6 +52,15 @@ static char _szMoviePath[512] = "MOVIES\\";
 // manager where stdout is lost.
 static FILE *_pLogFile = NULL;
 
+static void _TraceV( const char *pszFormat, va_list Args )
+{
+	char szBuf[2048];
+	vsnprintf( szBuf, sizeof(szBuf), pszFormat, Args );
+	printf( "%s", szBuf );
+	fflush( stdout );
+	if ( _pLogFile ) { fputs( szBuf, _pLogFile ); fflush( _pLogFile ); }
+}
+
 static void _Trace( const char *pszFormat, ... )
 {
 	char szBuf[2048];
@@ -80,6 +89,16 @@ static void _OpenLog( void )
 	if ( pSlash ) { *(pSlash+1) = '\0'; } else { szDir[0] = '\0'; }
 	strncat( szDir, "ma_win_log.txt", MAX_PATH - strlen(szDir) - 1 );
 	_pLogFile = fopen( szDir, "w" );
+}
+
+// Also used by compat/mfc.cpp to report the game thread's lifecycle, which has
+// to happen before and independently of the engine's own logging.
+extern "C" void ma_win_Trace( const char *pszFormat, ... )
+{
+	va_list args;
+	va_start( args, pszFormat );
+	_TraceV( pszFormat, args );
+	va_end( args );
 }
 
 // The engine's own logging: same signature as FangFcnPrintf_t.

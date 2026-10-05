@@ -42,14 +42,43 @@ BOOL CWinThread::ProcessThreadMessage( UINT nMessage, WPARAM wParam, LPARAM lPar
     return FALSE;
 }
 
+// Set from main_win.cpp once the engine's DEVPRINTF sink is installed, so the
+// thread lifecycle can be reported even if the failure is in virtual dispatch.
+extern "C" void ma_win_Trace( const char *pszFormat, ... );
+
+// Report which Run() this thread would actually call, to catch virtual
+// dispatch landing on the base implementation.
+static void _ReportRunTarget( CWinThread *pThis )
+{
+    typedef int (CWinThread::*RunFn)();
+    RunFn pBase = &CWinThread::Run;
+    union { RunFn m; void *p; } uBase, uObj;
+    uBase.m = pBase;
+    uObj.m  = pThis->Run;
+    void *pViaObject = uObj.p;
+    void *pViaBase   = uBase.p;
+    ma_win_Trace( "[ma] game thread: tid 0x%08lX  Run via object=%p  base Run=%p  %s\n",
+                  (unsigned long)GetCurrentThreadId(), pViaObject, pViaBase,
+                  ( pViaObject == pViaBase ) ? "SAME -- virtual dispatch is NOT overriding Run"
+                                             : "DIFFERENT -- virtual override is in effect" );
+}
+
 DWORD WINAPI CWinThread::_ThreadEntryProc( CWinThread *pThis )
 {
     // Deliberately does NOT call ExitInstance(): Run() is the overridable body
     // and CGameThread::Run() already returns ExitInstance(). Calling it twice
     // would run the engine's teardown twice.
-    if ( pThis->InitInstance() )
+    ma_win_Trace( "[ma] game thread entered (this=%p)\n", (void *)pThis );
+    _ReportRunTarget( pThis );
+
+    const BOOL bInit = pThis->InitInstance();
+    ma_win_Trace( "[ma] game thread: InitInstance returned %d\n", (int)bInit );
+
+    if ( bInit )
     {
+        ma_win_Trace( "[ma] game thread: calling Run()\n" );
         pThis->Run();
+        ma_win_Trace( "[ma] game thread: Run() returned\n" );
     }
 
     // Read the flag before deleting, then never touch pThis again.

@@ -577,6 +577,8 @@ int CGameThread::Run() {
 	BOOL bCallGameloop = TRUE;
 	static u32 _nSpins = 0;
 
+	DEVPRINTF( "CGameThread::Run: entered\n" );
+
 	while( TRUE ) {
 		if( PeekMessage( &Msg, NULL, 0, 0, PM_NOREMOVE) ) {
 			// There is a message waiting...
@@ -783,6 +785,8 @@ BOOL CGameThread::_ExecOneLoop( void ) {
 }
 
 BOOL CGameThread::InitInstance() {
+	DEVPRINTF( "CGameThread::InitInstance: entered, gameThreadInit=%p main=%p\n",
+		(void *)_pFcnGameThreadInit, (void *)_pFcnGameThreadMain );
 	if( _pFcnGameThreadInit ) {
 		if( !_pFcnGameThreadInit( _pGameThreadParameter ) ) {
 			// Init failed...
