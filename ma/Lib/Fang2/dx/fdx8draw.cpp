@@ -1431,6 +1431,29 @@ static void _DrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrcVertice
 		}
 	}
 #else
+	//
+	// Set the FVF before drawing.
+	//
+	// The indexed path (_DrawIndexedPrim) does this, but the unindexed path did
+	// not: its only FDX8_SetVertexShader calls sit inside the FANG_PLATFORM_XB
+	// block above, and _FillVertexBufferAndDrawPrim -- which this branch calls --
+	// sets no vertex format either. fdx8vb_Select can set one, but only when
+	// bSetVShader is true, and fdx8draw_Renderer_Open passes FALSE.
+	// fdx8sh_SetVertexType only updates the engine's cache, never the device.
+	//
+	// So with no FVF in force the device discarded DrawPrimitive and still
+	// returned D3D_OK. That is why text never appeared while a full-target Clear
+	// did: Clear needs no vertex format. Text, sprites and all other 2D geometry
+	// go through this unindexed path, which is why the whole menu was invisible.
+	if ( _nCurrentColorFunc == FDRAW_COLORFUNC_DECAL_AI )
+	{
+		FDX8_SetVertexShader( D3DFVF_XYZ | D3DFVF_DIFFUSE );
+	}
+	else
+	{
+		FDX8_SetVertexShader( D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1 | D3DFVF_TEXCOORDSIZE2(0) );
+	}
+
 	u32 nFreeElementCount, nElementCount, nPrimVtxStartCount, nPrimVtxRepeatCount, nPrimVtxBackCount;
 	s32 nMaxPrimCount;
 
@@ -1586,6 +1609,15 @@ void fdx8draw_Renderer_Open( void ) {
 
 	// Select the VB for Windows...
 	#if FANG_PLATFORM_WIN
+		// The pixel shader is only cleared in the FANG_PLATFORM_XB block above, so
+		// on Windows a shader bound by an earlier draw would remain bound for
+		// everything that follows. D3D8 discards draws when pixel shading is
+		// enabled but the bound shader is unusable -- which is exactly the case for
+		// index 63, since _apPShaderFunc[63] duplicates [62] and CreatePixelShader
+		// fails for it. Clear it here, and set a default FVF.
+		FDX8_pDev->SetPixelShader( 0 );
+		FDX8_SetVertexShader( D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1 | D3DFVF_TEXCOORDSIZE2(0) );
+		fdx8sh_SetVertexType( 0 );  // Clear the shader vertex type cache
 		fdx8vb_Select( _pVB );
 	#endif
 
