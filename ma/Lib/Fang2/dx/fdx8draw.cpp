@@ -1558,8 +1558,20 @@ static void _DrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrcVertice
 	}
 #endif
 #if FANG_PLATFORM_WIN
-	//
-	// Windows implementation of the unindexed draw.
+	// TEMPORARY DIAGNOSTIC: first statement inside the Windows block, before the
+	// primitive-type table and SetVertexShader. The trace further down this same
+	// block never prints while the one at function entry does, and both strings
+	// are verified present in fdx8draw.cpp.obj and in ma_win.exe -- so either the
+	// block is not being reached, or the traces are not where they appear to be.
+	{
+		static u32 _nWin = 0;
+		_nWin++;
+		if( _nWin <= 3 ) {
+			DEVPRINTF( "[ma] _DrawPrim WINblock #%u: primType=%d verts=%u\r\n",
+				_nWin, (int)nPrimType, nVtxCount );
+		}
+	}
+
 	//
 	// The body above sits inside '#if FANG_PLATFORM_XB' with no #else branch, so on
 	// Windows _DrawPrim() compiled to a function that checked nVtxCount and
@@ -1587,25 +1599,6 @@ static void _DrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *paSrcVertice
 			FDX8_SetVertexShader( D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1 | D3DFVF_TEXCOORDSIZE2(0) );
 		}
 
-		// Push the world/view/projection matrices to the device.
-		//
-		// The Xbox body of this function calls fdx8xfm_SetDXMatrices(FALSE) before
-		// drawing, and so does the non-WIN text branch in fdx8text.cpp. The Windows
-		// fdraw path had no equivalent, so the device kept whatever transform was
-		// last set -- effectively identity for the bootup menu. Glyph positions are
-		// pixel coordinates, so without this they project far outside NDC and never
-		// rasterise. This is almost certainly the remaining cause of the black
-		// window after _DrawPrim started issuing draws.
-		// TEMPORARY DIAGNOSTIC: confirm draws are actually issued.
-		// transform that is in force.
-		{
-			static u32 _nDbg = 0;
-			_nDbg++;
-			if( _nDbg <= 3 ) {
-				DEVPRINTF( "[ma] _DrawPrim WIN #%u: verts=%u colorFunc=%u\r\n",
-					_nDbg, nVtxCount, (unsigned)_nCurrentColorFunc );
-			}
-		}
 
 		// Draw in chunks that fit the vertex buffer, as the indexed path does.
 		u32 nRemaining = nVtxCount;
