@@ -830,21 +830,63 @@ BOOL fdx8draw_IsStencilModeSupported( FDrawStencilTest_e nStencilTest, FDrawSten
 							(void*)pStreamVB, nStride, VBDesc.Size, (int)VBDesc.Pool, (int)VBDesc.Format );
 
 			//
-			// Read the first vertex back out of the buffer the device will read
-			// from, so "we wrote it" is separated from "it is there".
+			// Read the vertices *this draw will use* back out of the buffer the
+			// device will read from, so "we wrote them" is separated from "they
+			// are there". The offset matters: locking from 0 only ever shows
+			// whatever landed in slot 0 and says nothing about start=nStartIndex.
 			//
 			{
 				BYTE *pbLock = NULL;
-				if( SUCCEEDED( pStreamVB->Lock( 0, (nStride ? nStride : 24), &pbLock, D3DLOCK_READONLY ) ) && pbLock != NULL ) {
-					const FDX8VB_C1T1_t *pV0 = (const FDX8VB_C1T1_t *)pbLock;
-					nLen += sprintf( szLine + nLen, " vtx0=(%.2f,%.2f,%.2f) col=%08X st=(%.2f,%.2f)",
-									pV0->fPosX, pV0->fPosY, pV0->fPosZ, pV0->nDiffuseRGBA, pV0->fS0, pV0->fT0 );
+				UINT nStr = (nStride ? nStride : 24);
+				if( nStr != sizeof(FDX8VB_C1T1_t) ) {
+					nLen += sprintf( szLine + nLen, " vtx=STRIDE%d" , nStr );
+				} else if( SUCCEEDED( pStreamVB->Lock( nStartIndex * nStr, nStr * 3, &pbLock, D3DLOCK_READONLY ) ) && pbLock != NULL ) {
+					const FDX8VB_C1T1_t *pV = (const FDX8VB_C1T1_t *)pbLock;
+					int k;
+					nLen += sprintf( szLine + nLen, " vtx[%u]=" , nStartIndex );
+					for( k = 0; k < 3; k++ ) {
+						nLen += sprintf( szLine + nLen, " (%.2f,%.2f,%.2f|%08X|%.2f,%.2f)",
+										pV[k].fPosX, pV[k].fPosY, pV[k].fPosZ,
+										pV[k].nDiffuseRGBA, pV[k].fS0, pV[k].fT0 );
+					}
 					pStreamVB->Unlock();
 				} else {
-					nLen += sprintf( szLine + nLen, " vtx0=LOCKFAIL" );
+					nLen += sprintf( szLine + nLen, " vtx=LOCKFAIL" );
 				}
 			}
 			pStreamVB->Release();
+		}
+
+		//
+		// Is the draw target the buffer that gets presented? Clear provably
+		// reaches the presented buffer (uniform 0x000007), but Clear and the
+		// draws happen at different times: if a render-to-texture viewport was
+		// made active in between, every draw lands in a texture that nobody
+		// composites, while the back buffer keeps only the clear colour.
+		//
+		{
+			IDirect3DSurface8 *pRT = NULL;
+			IDirect3DSurface8 *pBB = NULL;
+			D3DSURFACE_DESC RTDesc, BBDesc;
+			memset( &RTDesc, 0, sizeof(RTDesc) );
+			memset( &BBDesc, 0, sizeof(BBDesc) );
+			if( FAILED( FDX8_pDev->GetRenderTarget( &pRT ) ) || pRT == NULL ) {
+				nLen += sprintf( szLine + nLen, " RT=NONE" );
+			} else {
+				pRT->GetDesc( &RTDesc );
+				if( FAILED( FDX8_pDev->GetBackBuffer( 0, D3DBACKBUFFER_TYPE_MONO, &pBB ) ) || pBB == NULL ) {
+					nLen += sprintf( szLine + nLen, " RT=%p %ux%u fmt=%d BB=NONE",
+									(void*)pRT, RTDesc.Width, RTDesc.Height, (int)RTDesc.Format );
+				} else {
+					pBB->GetDesc( &BBDesc );
+					nLen += sprintf( szLine + nLen, " RT=%p %ux%u fmt=%d BB=%p %ux%u fmt=%d %s",
+									(void*)pRT, RTDesc.Width, RTDesc.Height, (int)RTDesc.Format,
+									(void*)pBB, BBDesc.Width, BBDesc.Height, (int)BBDesc.Format,
+									(pRT == pBB) ? "RT==BACKBUF" : "**RT!=BACKBUF**" );
+					pBB->Release();
+				}
+				pRT->Release();
+			}
 		}
 
 		memset( &MtxView, 0, sizeof(MtxView) );
@@ -852,15 +894,15 @@ BOOL fdx8draw_IsStencilModeSupported( FDrawStencilTest_e nStencilTest, FDrawSten
 		FDX8_pDev->GetTransform( D3DTS_VIEW, &MtxView );
 		FDX8_pDev->GetTransform( D3DTS_PROJECTION, &MtxProj );
 		nLen += sprintf( szLine + nLen,
-			" view=%.3f/%.3f/%.3f/%.3f,%s/%s,%.3f proj=%.3f/%.3f/%.3f/%.3f,%s/%s,%.3f",
+			" view=%.3f/%.3f/%.3f/%.3f,%s/%s t=(%.3f,%.3f,%.3f) proj=%.3f/%.3f/%.3f/%.3f,%s/%s t=(%.3f,%.3f,%.3f)",
 			MtxView._11, MtxView._22, MtxView._33, MtxView._44,
 			(MtxView._41==0.0f && MtxView._42==0.0f && MtxView._43==0.0f) ? "noTrans" : "trans",
 			(MtxView._11==0.0f && MtxView._22==0.0f && MtxView._33==0.0f && MtxView._44==0.0f) ? "ALLZERO" : "ok",
-			MtxView._43,
+			MtxView._41, MtxView._42, MtxView._43,
 			MtxProj._11, MtxProj._22, MtxProj._33, MtxProj._44,
 			(MtxProj._41==0.0f && MtxProj._42==0.0f && MtxProj._43==0.0f) ? "noTrans" : "trans",
 			(MtxProj._11==0.0f && MtxProj._22==0.0f && MtxProj._33==0.0f && MtxProj._44==0.0f) ? "ALLZERO" : "ok",
-			MtxProj._43 );
+			MtxProj._41, MtxProj._42, MtxProj._43 );
 
 		memset( &Viewport, 0, sizeof(Viewport) );
 		FDX8_pDev->GetViewport( &Viewport );
