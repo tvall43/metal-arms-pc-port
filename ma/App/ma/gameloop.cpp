@@ -598,29 +598,29 @@ static BOOL _GameInit( void *pParameter ) {
 	#if FANG_PLATFORM_WIN
 		if( !FCpu_IntelInfo.CPUID.CPUID1.bSIMDTechnology ) {
 			DEVPRINTF( "Gameloop.cpp: This game requires a CPU that supports Intel's SIMD instruction set\n." );
-			goto _ExitGameInitWithError;
+			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}
 
 		if( !FCpu_IntelInfo.bSIMDSupportedByOS ) {
 			DEVPRINTF( "Gameloop.cpp: Update your OS so that it supports the CPU's SIMD instruction set\n." );
-			goto _ExitGameInitWithError;
+			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}
 
 		if( pParm->bSkipLevelSelect && !pParm->pszInputFilename ) {
 			DEVPRINTF( "You must select a world file before you can run.\n" );
-			goto _ExitGameInitWithError;
+			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}		
 	#endif
 
 	if( !ffile_IsInMasterMode() ) {
 		DEVPRINTF( "You must select a valid master file before you can run.\n" );
- 		goto _ExitGameInitWithError;
+ 		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 
 	// Create the render window...
 	if( !fvid_CreateWindow( &pParm->VidWin ) ) {
 		DEVPRINTF( "Gameloop.cpp: Could not use the current video mode.\nTry selecting a different video mode.\n" );
-		goto _ExitGameInitWithError;
+		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 
 	#if FANG_PLATFORM_WIN
@@ -665,11 +665,11 @@ static BOOL _GameInit( void *pParameter ) {
 
 	if( FPADIO_NO_ERROR != fpadio_Install( &oPadioInit ) ) {
 		DEVPRINTF( "Could not install input driver (fpadio).\n" );
-		goto _ExitGameInitWithError;
+		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 	if( FPAD_NO_ERROR != fpad_Install( 0.5f, 0.1f ) ) {
 		DEVPRINTF( "Could not install input driver (fpad).\n" );
-		goto _ExitGameInitWithError;
+		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 
 	PROTRACK_INITSYSTEM();	 //couldn't stick in init table because this is a macro that will mean nothing in some builds
@@ -679,7 +679,7 @@ static BOOL _GameInit( void *pParameter ) {
 	if( ftext_Install() == FTEXT_ERROR ) {
 		fvid_DestroyWindow();
 		DEVPRINTF( "Could not install the text system\n." );
-		goto _ExitGameInitWithError;
+		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 
 	//
@@ -718,7 +718,7 @@ static BOOL _GameInit( void *pParameter ) {
 	#endif
 
 	if( !bInitReturnValue ) {
-		goto _ExitGameInitWithError;
+		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 
 	#if FANG_PRODUCTION_BUILD
@@ -731,7 +731,7 @@ static BOOL _GameInit( void *pParameter ) {
 	// Initialize all game systems...
 	if( !_InitGameSystems() ) {
 		// Trouble initializing a game system...
-		goto _ExitGameInitWithError;
+		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 
 	if( !CDifficulty::LoadData() ) {
@@ -757,7 +757,7 @@ static BOOL _GameInit( void *pParameter ) {
 
 		if( fstorage_Install( &oStorageInit ) != FSTORAGE_ERROR_NONE ) {
 			DEVPRINTF( "Error: fstorage_Install() failed.\n" );
-			goto _ExitGameInitWithError;
+			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}
 
 		u32 uConnected;
@@ -777,7 +777,7 @@ static BOOL _GameInit( void *pParameter ) {
 	#endif
 
 	if( !bInitReturnValue ) {
-		goto _ExitGameInitWithError;
+		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 
 	// Capture the state of the buttons at app startup time...
@@ -786,18 +786,18 @@ static BOOL _GameInit( void *pParameter ) {
 	if( !pParm->bSkipLevelSelect ) {
 		// load the wrappers so that we can select what level to load
 		if( !launcher_EnterMenus( LAUNCHER_FROM_BOOTUP ) ) {
-			goto _ExitGameInitWithError;
+			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}
 	} else {
 		// load the english fonts and resources and the generic level with the passed in world file
 		if( !game_LoadLocalizedPhraseTableAndFonts() ) {
-			goto _ExitGameInitWithError;
+			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}
 		if( !game_InitLocalizedResources() ) {
-			goto _ExitGameInitWithError;
+			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}
 		if( !launcher_StartGame( LAUNCHER_FROM_QUICK_SKIP ) ) {
-			goto _ExitGameInitWithError;	
+			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}
 	}
 
@@ -815,11 +815,20 @@ static BOOL _GameInit( void *pParameter ) {
 
 	#else( SAS_ACTIVE_USER == SAS_USER_NONE ) 
 		// Regular game flow...
-//		bInitReturnValue = TRUE;
+		//
+		// This assignment is commented out in the original source, which leaves
+		// bInitReturnValue FALSE, so the "if( !bInitReturnValue )" check below
+		// goes straight to _ExitGameInitWithError and _GameInit always reports
+		// failure. No frames, ever. The Xbox retail build never compiles this
+		// branch: it runs with SAS_ACTIVE_USER set to a specific user, so the
+		// matching user_*_PrelevelInit() sets the flag instead. SAS_ACTIVE_USER
+		// is SAS_USER_NONE here (compat/sas_user.h), so this is the branch the
+		// PC build actually takes. Restore it.
+		bInitReturnValue = TRUE;
 	#endif
 
 	if( !bInitReturnValue ) {
-		goto _ExitGameInitWithError;
+		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
 
 #if !GAMELOOP_EXTERNAL_DEMO
