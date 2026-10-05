@@ -797,11 +797,16 @@ void fvid_End( void )
 //			fheap_ShowMemoryTracking();
 //		}
 //
-		ftext_Draw();
+		// Report the text queue state BEFORE ftext_Draw() consumes it.
+		// ftext_Draw walks the font list and zeroes pauTextLengthPerTexturePages as
+		// it goes, so measuring after it always shows zero and made it look as
+		// though no text had been queued at all.
 		{
 			extern void ftext_ResetFrameStats( void );
 			ftext_ResetFrameStats();
 		}
+
+		ftext_Draw();
 
 		if( _pFcnDrawOverlay ) {
 			_pFcnDrawOverlay();
