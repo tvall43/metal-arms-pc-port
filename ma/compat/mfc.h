@@ -162,6 +162,10 @@ public:
     // Overridable thread body. InitInstance returning FALSE aborts the thread
     // without calling Run().
     virtual BOOL InitInstance();
+
+    // Set by a derived InitInstance that drives its own loop, so the thread
+    // entry point knows not to call Run() as well. See mfc.cpp.
+    BOOL bInitInstanceRanLoop;
     virtual int  ExitInstance();
 
     // Default Run() calls ExitInstance(), as MFC's does. CGameThread overrides

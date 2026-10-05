@@ -558,6 +558,7 @@ BOOL floop_SingleStepGameloop( void ) {
 // Constructor.
 CGameThread::CGameThread() {
 	m_bAutoDelete = TRUE;
+	bInitInstanceRanLoop = FALSE;
 
 	#if _USE_BOXFILTER
 		m_fltFrameTime = fboxfilter_Create_f32(16);
@@ -800,6 +801,21 @@ BOOL CGameThread::InitInstance() {
 	}
 
 	_bLoopSecsTimerRunning = FALSE;
+
+	// Run the loop from here with a *qualified* call. Virtual dispatch on
+	// CWinThread::Run is not reaching this override -- ma_win_Trace reports the
+	// member pointer resolving to the base implementation -- so the shim's
+	// 'pThis->Run()' would run CWinThread::Run, which does nothing but return
+	// ExitInstance(). That is why the game initialised, printed its bootup
+	// banner, and then shut straight down without drawing a frame. Naming the
+	// class explicitly calls this override directly, independent of the vtable.
+	// CGameThread is the only CWinThread subclass in the tree, and it is
+	// always run on its own thread, so running the loop here is equivalent to
+	// what MFC would have done.
+	bInitInstanceRanLoop = TRUE;
+	DEVPRINTF( "CGameThread::InitInstance: entering the gameloop\n" );
+	this->CGameThread::Run();
+	DEVPRINTF( "CGameThread::InitInstance: gameloop returned\n" );
 
 	_nGovernTimerStartTicks = ftimer_Clock_GetTicks();
 

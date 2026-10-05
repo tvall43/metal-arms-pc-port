@@ -4,6 +4,7 @@
 #include "mfc.h"
 
 #include <cstdarg>
+
 #include <cstdio>
 
 CWinThread::CWinThread()
@@ -76,9 +77,21 @@ DWORD WINAPI CWinThread::_ThreadEntryProc( CWinThread *pThis )
 
     if ( bInit )
     {
+        // Only call Run() if the derived InitInstance did not already drive the
+        // loop. CGameThread::InitInstance runs it itself with a qualified call,
+        // because virtual dispatch on Run does not reach that override here --
+        // see the comment there. A derived class that leaves Run() alone gets the
+        // normal MFC behaviour.
         ma_win_Trace( "[ma] game thread: calling Run()\n" );
-        pThis->Run();
-        ma_win_Trace( "[ma] game thread: Run() returned\n" );
+        if ( !pThis->bInitInstanceRanLoop )
+        {
+            pThis->Run();
+            ma_win_Trace( "[ma] game thread: Run() returned\n" );
+        }
+        else
+        {
+            ma_win_Trace( "[ma] game thread: loop was run by InitInstance\n" );
+        }
     }
 
     // Read the flag before deleting, then never touch pThis again.
