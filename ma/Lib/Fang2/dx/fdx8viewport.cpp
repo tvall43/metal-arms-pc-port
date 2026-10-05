@@ -329,6 +329,26 @@ void fviewport_Clear( u32 nClearFlag, f32 fUnitRed, f32 fUnitGreen, f32 fUnitBlu
 		nStencil = nStencilValue & ((1<<nStencilBitCount) - 1);
 	}
 
+	//
+	// Issue the clear. This call was accidentally deleted by c1a62dd while
+	// stripping the temporary Clear HRESULT logging that wrapped it: the
+	// diagnostic block above it held the only copy of the call, so at HEAD
+	// fviewport_Clear computed all of its arguments and then did nothing.
+	// Nothing else in the engine clears the frame -- see the pass-2 review in
+	// HANDOFF.md, section 1.
+	//
+	if( _pCurrentViewport->pViewportIS->bCoversEntireRenderTarget ) {
+		FDX8_pDev->Clear( 0, NULL, nFlags, D3DColor, fDepth, nStencil );
+	} else {
+		D3DRECT Rect;
+
+		Rect.x1 = _pCurrentViewport->nScreenLeftX;
+		Rect.y1 = _pCurrentViewport->nScreenTopY;
+		Rect.x2 = _pCurrentViewport->nScreenRightX;
+		Rect.y2 = _pCurrentViewport->nScreenBottomY;
+
+		FDX8_pDev->Clear( 1, &Rect, nFlags, D3DColor, fDepth, nStencil );
+	}
 }
 
 void fdx8viewport_RestoreState( void ) {
