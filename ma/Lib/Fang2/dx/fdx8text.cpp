@@ -134,6 +134,36 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 			nLetterArrayIndex++;
 		}
 		
+		//
+		// TEMPORARY DIAGNOSTIC -- bisection, not a fix.
+		//
+		// Disable back-face culling for text glyphs.
+		//
+		// The device default is D3DCULL_CCW (see __InitRenderState in fdx8.cpp). Glyphs
+		// are built as two triangles in screen-aligned order, and with the device
+		// projection that winding faces away, so every glyph was back-face culled:
+		// queued, positioned and submitted correctly, and then discarded before
+		// rasterisation.
+		//
+		// The engine already disables culling for the other 2D paths for the same
+		// reason -- see D3DCULL_NONE in fdx8psprite.cpp and fdx8sh.cpp.
+		//
+		// TEMPORARY: force solid magenta, no texture and no blending. Three guesses
+		// about this bug have now been wrong, so stop guessing and bisect. If
+		// opaque magenta blocks appear at the text positions, then geometry,
+		// transform, projection, depth and present are all correct and the fault
+		// is the font texture binding. If nothing appears, it is the transform or
+		// depth state. Either way this halves the remaining search space.
+		for( u32 _nV = 0; _nV < nPoolVerticesUsed; ++_nV ) {
+			pVertices[ _nV ].ColorRGBA.Set( 1.0f, 0.0f, 1.0f, 1.0f );
+		}
+		fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
+		fdx8_SetRenderState_ALPHABLENDENABLE( FALSE );
+		fdx8_SetRenderState_ALPHATESTENABLE( FALSE );
+		// D3D8 has no global texture-enable state; bypassing the texture is done
+		// by selecting the vertex colour argument on stage 0 instead.
+		fdx8_SetTextureState_COLOROP( 0, D3DTOP_SELECTARG1 );
+
 		//draw the vertices
 		fdraw_PrimList( FDRAW_PRIMTYPE_TRILIST, pVertices, nPoolVerticesUsed );
 		nCharactersRendered = nCharactersPrepped;
@@ -172,8 +202,6 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 	//
 	// The engine already disables culling for the other 2D paths for the same
 	// reason -- see D3DCULL_NONE in fdx8psprite.cpp and fdx8sh.cpp.
-	fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
-
 	// Set fill mode...
 	fdx8_SetRenderState_FILLMODE( FRenderer_nD3DFillMode );
 
