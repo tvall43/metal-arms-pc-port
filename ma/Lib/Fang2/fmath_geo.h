@@ -375,13 +375,24 @@ FCLASS_ALIGN_PREFIX class CFProjSphere
 
 class CFRect2D {
 public:
-	// Two names for each corner: the engine uses both spellings.
-	union {
-		CFVec2 UpperLeft;
-		CFVec2 LowerRight;
-		CFVec2 m_UpperLeft;
-		CFVec2 m_LowerRight;
-	};
+	// The two corners are distinct members.
+	//
+	// These used to sit in a union with two alternative spellings each:
+	//
+	//     union { CFVec2 UpperLeft; CFVec2 LowerRight;
+	//            CFVec2 m_UpperLeft; CFVec2 m_LowerRight; };
+	//
+	// which aliased all four names to the *same* corner, so assigning UpperLeft
+	// then LowerRight overwrote the first. A viewport built as UpperLeft=(0,0),
+	// LowerRight=(640,480) therefore reported UpperLeft=(640,480), and ftext read
+	// that as the viewport origin -- putting every glyph off the bottom-right of
+	// the screen. That is why the window stayed black while clear, present, the
+	// frame loop and text submission were all independently verified working.
+	//
+	// Both spellings are now normalised onto these two members; the m_ prefixed
+	// form is no longer needed.
+	CFVec2 UpperLeft;
+	CFVec2 LowerRight;
 
 	CFRect2D();
 	CFRect2D( const CFVec2 &UpperLeftVec, const CFVec2 &LowerRightVec );

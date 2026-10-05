@@ -1669,8 +1669,8 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 		pVP = FViewport_pDefaultOrtho;
 	}
 
-	float fVpLeft = pVP->ScreenCorners.m_UpperLeft.x * _FRAMEBUFFER_X_SCALEFACTOR;
-	float fVpTop  = pVP->ScreenCorners.m_UpperLeft.y;
+	float fVpLeft = pVP->ScreenCorners.UpperLeft.x * _FRAMEBUFFER_X_SCALEFACTOR;
+	float fVpTop  = pVP->ScreenCorners.UpperLeft.y;
 
 	if( _FTEXT_PRINTF_AREA_ONLY == oType )
 	{
@@ -1681,8 +1681,8 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 		_poTempArea->oVpRes = pVP->Res;
 		
 		//now, fix up the horizontal resolution with the frame buffer x rescale factor
-		_poTempArea->oVpRect.m_UpperLeft.x *= _FRAMEBUFFER_X_SCALEFACTOR;
-		_poTempArea->oVpRect.m_LowerRight.x *= _FRAMEBUFFER_X_SCALEFACTOR;
+		_poTempArea->oVpRect.UpperLeft.x *= _FRAMEBUFFER_X_SCALEFACTOR;
+		_poTempArea->oVpRect.LowerRight.x *= _FRAMEBUFFER_X_SCALEFACTOR;
 		_poTempArea->oVpRes.x *= _FRAMEBUFFER_X_SCALEFACTOR;
 		
 		_fTempResX = pVP->Res.x * _FRAMEBUFFER_X_SCALEFACTOR;
@@ -1705,8 +1705,8 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 		_poTempArea->oVpRes = pVP->Res;
 
 		//now, fix up the horizontal resolution with the frame buffer x rescale factor
-		_poTempArea->oVpRect.m_UpperLeft.x *= _FRAMEBUFFER_X_SCALEFACTOR;
-		_poTempArea->oVpRect.m_LowerRight.x *= _FRAMEBUFFER_X_SCALEFACTOR;
+		_poTempArea->oVpRect.UpperLeft.x *= _FRAMEBUFFER_X_SCALEFACTOR;
+		_poTempArea->oVpRect.LowerRight.x *= _FRAMEBUFFER_X_SCALEFACTOR;
 		_poTempArea->oVpRes.x *= _FRAMEBUFFER_X_SCALEFACTOR;
 		
 		_fTempResX = pVP->Res.x * _FRAMEBUFFER_X_SCALEFACTOR;
@@ -1741,8 +1741,8 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 		_poTempArea->oVpRes = pVP->Res;
 
 		//now, fix up the horizontal resolution with the frame buffer x rescale factor
-		_poTempArea->oVpRect.m_UpperLeft.x *= _FRAMEBUFFER_X_SCALEFACTOR;
-		_poTempArea->oVpRect.m_LowerRight.x *= _FRAMEBUFFER_X_SCALEFACTOR;
+		_poTempArea->oVpRect.UpperLeft.x *= _FRAMEBUFFER_X_SCALEFACTOR;
+		_poTempArea->oVpRect.LowerRight.x *= _FRAMEBUFFER_X_SCALEFACTOR;
 		_poTempArea->oVpRes.x *= _FRAMEBUFFER_X_SCALEFACTOR;
 		
 		_fTempResX = pVP->Res.x * _FRAMEBUFFER_X_SCALEFACTOR;
@@ -1804,11 +1804,11 @@ BOOL _ParseEscapeCode ( const _FTextPrintf_e oType, const f32 fX, cwchar *pszWSt
 
 			if( _FTEXT_PRINTF_AREA_AND_XY == oType )
 			{
-				_fTempLowerRightInnerEdgeX = _poTempArea->oVpRect.m_UpperLeft.x + ( _fTempResX * ( _poTempArea->oAttributes.fLowerRightX - _poTempArea->oAttributes.fBorderThicknessX ) );
+				_fTempLowerRightInnerEdgeX = _poTempArea->oVpRect.UpperLeft.x + ( _fTempResX * ( _poTempArea->oAttributes.fLowerRightX - _poTempArea->oAttributes.fBorderThicknessX ) );
 			}
 			else if( ( _FTEXT_PRINTF_XY_ONLY == oType ) || ( _FTEXT_PRINTF_DEBUG_XY_ONLY == oType ) )
 			{
-				_fTempLowerRightInnerEdgeX = _poTempArea->oVpRect.m_LowerRight.x;
+				_fTempLowerRightInnerEdgeX = _poTempArea->oVpRect.LowerRight.x;
 			}
 
 			return TRUE;
@@ -2923,7 +2923,7 @@ void ftext_Draw( void )
 			CFVec2&   rRes  = _poTempArea->oVpRes;
 
 			paoAreaAndBorderVertsBuffer[ 8 ].Pos_MS = paoAreaAndBorderVertsBuffer[ 0 ].Pos_MS.Set( rRect.UpperLeft.x + (rRes.x * _poTempArea->oAttributes.fUpperLeftX), rRect.UpperLeft.y + (rRes.y * _poTempArea->oAttributes.fUpperLeftY) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH, 1.0f );
-			paoAreaAndBorderVertsBuffer[ 9 ].Pos_MS = paoAreaAndBorderVertsBuffer[ 1 ].Pos_MS.Set( rRect.UpperLeft.x + (rRes.x * (_poTempArea->oAttributes.fUpperLeftX + _poTempArea->oAttributes.fBorderThicknessX)), rRect.m_UpperLeft.y + (rRes.y * (_poTempArea->oAttributes.fUpperLeftY + _poTempArea->oAttributes.fBorderThicknessY ) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH), 1.0f );
+			paoAreaAndBorderVertsBuffer[ 9 ].Pos_MS = paoAreaAndBorderVertsBuffer[ 1 ].Pos_MS.Set( rRect.UpperLeft.x + (rRes.x * (_poTempArea->oAttributes.fUpperLeftX + _poTempArea->oAttributes.fBorderThicknessX)), rRect.UpperLeft.y + (rRes.y * (_poTempArea->oAttributes.fUpperLeftY + _poTempArea->oAttributes.fBorderThicknessY ) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH), 1.0f );
 			paoAreaAndBorderVertsBuffer[ 4 ].Pos_MS.Set( rRect.UpperLeft.x + (rRes.x * _poTempArea->oAttributes.fLowerRightX), rRect.UpperLeft.y + (rRes.y * _poTempArea->oAttributes.fLowerRightY) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH, 1.0f );
 			paoAreaAndBorderVertsBuffer[ 5 ].Pos_MS.Set( rRect.UpperLeft.x + (rRes.x * ( _poTempArea->oAttributes.fLowerRightX - _poTempArea->oAttributes.fBorderThicknessX )), rRect.UpperLeft.y + rRes.y * ( _poTempArea->oAttributes.fLowerRightY - _poTempArea->oAttributes.fBorderThicknessY ) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH, 1.0f );
 			paoAreaAndBorderVertsBuffer[ 2 ].Pos_MS.Set( paoAreaAndBorderVertsBuffer[ 4 ].Pos_MS.x, paoAreaAndBorderVertsBuffer[ 0 ].Pos_MS.y, 1.0f );

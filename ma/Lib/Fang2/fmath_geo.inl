@@ -92,11 +92,11 @@ FINLINE void CFSphereA::BuildFromMinMaxBox( const CFVec3A &rMin, const CFVec3A &
 
 
 FINLINE CFRect2D::CFRect2D() {}
-FINLINE CFRect2D::CFRect2D( const CFVec2 &UpperLeftVec, const CFVec2 &LowerRightVec ) { m_UpperLeft=UpperLeftVec; m_LowerRight=LowerRightVec; }
-FINLINE CFRect2D::CFRect2D( const CFRect2D &rRect ) { m_UpperLeft=rRect.m_UpperLeft; m_LowerRight=rRect.m_LowerRight; }
-FINLINE CFRect2D& CFRect2D::operator = ( const CFRect2D &rRect ) { m_UpperLeft=rRect.m_UpperLeft; m_LowerRight=rRect.m_LowerRight; return *this; }
+FINLINE CFRect2D::CFRect2D( const CFVec2 &UpperLeftVec, const CFVec2 &LowerRightVec ) { UpperLeft=UpperLeftVec; LowerRight=LowerRightVec; }
+FINLINE CFRect2D::CFRect2D( const CFRect2D &rRect ) { UpperLeft=rRect.UpperLeft; LowerRight=rRect.LowerRight; }
+FINLINE CFRect2D& CFRect2D::operator = ( const CFRect2D &rRect ) { UpperLeft=rRect.UpperLeft; LowerRight=rRect.LowerRight; return *this; }
 
-FINLINE CFRect2D &CFRect2D::Zero( void ) { m_UpperLeft.x = m_UpperLeft.y = m_LowerRight.x = m_LowerRight.y = 0.0f; return *this; }
+FINLINE CFRect2D &CFRect2D::Zero( void ) { UpperLeft.x = UpperLeft.y = LowerRight.x = LowerRight.y = 0.0f; return *this; }
 
 
 // This is the most general version.  It returns a random point in the intersection of a spherical shell whose center
