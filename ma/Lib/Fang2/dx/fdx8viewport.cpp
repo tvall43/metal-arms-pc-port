@@ -305,15 +305,6 @@ void fviewport_Clear( u32 nClearFlag, f32 fUnitRed, f32 fUnitGreen, f32 fUnitBlu
 				 | (u32)(255.0f*fUnitGreen) << 8
 				 | (u32)(255.0f*fUnitBlue);
 
-		// TEMPORARY DIAGNOSTIC: override with magenta for the first few hundred
-		// clears so it is obvious whether this reaches the screen at all.
-		// The bootup menu clears to (0, 0, 0.03, 1), which is effectively black and
-		// indistinguishable from a failed clear. Remove with the instrumentation.
-		{
-			static u32 _nDiagClears = 0;
-			if( _nDiagClears < 200 ) { _nDiagClears++; D3DColor = 0x00FF00FF; }
-		}
-
 	}
 
 	if( _pCurrentViewport->pTexDef == NULL ) {
