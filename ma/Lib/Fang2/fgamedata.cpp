@@ -656,7 +656,12 @@ BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle,
 			// Report both sides so it is clear which one moved: the vocab entry
 			// is what this source tree expects, the field comes from the retail
 			// data and may have been authored against a newer schema.
-			// FDataGameFile_DataType_e is 0=UNSPECIFIED 1=STRING 2=FLOAT 3=WIDESTRING.
+			// Both enums start at 0, but they are different enums:
+			//   FDataGameFile_DataType_e: 0=STRING 1=FLOAT 2=WIDESTRING
+			//   FGameData_VarType_e:      0=STRING 1=FLOAT 2=WIDESTRING
+			// There is no UNSPECIFIED value, so type 0 means STRING, and a vocab
+			// expectation of 1 means it wanted a FLOAT there. Most mismatches seen
+			// so far are therefore 'vocab wants float, data has string'.
 			DEVPRINTF( "[ma]   mismatch: table '%s' field %d -- retail type %u, vocab expects %u%s%s\n",
 				fgamedata_GetTableName(hTableHandle), (int)nFieldIndex,
 				(unsigned) pField->nDataType, (unsigned) pEntry->GetDataType(),

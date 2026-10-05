@@ -288,9 +288,24 @@ BOOL CWeaponFlamer::InitSystem( void ) {
 	fang_MemZero( m_aUserProps, sizeof(m_aUserProps) );
 
 	// Read the user properties for all EUK levels of this weapon...
+	//
+	// A schema mismatch in this one CSV is not fatal.
+	//
+	// m_aUserPropVocab describes a newer w_flamer.csv than the retail data has.
+	// The vocab lists 10 numeric columns (fClipAmmoMax .. fMaxTargetAssistDist)
+	// plus fSoundRadius, but the retail CSV is entirely string columns: it goes
+	// from AttachPoint_Clip straight to FlamerHitL1 with no numeric field at all.
+	// fgamedata therefore rejects the table partway through, and every value from
+	// the first numeric column onwards is left unfilled.
+	//
+	// m_aUserProps was zeroed just above, so continuing yields usable defaults --
+	// no clip ammo limit, no cull distance, empty sounds -- rather than aborting.
+	// Going to _ExitWithError propagated to _InitGameSystems(), which tears down
+	// every game system it already initialised, so this one weapon's tuning data
+	// was preventing the whole game from starting. Keep the message, skip the
+	// error exit.
 	if( !fgamedata_ReadFileUsingMap( m_aUserPropMapTable, _USER_PROP_FILENAME ) ) {
-		DEVPRINTF( "CWeaponFlamer::InitSystem(): Could not read user properties from file '%s'.\n", _USER_PROP_FILENAME );
-		goto _ExitWithError;
+		DEVPRINTF( "CWeaponFlamer::InitSystem(): Could not read user properties from file '%s'; continuing with defaults (schema differs from this build).\n", _USER_PROP_FILENAME );
 	}
 
 	// Do this for each EUK level...
