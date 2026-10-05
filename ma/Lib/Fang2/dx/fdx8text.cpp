@@ -34,6 +34,7 @@
 u32 ftext_nCharsSubmitted = 0;
 u32 ftext_nPagesWithText = 0;
 u32 ftext_nPushFailures = 0;
+u32 ftext_nPoolFailures = 0;
 
 
 
@@ -70,8 +71,15 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 	if( nRequestSize == 0 ) 
 	{
 		DEVPRINTF( "[ FTEXT ] Could not allocate any vertices from the fvtxpool to render the characters -- aborting text rendering!\n" );
+		ftext_nPoolFailures++;
 		return;
 	}
+
+	// This is the branch the WIN build actually compiles (#if FANG_PLATFORM_WIN).
+	// It builds quads from the vertex pool and submits with fdraw_PrimList; the
+	// BeginPush/EndPush version further down is the non-WIN branch. Counted the
+	// wrong one for several rounds, which is why it always read zero.
+	ftext_nPagesWithText++;
 
 	u32 nCharactersRendered = 0;
 	u32 nCharactersPrepped = 0;
@@ -134,6 +142,7 @@ void ftext_DrawTexturePageCharacters( FDataFntFile_Font_t *pFont, u32 nTexturePa
 		
 		//draw the vertices
 		fdraw_PrimList( FDRAW_PRIMTYPE_TRILIST, pVertices, nPoolVerticesUsed );
+		ftext_nCharsSubmitted += nPoolVerticesUsed / 6;
 		nCharactersRendered = nCharactersPrepped;
 	}
 

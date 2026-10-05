@@ -2669,6 +2669,15 @@ void ftext_ResetFrameStats( void )
 		DEVPRINTF( "[ma]   font %p: uTexPages=%u lettersInPages=%u\r\n",
 			(void *)pF, (u32)pF->uTexPages, uTotal );
 	}
+	{
+		extern u32 ftext_nPagesWithText, ftext_nCharsSubmitted, ftext_nPushFailures, ftext_nPoolFailures;
+		DEVPRINTF( "[ma] ftext submit: %u pages drawn, %u chars, %u pool failures, %u push failures\n",
+			ftext_nPagesWithText, ftext_nCharsSubmitted, ftext_nPoolFailures, ftext_nPushFailures );
+		ftext_nPagesWithText = 0;
+		ftext_nCharsSubmitted = 0;
+		ftext_nPoolFailures = 0;
+		ftext_nPushFailures = 0;
+	}
 	ftext_nPrintfsSeen = 0;
 	ftext_nParseLetterCalls = 0;
 	ftext_nParseLetterBails = 0;
