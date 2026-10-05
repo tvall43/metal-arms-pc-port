@@ -765,8 +765,214 @@ BOOL fvid_Begin( void )
 //
 //
 //
-void fvid_End( void ) 
+//
+// TEMPORARY DIAGNOSTIC -- snapshot the back buffer.
+//
+// The decisive question nobody has measured: after the scene closes, is there
+// anything in the back buffer for Present to show? Logs can only tell us that
+// draw calls were issued, not that pixels exist. This locks the swap chain's
+// back buffer, writes it out as a PPM, and reports how many pixels are non-black
+// and how many are magenta (the diagnostic triangle's colour).
+//
+// Reads the *presentation* back buffer, not the current render target: a
+// render-to-texture viewport would otherwise let this pass while Present still
+// showed nothing. Called from fvid_End() after EndScene(), i.e. after everything
+// the frame will draw and before fvid_Swap()/_SwapBuffers() can touch it.
+//
+// Remove once the black window is understood.
+//
+#if FANG_PLATFORM_WIN
+static void _DiagDumpBackBuffer( const char *pTag, u32 nFrame )
 {
+	IDirect3DSurface8	*pSurf = NULL;
+	D3DSURFACE_DESC		Desc;
+	D3DLOCKED_RECT		LockedRect;
+	HRESULT				hRes;
+	const char			*pFmtName;
+	u32					nBytesPerPixel;
+	u32					x, y;
+	u32					nNonBlack = 0;
+	u32					nMagenta = 0;
+	u32					nTotal;
+	u32					nProbeTopLeft = 0;
+	u32					nProbeCentre = 0;
+	u8					*pRGBRow = NULL;
+	FILE				*pFile;
+	char				szPath[MAX_PATH + 32];
+
+	if( FDX8_pDev == NULL ) {
+		return;
+	}
+
+	hRes = FDX8_pDev->GetBackBuffer( 0, D3DBACKBUFFER_TYPE_MONO, &pSurf );
+	if( FAILED( hRes ) || pSurf == NULL ) {
+		DEVPRINTF( "[ma] bbdump %s: GetBackBuffer failed hr=0x%08X\r\n", pTag, hRes );
+		return;
+	}
+
+	pSurf->GetDesc( &Desc );
+
+	switch( Desc.Format ) {
+		case D3DFMT_A8R8G8B8:
+			pFmtName = "A8R8G8B8";
+			nBytesPerPixel = 4;
+			break;
+		case D3DFMT_X8R8G8B8:
+			pFmtName = "X8R8G8B8";
+			nBytesPerPixel = 4;
+			break;
+		case D3DFMT_R5G6B5:
+			pFmtName = "R5G6B5";
+			nBytesPerPixel = 2;
+			break;
+		case D3DFMT_X1R5G5B5:
+			pFmtName = "X1R5G5B5";
+			nBytesPerPixel = 2;
+			break;
+		case D3DFMT_A1R5G5B5:
+			pFmtName = "A1R5G5B5";
+			nBytesPerPixel = 2;
+			break;
+		case D3DFMT_X4R4G4B4:
+			pFmtName = "X4R4G4B4";
+			nBytesPerPixel = 2;
+			break;
+		case D3DFMT_A4R4G4B4:
+			pFmtName = "A4R4G4B4";
+			nBytesPerPixel = 2;
+			break;
+		default:
+			// Paletted and unusual formats: report and stop rather than write
+			// a file nobody can interpret.
+			DEVPRINTF( "[ma] bbdump %s: unsupported back buffer format %d\r\n", pTag, Desc.Format );
+			pSurf->Release();
+			return;
+	}
+
+	hRes = pSurf->LockRect( &LockedRect, NULL, D3DLOCK_READONLY );
+	if( FAILED( hRes ) ) {
+		DEVPRINTF( "[ma] bbdump %s: LockRect failed hr=0x%08X\r\n", pTag, hRes );
+		pSurf->Release();
+		return;
+	}
+
+	//
+	// Write next to the executable rather than the working directory, matching
+	// how main_win.cpp places ma_win_log.txt -- otherwise the files land in
+	// whatever directory happened to be current.
+	//
+	szPath[0] = '\0';
+	{
+		char szExe[MAX_PATH] = "";
+		DWORD nLen = GetModuleFileName( NULL, szExe, MAX_PATH );
+		if( nLen > 0 && nLen < MAX_PATH ) {
+			char *pSlash = strrchr( szExe, '\\' );
+			if( pSlash ) {
+				*(pSlash + 1) = '\0';
+			} else {
+				szExe[0] = '\0';
+			}
+		} else {
+			szExe[0] = '\0';
+		}
+		sprintf( szPath, "%sma_bb_%s_%04u.ppm", szExe, pTag, nFrame );
+	}
+	pFile = fopen( szPath, "wb" );
+
+	nTotal = Desc.Width * Desc.Height;
+	if( pFile ) {
+		fprintf( pFile, "P6\n%u %u\n255\n", Desc.Width, Desc.Height );
+	}
+
+	// One scanline of RGB triplets, so the file is written a row at a time
+	// rather than three bytes at a time.
+	pRGBRow = (u8*)malloc( Desc.Width * 3 );
+	if( pFile && pRGBRow == NULL ) {
+		fclose( pFile );
+		pFile = NULL;
+	}
+
+	for( y = 0; y < Desc.Height; y++ ) {
+		const u8 *pRow = (const u8*)LockedRect.pBits + (y * LockedRect.Pitch);
+		for( x = 0; x < Desc.Width; x++ ) {
+			u32 nPix;
+			u32 nR, nG, nB;
+
+			switch( nBytesPerPixel ) {
+				case 4:
+					nPix = *(const u32*)( pRow + (x * 4) );
+					nR = (nPix >> 16) & 0xFF;
+					nG = (nPix >> 8) & 0xFF;
+					nB = nPix & 0xFF;
+					break;
+				default: {
+					u16 nPix16 = *(const u16*)( pRow + (x * 2) );
+					if( Desc.Format == D3DFMT_R5G6B5 ) {
+						nR = ((nPix16 >> 11) & 0x1F) * 255 / 31;
+						nG = ((nPix16 >> 5) & 0x3F) * 255 / 63;
+						nB = (nPix16 & 0x1F) * 255 / 31;
+					} else if( Desc.Format == D3DFMT_X4R4G4B4 || Desc.Format == D3DFMT_A4R4G4B4 ) {
+						nR = ((nPix16 >> 8) & 0xF) * 255 / 15;
+						nG = ((nPix16 >> 4) & 0xF) * 255 / 15;
+						nB = (nPix16 & 0xF) * 255 / 15;
+					} else {
+						nR = ((nPix16 >> 10) & 0x1F) * 255 / 31;
+						nG = ((nPix16 >> 5) & 0x1F) * 255 / 31;
+						nB = (nPix16 & 0x1F) * 255 / 31;
+					}
+					break;
+				}
+			}
+
+			if( nR | nG | nB ) {
+				nNonBlack++;
+			}
+			// The diagnostic triangle is drawn solid magenta (0xFFFF00FF) with
+			// no texture, so tolerate a little blending rounding.
+			if( nR > 192 && nB > 192 && nG < 96 ) {
+				nMagenta++;
+			}
+			if( x == 8 && y == 8 ) {
+				nProbeTopLeft = (nR << 16) | (nG << 8) | nB;
+			}
+			if( x == (Desc.Width >> 1) && y == (Desc.Height >> 1) ) {
+				nProbeCentre = (nR << 16) | (nG << 8) | nB;
+			}
+
+			if( pFile ) {
+				pRGBRow[(x * 3) + 0] = (u8)nR;
+				pRGBRow[(x * 3) + 1] = (u8)nG;
+				pRGBRow[(x * 3) + 2] = (u8)nB;
+			}
+		}
+
+		if( pFile ) {
+			fwrite( pRGBRow, 3, Desc.Width, pFile );
+		}
+	}
+
+	pSurf->UnlockRect();
+
+	if( pRGBRow ) {
+		free( pRGBRow );
+	}
+	if( pFile ) {
+		fclose( pFile );
+	} else {
+		DEVPRINTF( "[ma] bbdump %s: could not write %s\r\n", pTag, szPath );
+	}
+
+	DEVPRINTF( "[ma] bbdump %s frame %u: %ux%u fmt=%s pitch=%d nonblack=%u/%u magenta=%u probe(8,8)=%06X probe(centre)=%06X -> %s\r\n",
+				pTag, nFrame, Desc.Width, Desc.Height, pFmtName, LockedRect.Pitch,
+				nNonBlack, nTotal, nMagenta, nProbeTopLeft, nProbeCentre, szPath );
+
+	pSurf->Release();
+}
+#endif // FANG_PLATFORM_WIN
+
+
+ void fvid_End( void ) 
+ {
 	FASSERT( _bModuleInitialized );
 	FASSERT( FVid_bOnline );
 
@@ -849,6 +1055,24 @@ void fvid_End( void )
 		FVid_bBegin = FALSE;
 
 		FDX8_pDev->EndScene();
+
+#if FANG_PLATFORM_WIN
+		//
+		// TEMPORARY DIAGNOSTIC -- back buffer snapshot, immediately after the
+		// scene closes and before fvid_Swap()/Present can touch it. Sampled on a
+		// spread of early frames so the bootup draw and the first text submits
+		// are both covered. See _DiagDumpBackBuffer() above.
+		//
+		{
+			static const u32 _anDumpFrames[] = { 1, 2, 3, 8, 16, 32, 64, 128 };
+			for( u32 i = 0; i < sizeof(_anDumpFrames)/sizeof(_anDumpFrames[0]); i++ ) {
+				if( FVid_nFrameCounter == _anDumpFrames[i] ) {
+					_DiagDumpBackBuffer( "end", FVid_nFrameCounter );
+					break;
+				}
+			}
+		}
+#endif // FANG_PLATFORM_WIN
 	}
 }
 

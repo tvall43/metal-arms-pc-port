@@ -740,6 +740,157 @@ BOOL fdx8draw_IsStencilModeSupported( FDrawStencilTest_e nStencilTest, FDrawSten
 }
 
 #if FANG_PLATFORM_WIN
+	//
+	// TEMPORARY DIAGNOSTIC -- dump the exact device state feeding a draw.
+	//
+	// Established by the backbuffer dumps in outputs/: Clear reaches the buffer
+	// (uniform 0x000007, launcher.cpp's 0.03 blue) but *zero* pixels from any
+	// draw ever appear -- not even the magenta diagnostic triangle, so not even
+	// a "draws black" failure. The draw is being discarded or clipped before it
+	// writes anything.
+	//
+	// So rather than guess, read the state back from the device immediately
+	// before DrawPrimitive: vertex format, stream source, transforms, viewport,
+	// render states that silently kill writes (ZVISIBLE, COLORWRITEENABLE,
+	// CLIPPING, ALPHATEST), texture stage, and the DrawPrimitive HRESULT.
+	//
+	// Only the first N calls are logged; the bootup is short so that covers the
+	// text draws and the diagnostic triangle both. Remove with the rest of the
+	// diagnostics once rendering works.
+	//
+	static BOOL _DiagBeforeDraw( FDrawPrimType_e nPrimType, u32 nStartIndex, u32 nPrimCount, u32 nVtxCount )
+	{
+		static const struct { const char *pName; D3DRENDERSTATETYPE nRS; } _aRS[] = {
+			{ "ZENABLE",				D3DRS_ZENABLE },
+			{ "ZWRITEENABLE",			D3DRS_ZWRITEENABLE },
+			{ "ZFUNC",					D3DRS_ZFUNC },
+			{ "ZVISIBLE",				D3DRS_ZVISIBLE },
+			{ "ALPHATESTENABLE",		D3DRS_ALPHATESTENABLE },
+			{ "ALPHAREF",				D3DRS_ALPHAREF },
+			{ "ALPHAFUNC",				D3DRS_ALPHAFUNC },
+			{ "CULLMODE",				D3DRS_CULLMODE },
+			{ "ALPHABLENDENABLE",		D3DRS_ALPHABLENDENABLE },
+			{ "SRCBLEND",				D3DRS_SRCBLEND },
+			{ "DESTBLEND",				D3DRS_DESTBLEND },
+			{ "COLORWRITEENABLE",		D3DRS_COLORWRITEENABLE },
+			{ "CLIPPING",				D3DRS_CLIPPING },
+			{ "CLIPPLANEENABLE",		D3DRS_CLIPPLANEENABLE },
+			{ "LIGHTING",				D3DRS_LIGHTING },
+			{ "FOGENABLE",				D3DRS_FOGENABLE },
+			{ "STENCILENABLE",			D3DRS_STENCILENABLE },
+			{ "VERTEXBLEND",			D3DRS_VERTEXBLEND },
+			{ "MULTISAMPLEMASK",		D3DRS_MULTISAMPLEMASK },
+		};
+		static const struct { const char *pName; D3DTEXTURESTAGESTATETYPE nTSS; } _aTSS[] = {
+			{ "COLOROP",				D3DTSS_COLOROP },
+			{ "COLORARG1",				D3DTSS_COLORARG1 },
+			{ "COLORARG2",				D3DTSS_COLORARG2 },
+			{ "ALPHAOP",				D3DTSS_ALPHAOP },
+			{ "ALPHAARG1",				D3DTSS_ALPHAARG1 },
+			{ "ALPHAARG2",				D3DTSS_ALPHAARG2 },
+			{ "TEXCOORDINDEX",			D3DTSS_TEXCOORDINDEX },
+			{ "ADDRESSU",				D3DTSS_ADDRESSU },
+		};
+		static u32 _nDiag = 0;
+		DWORD dwFVF = 0;
+		IDirect3DVertexBuffer8 *pStreamVB = NULL;
+		UINT nStride = 0;
+		IDirect3DBaseTexture8 *pTex0 = NULL;
+		D3DMATRIX MtxView, MtxProj;
+		D3DVIEWPORT8 Viewport;
+		char szLine[2048];
+		int nLen;
+		u32 i;
+
+		_nDiag++;
+		if( _nDiag > 24 ) {
+			return FALSE;
+		}
+
+		szLine[0] = '\0';
+		nLen = sprintf( szLine, "[ma] draw #%u type=%d start=%u prims=%u srcVtx=%u",
+						_nDiag, (int)nPrimType, nStartIndex, nPrimCount, nVtxCount );
+
+		if( FAILED( FDX8_pDev->GetVertexShader( &dwFVF ) ) ) {
+			dwFVF = 0xFFFFFFFF;
+		}
+		nLen += sprintf( szLine + nLen, " FVF=0x%08X", dwFVF );
+
+		//
+		// NB: D3D8's GetStreamSource has no offset argument (that arrived in
+		// D3D9), and the buffer Lock takes a BYTE**.
+		//
+		if( FAILED( FDX8_pDev->GetStreamSource( 0, &pStreamVB, &nStride ) ) || pStreamVB == NULL ) {
+			nLen += sprintf( szLine + nLen, " stream0=NONE" );
+		} else {
+			D3DVERTEXBUFFER_DESC VBDesc;
+			memset( &VBDesc, 0, sizeof(VBDesc) );
+			pStreamVB->GetDesc( &VBDesc );
+			nLen += sprintf( szLine + nLen, " stream0=vb%p stride=%u vbsize=%u pool=%d fmt=%d",
+							(void*)pStreamVB, nStride, VBDesc.Size, (int)VBDesc.Pool, (int)VBDesc.Format );
+
+			//
+			// Read the first vertex back out of the buffer the device will read
+			// from, so "we wrote it" is separated from "it is there".
+			//
+			{
+				BYTE *pbLock = NULL;
+				if( SUCCEEDED( pStreamVB->Lock( 0, (nStride ? nStride : 24), &pbLock, D3DLOCK_READONLY ) ) && pbLock != NULL ) {
+					const FDX8VB_C1T1_t *pV0 = (const FDX8VB_C1T1_t *)pbLock;
+					nLen += sprintf( szLine + nLen, " vtx0=(%.2f,%.2f,%.2f) col=%08X st=(%.2f,%.2f)",
+									pV0->fPosX, pV0->fPosY, pV0->fPosZ, pV0->nDiffuseRGBA, pV0->fS0, pV0->fT0 );
+					pStreamVB->Unlock();
+				} else {
+					nLen += sprintf( szLine + nLen, " vtx0=LOCKFAIL" );
+				}
+			}
+			pStreamVB->Release();
+		}
+
+		memset( &MtxView, 0, sizeof(MtxView) );
+		memset( &MtxProj, 0, sizeof(MtxProj) );
+		FDX8_pDev->GetTransform( D3DTS_VIEW, &MtxView );
+		FDX8_pDev->GetTransform( D3DTS_PROJECTION, &MtxProj );
+		nLen += sprintf( szLine + nLen,
+			" view=%.3f/%.3f/%.3f/%.3f,%s/%s,%.3f proj=%.3f/%.3f/%.3f/%.3f,%s/%s,%.3f",
+			MtxView._11, MtxView._22, MtxView._33, MtxView._44,
+			(MtxView._41==0.0f && MtxView._42==0.0f && MtxView._43==0.0f) ? "noTrans" : "trans",
+			(MtxView._11==0.0f && MtxView._22==0.0f && MtxView._33==0.0f && MtxView._44==0.0f) ? "ALLZERO" : "ok",
+			MtxView._43,
+			MtxProj._11, MtxProj._22, MtxProj._33, MtxProj._44,
+			(MtxProj._41==0.0f && MtxProj._42==0.0f && MtxProj._43==0.0f) ? "noTrans" : "trans",
+			(MtxProj._11==0.0f && MtxProj._22==0.0f && MtxProj._33==0.0f && MtxProj._44==0.0f) ? "ALLZERO" : "ok",
+			MtxProj._43 );
+
+		memset( &Viewport, 0, sizeof(Viewport) );
+		FDX8_pDev->GetViewport( &Viewport );
+		nLen += sprintf( szLine + nLen, " vp=%u,%u %ux%u z=%.3f..%.3f",
+						Viewport.X, Viewport.Y, Viewport.Width, Viewport.Height,
+						Viewport.MinZ, Viewport.MaxZ );
+
+		for( i = 0; i < sizeof(_aRS)/sizeof(_aRS[0]); i++ ) {
+			DWORD dwValue = 0xFFFFFFFF;
+			FDX8_pDev->GetRenderState( _aRS[i].nRS, &dwValue );
+			nLen += sprintf( szLine + nLen, " %s=%u", _aRS[i].pName, dwValue );
+		}
+
+		for( i = 0; i < sizeof(_aTSS)/sizeof(_aTSS[0]); i++ ) {
+			DWORD dwValue = 0xFFFFFFFF;
+			FDX8_pDev->GetTextureStageState( 0, _aTSS[i].nTSS, &dwValue );
+			nLen += sprintf( szLine + nLen, " %s=%u", _aTSS[i].pName, dwValue );
+		}
+
+		pTex0 = NULL;
+		FDX8_pDev->GetTexture( 0, &pTex0 );
+		nLen += sprintf( szLine + nLen, " tex0=%s", (pTex0 == NULL) ? "NULL" : "BOUND" );
+		if( pTex0 ) {
+			pTex0->Release();
+		}
+
+		DEVPRINTF( "%s\r\n", szLine );
+		return TRUE;
+	}
+
 	static void _FillVertexBufferAndDrawPrim( FDrawPrimType_e nPrimType, const FDrawVtx_t *pSrcVtxArray, u32 nStartIndex, u32 nVtxCount ) 
 	{
 		FDX8VB_t *pVB;
@@ -821,7 +972,14 @@ BOOL fdx8draw_IsStencilModeSupported( FDrawStencilTest_e nStencilTest, FDrawSten
 			fdx8vb_Unlock( pVB );
 
 			// Compute the number of primitives from the number of vertices, and draw...
-			FDX8_pDev->DrawPrimitive( D3DPT_TRIANGLELIST, nStartIndex, (UINT)(nVtxCount * 0.5f) );
+			{
+				UINT nQuads = (UINT)(nVtxCount * 0.5f);
+				BOOL bDiag = _DiagBeforeDraw( nPrimType, nStartIndex, nQuads, nVtxCount );
+				HRESULT hresDP = FDX8_pDev->DrawPrimitive( D3DPT_TRIANGLELIST, nStartIndex, nQuads );
+				if( bDiag ) {
+					DEVPRINTF( "[ma] DrawPrimitive(QUADLIST->TRILIST, %u) returned 0x%08X\r\n", nQuads, hresDP );
+				}
+			}
 		}
 		else
 		{
@@ -842,7 +1000,14 @@ BOOL fdx8draw_IsStencilModeSupported( FDrawStencilTest_e nStencilTest, FDrawSten
 
 			// Compute the number of primitives from the number of vertices, and draw...
 			nPrimCount = 1 + (nVtxCount - _aPrimVtxCountInfo[nPrimType].nStart)/_aPrimVtxCountInfo[nPrimType].nRepeat;
-			FDX8_pDev->DrawPrimitive( __anPrimType[nPrimType], nStartIndex, nPrimCount );
+			{
+				BOOL bDiag = _DiagBeforeDraw( nPrimType, nStartIndex, nPrimCount, nVtxCount );
+				HRESULT hresDP = FDX8_pDev->DrawPrimitive( __anPrimType[nPrimType], nStartIndex, nPrimCount );
+				if( bDiag ) {
+					DEVPRINTF( "[ma] DrawPrimitive(type=%d start=%u prims=%u) returned 0x%08X\r\n",
+								(int)__anPrimType[nPrimType], nStartIndex, nPrimCount, hresDP );
+				}
+			}
 		}
 	}
 
