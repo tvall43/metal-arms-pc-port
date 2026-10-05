@@ -121,11 +121,28 @@ BOOL fpad_IsInstalled( void )
 
 void fpad_Map( u32 uPadIndex, u32 uNumIDs, const FPadio_InputID_e *paeInputIDs, FPad_Sample_t **papoSamples )
 {
-	// As in fpad_UpdateSamples: with no controller installed, fpad_Map is called
-	// once per input consumer during init, and asserting each time buries the log.
-	// _aoSamples is zeroed by fpad_Install, which was never called here, so there
-	// is nothing to map and nothing to report.
+	// When there is no controller, still point every requested action at
+	// _oAlwaysZeroSample rather than returning.
+	//
+	// fpad_Map is what fills in the caller's array of sample pointers, and
+	// Gamepad_aapSample is a global array of those pointers. Returning early
+	// left it NULL, and PROTRACK_WORK() dereferences it unconditionally on
+	// frame 1, so skipping the map crashes.
+	//
+	// The engine already has the answer: _oAlwaysZeroSample is used for actions
+	// that are not mapped, and it is zeroed by fpad_Install. Handing every
+	// action that sample means reads succeed and report 'nothing pressed',
+	// which is exactly the right behaviour when there is no input device.
+	//
+	// This still needs fpad_Install to have run, because that is what zeroes
+	// _oAlwaysZeroSample. _GameInit therefore installs fpad even when fpadio
+	// failed; the assertion below stays for the genuinely-uninstalled case.
 	if( !_bModuleInstalled ) {
+		for( u32 uInput = 0; uInput < uNumIDs; ++uInput ) {
+			if( papoSamples ) {
+				papoSamples[ uInput ] = &_oAlwaysZeroSample;
+			}
+		}
 		return;
 	}
 

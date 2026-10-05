@@ -684,9 +684,17 @@ static BOOL _GameInit( void *pParameter ) {
 	// failed there is no controller to sample and fpad has nothing to do;
 	// fpad_UpdateSamples() now also returns early in that state.
 	//
-	if( !fpadio_IsInstalled() ) {
-		DEVPRINTF( "[ma] input driver (fpad) not installed: fpadio is unavailable, so there is nothing to sample.\n" );
-	} else if( FPAD_NO_ERROR != fpad_Install( 0.5f, 0.1f ) ) {
+	//
+	// Install fpad even when fpadio found no controller.
+	//
+	// fpad_Install does not talk to a device; it zeroes fpad's state, including
+	// the _oAlwaysZeroSample that fpad_Map hands out for unmapped actions.
+	// fpad_Map is what populates Gamepad_aapSample, a global array of sample
+	// pointers that PROTRACK_WORK() dereferences unconditionally on frame 1.
+	// Skipping the install left those pointers NULL and crashed the first frame.
+	// With fpad installed and fpadio absent, fpad_UpdateSamples() returns 0 and
+	// every sample reads as zero -- no input, but no crash.
+	if( FPAD_NO_ERROR != fpad_Install( 0.5f, 0.1f ) ) {
 		DEVPRINTF( "Could not install input driver (fpad); continuing.\n" );
 	} else {
 		DEVPRINTF( "[ma] input driver (fpad) installed.\n" );
