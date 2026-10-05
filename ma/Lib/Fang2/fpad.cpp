@@ -121,6 +121,14 @@ BOOL fpad_IsInstalled( void )
 
 void fpad_Map( u32 uPadIndex, u32 uNumIDs, const FPadio_InputID_e *paeInputIDs, FPad_Sample_t **papoSamples )
 {
+	// As in fpad_UpdateSamples: with no controller installed, fpad_Map is called
+	// once per input consumer during init, and asserting each time buries the log.
+	// _aoSamples is zeroed by fpad_Install, which was never called here, so there
+	// is nothing to map and nothing to report.
+	if( !_bModuleInstalled ) {
+		return;
+	}
+
 	FASSERT_MSG( _bModuleInstalled,              "[ FPAD ] Error: System not installed !!!" );
 	FASSERT_MSG( FPADIO_MAX_DEVICES > uPadIndex, "[ FPAD ] Error: Invalid pad index !!!" );
 	FASSERT_MSG( uNumIDs,                        "[ FPAD ] Error: Zero input types !!!" );
@@ -149,19 +157,26 @@ void fpad_Map( u32 uPadIndex, u32 uNumIDs, const FPadio_InputID_e *paeInputIDs, 
 
 u32 fpad_UpdateSamples( void )
 {
-	FASSERT_MSG( _bModuleInstalled,    "[ FPAD ] Error: System not installed !!!" );
-	FASSERT_MSG( fpadio_IsInstalled(), "[ FPAD ] Error: FPADIO not installed !!!" );
-
-	// If there is no input device there is nothing to sample, and fpadio has
-	// not created its mutex or sample arrays. The FASSERT above only reports;
-	// it does not stop execution, so continuing dereferences a NULL sample
-	// pointer and crashes. Return zero so the caller sees 'no samples'.
 	//
-	// This is reachable on a PC with no controller attached, where
-	// fpadio_Install fails and the gameloop carries on regardless.
+	// "No input" is a normal state on a PC, not an assertion failure. When no
+	// controller is attached fpadio_Install fails, fpad is never installed,
+	// and the gameloop keeps running without it -- so both preconditions below
+	// are false on every single frame. Asserting first meant two FASSERT_MSG
+	// reports per frame, forever.
+	//
+	// Check first and return quietly. Reporting an absent controller as an
+	// assertion buries every other diagnostic in the log; fpadio_Install has
+	// already said why, once.
+	//
+	// It also has to return before touching fpadio at all: without fpadio there
+	// is no mutex and no sample arrays, and the FASSERT macros only report, so
+	// continuing dereferences a NULL sample pointer.
 	if( !_bModuleInstalled || !fpadio_IsInstalled() ) {
 		return 0;
 	}
+
+	FASSERT_MSG( _bModuleInstalled,    "[ FPAD ] Error: System not installed !!!" );
+	FASSERT_MSG( fpadio_IsInstalled(), "[ FPAD ] Error: FPADIO not installed !!!" );
 
 	f32 fTemp, fTempMin, fTempMax, *pafDelay, *pfDelay, *pafInitialDelay, *pfInitialDelay;
 	BOOL *pabFirstInitialDelay, *pbFirstInitialDelay;
