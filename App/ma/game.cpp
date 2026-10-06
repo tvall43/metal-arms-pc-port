@@ -914,7 +914,8 @@ BOOL game_Work( void ) {
 			}
 			if( CFTextMonitor::IsPaused() ) {
 				// allow unpausing after text monitor paused.  (for script errors)
-				if( Gamepad_aapSample[Player_aPlayer[0].m_nControllerIndex][GAMEPAD_MAIN_JUMP]->uLatches & GAMEPAD_BUTTON_1ST_PRESS_MASK ) {
+				if( ( Gamepad_aapSample[Player_aPlayer[0].m_nControllerIndex][GAMEPAD_MAIN_JUMP]->uLatches & GAMEPAD_BUTTON_1ST_PRESS_MASK ) ||
+					( Gamepad_aapSample[Player_aPlayer[0].m_nControllerIndex][GAMEPAD_MENU_ACCEPT]->uLatches & GAMEPAD_BUTTON_1ST_PRESS_MASK ) ) {
 					CFTextMonitor::Pause( FALSE );
 					CFScriptSystem::ClearErrorMonitor();
 				}

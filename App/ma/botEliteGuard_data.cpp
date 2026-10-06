@@ -310,7 +310,7 @@ cchar *CBotEliteGuard::m_apszBaseAnimNameTable[ANIM_BASE_COUNT] = {
 	
 	"ARMEcabls01",	  // ANIM_CABLE_REACH,	
 	"ARMEcabls02",	  // ANIM_CABLE_GRASP,	
-	"ARMEcabls03",	  // ANIM_CABLE_RELEASE,	
+	"ARMEcabls02",	  // ANIM_CABLE_RELEASE,	
 
 	//dive move separated  into 3 pieces
 	"ARMEjump201",	   // ANIM_JUMP_TUCK_STAFF,		

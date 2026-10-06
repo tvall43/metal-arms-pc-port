@@ -32,7 +32,7 @@ typedef void * FParticle_DefHandle_t;
 typedef void * FParticle_EmitterHandle_t;
 #define FPARTICLE_INVALID_HANDLE			( NULL )
 
-#define FPARTICLE_FILE_VERSION				0x00000007		// update this anytime the fpr file format changes
+#define FPARTICLE_FILE_VERSION				0x00000008		// update this anytime the fpr file format changes
 
 
 struct FTexDef_t;
@@ -140,6 +140,7 @@ typedef struct {
 	CFVec2 SpikeScale;		// scale to spike to (min - max % of regular scale)
 	CFVec2 SpikeDuration;	// secs in and out of the spike effect
 	CFVec2 SpikeHold;		// secs to hold the effect at 100% (min - max)
+	CFVec2 V8Extra;
 
 	//////////////////////////////////////////////////////////////////////////////
 	// THIS FUNCTION MUST BE PRESENT AND MUST BE UPDATED FOR PASM TO WORK PROPERLY
@@ -200,6 +201,7 @@ typedef struct {
 		SpikeScale.ChangeEndian();
 		SpikeDuration.ChangeEndian();
 		SpikeHold.ChangeEndian();
+		V8Extra.ChangeEndian();
 	}	
 } FParticleKeyFrame_t;
 

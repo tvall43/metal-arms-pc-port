@@ -482,6 +482,9 @@ GamepadMap_e gamepad_SetMapping( u32 nPortIndex, GamepadMap_e nMap ) {
 	GamepadMap_e nOldMapping = _anCurrentMap[nPortIndex];
 	// set the new map
 	_anCurrentMap[nPortIndex] = nMap;
+	if( nOldMapping != nMap ) {
+		DEVPRINTF( "[ma] TEMP mapchange: port %u %u -> %u\n", nPortIndex, (u32)nOldMapping, (u32)nMap );
+	}
 
 	#if FANG_PLATFORM_WIN
 		fpad_Map( nPortIndex, _aMapInfo[nMap].nMapCount, _aMapInfo[nMap].aMap[Gameloop_nPlatform], Gamepad_aapSample[nPortIndex] );

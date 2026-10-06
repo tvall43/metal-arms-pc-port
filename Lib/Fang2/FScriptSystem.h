@@ -29,7 +29,7 @@
 #if !FANG_PRODUCTION_BUILD
 #define SCRIPT_ERROR			CFScriptSystem::PrintScriptError
 #define SCRIPT_MESSAGE			CFScriptSystem::PrintScriptMessage
-#define SCRIPT_CHECK_NUM_PARAMS( pszFunc, nParams ) { s32 nFound = aParams[0] >> 2; if( nFound != (nParams) ) SCRIPT_ERROR( "Check %s Parameters. Found %d, needs %d", (pszFunc), nFound, nParams ); }
+#define SCRIPT_CHECK_NUM_PARAMS( pszFunc, nParams ) { s32 nFound = aParams[0] >> 2; if( nFound < (nParams) ) SCRIPT_ERROR( "Check %s Parameters. Found %d, needs %d", (pszFunc), nFound, nParams ); }
 #else
 #define SCRIPT_ERROR
 #define SCRIPT_MESSAGE
