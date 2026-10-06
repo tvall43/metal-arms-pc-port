@@ -183,6 +183,7 @@ static BOOL _Init( void ) {
 
 	// Load the internationalization csv file
 	if( !_LoadLanguageSelectCSV() ) {
+		DEVPRINTF( "wpr_languageselect::_Init() : _LoadLanguageSelectCSV() failed.\n" );
 		_UnloadResources( FALSE );
 		launcher_LoadFailure();
 		return TRUE;
@@ -190,6 +191,7 @@ static BOOL _Init( void ) {
 
 	_pViewportOrtho3D = fviewport_Create();
 	if( !_pViewportOrtho3D ) {
+		DEVPRINTF( "wpr_languageselect::_Init() : fviewport_Create() returned NULL.\n" );
 		_UnloadResources( FALSE );
 		launcher_LoadFailure();
 		return TRUE;
@@ -209,6 +211,7 @@ static BOOL _Work( void ) {
 	switch ( _eLangSelectMode ) {
 		case _LANGSELECT_DISABLED:
 			if( !_SwitchToLoadingMode() ) {
+				DEVPRINTF( "wpr_languageselect::_Work() : _SwitchToLoadingMode() failed (DISABLED).\n" );
 				launcher_LoadFailure();
 			}
 			break;
@@ -227,6 +230,7 @@ static BOOL _Work( void ) {
 			if( _nLoadingFrameCounter == 3 ) {
 				// Load the rest of the assets and move on...
 				if( !game_InitLocalizedResources() ) { // Call this after we have unloaded, so the resources stay in memory!
+					DEVPRINTF( "wpr_languageselect::_Work() : game_InitLocalizedResources() failed.\n" );
 					launcher_LoadFailure();
 				} else {
 					wpr_startupoptions_Start(); // Fire up the startup options menu
@@ -259,6 +263,7 @@ static BOOL _MenuModeWork( void ) {
 			}
 
 			if( !_SwitchToLoadingMode() ) {
+				DEVPRINTF( "wpr_languageselect::_MenuModeWork() : _SwitchToLoadingMode() failed.\n" );
 				launcher_LoadFailure();
 				return TRUE;
 			}
@@ -363,6 +368,7 @@ static BOOL _FangModeWork( void ) {
 	
 	
 	if( !_SwitchToLoadingMode() ) {
+		DEVPRINTF( "wpr_languageselect::_FangModeWork() : _SwitchToLoadingMode() failed.\n" );
 		launcher_LoadFailure();
 	}
 	return TRUE;

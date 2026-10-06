@@ -463,9 +463,11 @@ static BOOL _BootupWork( void ) {
 			// load the game fonts...
 
 			if( !game_LoadLocalizedPhraseTableAndFonts() ) {
+				DEVPRINTF( "launcher::_BootupWork() : game_LoadLocalizedPhraseTableAndFonts() failed (development mode).\n" );
 				return FALSE;
 			}
 			if( !game_InitLocalizedResources() ) {
+				DEVPRINTF( "launcher::_BootupWork() : game_InitLocalizedResources() failed (development mode).\n" );
 				return FALSE;
 			}
 			_ScheduleMenu( _MENU_TYPE_PICKLEVEL );

@@ -220,6 +220,7 @@ static BOOL _Init( void ) {
 
 	_pViewportOrtho3D = fviewport_Create();
 	if( !_pViewportOrtho3D ) {
+		DEVPRINTF( "wpr_startupoptions::_Init() : fviewport_Create() returned NULL.\n" );
 		_UnloadAndExit( FALSE );
 		launcher_LoadFailure();
 		return TRUE;
@@ -239,6 +240,7 @@ static BOOL _Init( void ) {
 	// The XBOX has a dashboard to set this stuff up, so we can just use that.
 	// The gamecube on the other hand... well... they are kinda beevises when it comes to this stuff
 	if( !_LoadStartupOptionsCSV() ) {
+		DEVPRINTF( "wpr_startupoptions::_Init() : _LoadStartupOptionsCSV() failed.\n" );
 		_UnloadAndExit( FALSE );
 		launcher_LoadFailure();
 		return TRUE;

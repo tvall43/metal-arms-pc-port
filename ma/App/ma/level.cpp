@@ -1141,228 +1141,213 @@ Level_t Level_aInfo[] = {
 /////////////////////////////////////////////////////////////////////////////////////
 	///////////////////////////
 	// Level MP1: Multiplayer 1
-	"1 MP Level 1",					// pszTitle
+	"1 Big E",					// pszTitle
 	"WE01multi01",					// pszWorldResName
-	LEVEL_MULTIPLAYER_1,			// nLevel
+	LEVEL_MULTIPLAYER_1,				// nLevel
 	"WE01multi01",					// pszCSVFile
-	"ms_mp_01",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"ms_mp_01",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP2: Multiplayer 2
-	"2 MP Level 2",					// pszTitle
+	"2 Spy v Spy",					// pszTitle
 	"WE02multi02",					// pszWorldResName
-	LEVEL_MULTIPLAYER_2,			// nLevel
+	LEVEL_MULTIPLAYER_2,				// nLevel
 	"WE02multi02",					// pszCSVFile
-	"ms_mp_02",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"ms_mp_02",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP3: Multiplayer 3
-	"3 MP Level 3",					// pszTitle
+	"3 Tanks Alot",					// pszTitle
 	"WE03multi03",					// pszWorldResName
-	LEVEL_MULTIPLAYER_3,			// nLevel
+	LEVEL_MULTIPLAYER_3,				// nLevel
 	"WE03multi03",					// pszCSVFile
-	"ms_mp_03",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"ms_mp_03",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP4: Multiplayer 4
-	"4 MP Level 4",					// pszTitle
-	"WE04multi04",					// pszWorldResName
-	LEVEL_MULTIPLAYER_4,			// nLevel
-	"WE04multi04",					// pszCSVFile
-	"ms_mp_04",						// pszMaterialCSVFile
-	CColiseumMiniGame::LoadMP,		// pFcnLoad
-	CColiseumMiniGame::UnloadMP,	// pFcnUnload
-	CColiseumMiniGame::WorkMP,		// pFcnWork
-	NULL,							// pFcnDraw
+	"4 MacMines",					// pszTitle
+	"WE05multi05",					// pszWorldResName
+	LEVEL_MULTIPLAYER_4,				// nLevel
+	"WE05multi05",					// pszCSVFile
+	"ms_mp_05",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP5: Multiplayer 5
-	"5 MP Level 5",					// pszTitle
-	"WE05multi05",					// pszWorldResName
-	LEVEL_MULTIPLAYER_5,			// nLevel
-	"WE05multi05",					// pszCSVFile
-	"ms_mp_05",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"5 Inferno Machine",				// pszTitle
+	"WE11multi11",					// pszWorldResName
+	LEVEL_MULTIPLAYER_5,				// nLevel
+	"WE11multi11",					// pszCSVFile
+	"ms_mp_11",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP6: Multiplayer 6
-	"6 MP Level 6",					// pszTitle
-	"WE06multi06",					// pszWorldResName
-	LEVEL_MULTIPLAYER_6,			// nLevel
-	"WE06multi06",					// pszCSVFile
-	"ms_mp_06",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"6 Clean Up",					// pszTitle
+	"WE15multi15",					// pszWorldResName
+	LEVEL_MULTIPLAYER_6,				// nLevel
+	"WE15multi15",					// pszCSVFile
+	"ms_mp_15",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP7: Multiplayer 7
-	"7 MP Level 7",					// pszTitle
-	"WE07multi07",					// pszWorldResName
-	LEVEL_MULTIPLAYER_7,			// nLevel
-	"WE07multi07",					// pszCSVFile
-	"ms_mp_07",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"7 Trenches",					// pszTitle
+	"WE08multi08",					// pszWorldResName
+	LEVEL_MULTIPLAYER_7,				// nLevel
+	"WE08multi08",					// pszCSVFile
+	"ms_mp_08",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP8: Multiplayer 8
-	"8 MP Level 8",					// pszTitle
-	"WE08multi08",					// pszWorldResName
-	LEVEL_MULTIPLAYER_8,			// nLevel
-	"WE08multi08",					// pszCSVFile
-	"ms_mp_08",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"8 Comm AAGun",					// pszTitle
+	"WE12multi12",					// pszWorldResName
+	LEVEL_MULTIPLAYER_8,				// nLevel
+	"WE12multi12",					// pszCSVFile
+	"ms_mp_12",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP9: Multiplayer 9
-	"9 MP Level 9",					// pszTitle
-	"WE09multi09",					// pszWorldResName
-	LEVEL_MULTIPLAYER_9,			// nLevel
-	"WE09multi09",					// pszCSVFile
-	"ms_mp_09",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"9 Morbotland",					// pszTitle
+	"WE14multi14",					// pszWorldResName
+	LEVEL_MULTIPLAYER_9,				// nLevel
+	"WE14multi14",					// pszCSVFile
+	"ms_mp_14",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP10: Multiplayer 10
-	"10 MP Level 10",				// pszTitle
-	"WE10multi10",					// pszWorldResName
-	LEVEL_MULTIPLAYER_10,			// nLevel
-	"WE10multi10",					// pszCSVFile
-	"ms_mp_10",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"10 Reactor",					// pszTitle
+	"WE09multi09",					// pszWorldResName
+	LEVEL_MULTIPLAYER_10,				// nLevel
+	"WE09multi09",					// pszCSVFile
+	"ms_mp_09",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP11: Multiplayer 11
-	"11 MP Level 11",				// pszTitle
-	"WE11multi11",					// pszWorldResName
-	LEVEL_MULTIPLAYER_11,			// nLevel
-	"WE11multi11",					// pszCSVFile
-	"ms_mp_11",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"11 Lost Boss",					// pszTitle
+	"WE10multi10",					// pszWorldResName
+	LEVEL_MULTIPLAYER_11,				// nLevel
+	"WE10multi10",					// pszCSVFile
+	"ms_mp_10",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP12: Multiplayer 12
-	"12 MP Level 12",				// pszTitle
-	"WE12multi12",					// pszWorldResName
-	LEVEL_MULTIPLAYER_12,			// nLevel
-	"WE12multi12",					// pszCSVFile
-	"ms_mp_12",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"12 Ruins",					// pszTitle
+	"WE07multi07",					// pszWorldResName
+	LEVEL_MULTIPLAYER_12,				// nLevel
+	"WE07multi07",					// pszCSVFile
+	"ms_mp_07",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP13: Multiplayer 13
-	"13 MP Level 13",				// pszTitle
-	"WE13multi13",					// pszWorldResName
-	LEVEL_MULTIPLAYER_13,			// nLevel
-	"WE13multi13",					// pszCSVFile
-	"ms_mp_13",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"13 Coliseum",					// pszTitle
+	"WE04multi04",					// pszWorldResName
+	LEVEL_MULTIPLAYER_13,				// nLevel
+	"WE04multi04",					// pszCSVFile
+	"ms_mp_04",					// pszMaterialCSVFile
+	CColiseumMiniGame::LoadMP,			// pFcnLoad
+	CColiseumMiniGame::UnloadMP,			// pFcnUnload
+	CColiseumMiniGame::WorkMP,			// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	///////////////////////////
 	// Level MP14: Multiplayer 14
-	"14 MP Level 14",				// pszTitle
-	"WE14multi14",					// pszWorldResName
-	LEVEL_MULTIPLAYER_14,			// nLevel
-	"WE14multi14",					// pszCSVFile
-	"ms_mp_14",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
+	"14 Corrosive City",				// pszTitle
+	"WE06multi06",					// pszWorldResName
+	LEVEL_MULTIPLAYER_14,				// nLevel
+	"WE06multi06",					// pszCSVFile
+	"ms_mp_06",					// pszMaterialCSVFile
+	NULL,						// pFcnLoad
+	NULL,						// pFcnUnload
+	NULL,						// pFcnWork
+	NULL,						// pFcnDraw
 	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
-	#endif
-	///////////////////////////
-	// Level MP15: Multiplayer 15
-	"15 MP Level 15",				// pszTitle
-	"WE15multi15",					// pszWorldResName
-	LEVEL_MULTIPLAYER_15,			// nLevel
-	"WE15multi15",					// pszCSVFile
-	"ms_mp_15",						// pszMaterialCSVFile
-	NULL,							// pFcnLoad
-	NULL,							// pFcnUnload
-	NULL,							// pFcnWork
-	NULL,							// pFcnDraw
-	#if FANG_PLATFORM_GC
-	0.0f,							// fProjOffs
-	1.0f,							// fProjRngAdj
+	0.0f,						// fProjOffs
+	1.0f,						// fProjRngAdj
 	#endif
 	// MUST BE NULL TERMINATED
 	NULL,	

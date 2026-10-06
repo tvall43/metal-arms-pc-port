@@ -143,6 +143,11 @@ static cchar *_pszSoundTableName = "sound_fx_bank";
 static cchar *_pszSoundsEffectTable = "SOUNDS";
 static cchar *_pszScreenTableName = "Screen_Table_Names";
 static cchar *_pszNoTableUsed = "NULL";
+#define _SCREEN_NAME_FIELDS_PER_GROUP	6
+#define _SCREEN_NAME_GROUPS				37
+static const u8 _aScreenNameGroups[WPR_DATATYPES_SCREEN_COUNT] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 0xff, 32, 33
+};
 static cchar *_pszFFBMeshIndexTable = "adv_controller_ffb_mesh_index";
 static cchar *_pszMPLevelUnLockInfoTableName = "level_unlocking";
 static cchar *_pszSPLevelCSV = "pick_level$";
@@ -1763,10 +1768,176 @@ void wpr_system_ControllerConfig_DrawOrtho( Wpr_DataTypes_ScreenData_t *pScreen,
 // private functions
 
 // load everything that we need for the wrapper screens
+#define _PHRASE_COMMON		0
+#define _PHRASE_PLATFORM	1
+#define _PHRASE_NONE		2
+#define _PHRASE_AUTHORED	3
+
+typedef struct PhraseMapEntry_t {
+	u8	nTable;
+	u16	nRow;
+} PhraseMapEntry_t;
+
+static const PhraseMapEntry_t _aWprPhraseMap[ WPR_DATATYPES_PHRASES_COUNT ] = {
+	{ _PHRASE_COMMON,   0 },
+	{ _PHRASE_COMMON,   1 },
+	{ _PHRASE_COMMON,   2 },
+	{ _PHRASE_COMMON,   3 },
+	{ _PHRASE_COMMON,   4 },
+	{ _PHRASE_COMMON,   5 },
+	{ _PHRASE_COMMON,   6 },
+	{ _PHRASE_COMMON,   7 },
+	{ _PHRASE_COMMON,   8 },
+	{ _PHRASE_COMMON,   9 },
+	{ _PHRASE_COMMON,   10 },
+	{ _PHRASE_COMMON,   11 },
+	{ _PHRASE_COMMON,   12 },
+	{ _PHRASE_COMMON,   13 },
+	{ _PHRASE_COMMON,   14 },
+	{ _PHRASE_COMMON,   15 },
+	{ _PHRASE_COMMON,   16 },
+	{ _PHRASE_COMMON,   17 },
+	{ _PHRASE_COMMON,   18 },
+	{ _PHRASE_COMMON,   19 },
+	{ _PHRASE_COMMON,   20 },
+	{ _PHRASE_COMMON,   21 },
+	{ _PHRASE_COMMON,   22 },
+	{ _PHRASE_COMMON,   23 },
+	{ _PHRASE_COMMON,   24 },
+	{ _PHRASE_COMMON,   25 },
+	{ _PHRASE_PLATFORM, 9 },
+	{ _PHRASE_COMMON,   26 },
+	{ _PHRASE_COMMON,   27 },
+	{ _PHRASE_PLATFORM, 10 },
+	{ _PHRASE_COMMON,   28 },
+	{ _PHRASE_PLATFORM, 11 },
+	{ _PHRASE_COMMON,   29 },
+	{ _PHRASE_COMMON,   30 },
+	{ _PHRASE_COMMON,   31 },
+	{ _PHRASE_COMMON,   32 },
+	{ _PHRASE_COMMON,   33 },
+	{ _PHRASE_COMMON,   34 },
+	{ _PHRASE_COMMON,   35 },
+	{ _PHRASE_COMMON,   36 },
+	{ _PHRASE_COMMON,   37 },
+	{ _PHRASE_COMMON,   38 },
+	{ _PHRASE_COMMON,   39 },
+	{ _PHRASE_COMMON,   40 },
+	{ _PHRASE_COMMON,   41 },
+	{ _PHRASE_COMMON,   42 },
+	{ _PHRASE_COMMON,   43 },
+	{ _PHRASE_COMMON,   44 },
+	{ _PHRASE_COMMON,   45 },
+	{ _PHRASE_COMMON,   46 },
+	{ _PHRASE_COMMON,   47 },
+	{ _PHRASE_COMMON,   48 },
+	{ _PHRASE_COMMON,   49 },
+	{ _PHRASE_COMMON,   50 },
+	{ _PHRASE_COMMON,   51 },
+	{ _PHRASE_COMMON,   52 },
+	{ _PHRASE_COMMON,   53 },
+	{ _PHRASE_COMMON,   54 },
+	{ _PHRASE_COMMON,   55 },
+	{ _PHRASE_COMMON,   56 },
+	{ _PHRASE_COMMON,   57 },
+	{ _PHRASE_COMMON,   58 },
+	{ _PHRASE_COMMON,   59 },
+	{ _PHRASE_COMMON,   60 },
+	{ _PHRASE_COMMON,   61 },
+	{ _PHRASE_COMMON,   62 },
+	{ _PHRASE_COMMON,   63 },
+	{ _PHRASE_COMMON,   64 },
+	{ _PHRASE_COMMON,   65 },
+	{ _PHRASE_COMMON,   66 },
+	{ _PHRASE_COMMON,   67 },
+	{ _PHRASE_COMMON,   68 },
+	{ _PHRASE_COMMON,   69 },
+	{ _PHRASE_COMMON,   70 },
+	{ _PHRASE_COMMON,   71 },
+	{ _PHRASE_COMMON,   72 },
+	{ _PHRASE_COMMON,   73 },
+	{ _PHRASE_COMMON,   74 },
+	{ _PHRASE_COMMON,   75 },
+	{ _PHRASE_COMMON,   76 },
+	{ _PHRASE_COMMON,   77 },
+	{ _PHRASE_COMMON,   78 },
+	{ _PHRASE_COMMON,   79 },
+	{ _PHRASE_COMMON,   80 },
+	{ _PHRASE_COMMON,   81 },
+	{ _PHRASE_COMMON,   82 },
+	{ _PHRASE_COMMON,   83 },
+	{ _PHRASE_PLATFORM, 12 },
+	{ _PHRASE_COMMON,   84 },
+	{ _PHRASE_COMMON,   85 },
+	{ _PHRASE_COMMON,   86 },
+	{ _PHRASE_COMMON,   87 },
+	{ _PHRASE_COMMON,   88 },
+	{ _PHRASE_COMMON,   89 },
+	{ _PHRASE_COMMON,   90 },
+	{ _PHRASE_COMMON,   91 },
+	{ _PHRASE_AUTHORED, 0 },
+	{ _PHRASE_COMMON,   92 },
+	{ _PHRASE_AUTHORED, 1 },
+	{ _PHRASE_COMMON,   93 },
+	{ _PHRASE_COMMON,   94 },
+	{ _PHRASE_COMMON,   95 },
+	{ _PHRASE_COMMON,   96 },
+	{ _PHRASE_COMMON,   97 },
+	{ _PHRASE_COMMON,   98 },
+	{ _PHRASE_AUTHORED, 2 },
+	{ _PHRASE_PLATFORM, 1 },
+	{ _PHRASE_PLATFORM, 2 },
+	{ _PHRASE_PLATFORM, 3 },
+	{ _PHRASE_PLATFORM, 4 },
+	{ _PHRASE_PLATFORM, 5 },
+	{ _PHRASE_PLATFORM, 6 },
+};
+static const cwchar * const _apwszWprPhraseAuthored[] = {
+	L"Time to Beat",
+	L"Locked",
+	L"Manage Memory",
+};
+
+static BOOL _WprPhraseMapResolve( int iPhrase, FGameDataTableHandle_t hCommonTable, FGameDataTableHandle_t hPlatformTable, cwchar **ppwszText ) {
+	const PhraseMapEntry_t *pMap = &_aWprPhraseMap[iPhrase];
+	FGameDataTableHandle_t hTable;
+	FGameData_VarType_e nDataType;
+	int nFields;
+
+	*ppwszText = NULL;
+	switch( pMap->nTable ) {
+		case _PHRASE_COMMON:
+			hTable = hCommonTable;
+			break;
+		case _PHRASE_PLATFORM:
+			hTable = hPlatformTable;
+			break;
+		case _PHRASE_NONE:
+			return TRUE;
+		case _PHRASE_AUTHORED:
+			*ppwszText = (cwchar *)_apwszWprPhraseAuthored[ pMap->nRow ];
+			return TRUE;
+		default:
+			FASSERT_NOW;
+			return FALSE;
+	}
+	nFields = fgamedata_GetNumFields( hTable );
+	if( (int)pMap->nRow >= nFields ) {
+		DEVPRINTF( "wpr_system::_Init() : Phrase %d needs row %d but the phrases table only contains %d strings.\n", iPhrase, pMap->nRow, nFields );
+		return FALSE;
+	}
+	*ppwszText = (cwchar *)fgamedata_GetPtrToFieldData( hTable, pMap->nRow, nDataType );
+	if( nDataType != FGAMEDATA_VAR_TYPE_WIDESTRING ) {
+		DEVPRINTF( "wpr_system::_Init() : Field %d in the phrases table is not a WIDESTRING format!\n", pMap->nRow );
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static BOOL _Init( void ) {
 	u32 i, nCount, nNameTableIndex, nNumElements, nPlatformOffset;
 	FGameDataFileHandle_t hFile;
-	FGameDataTableHandle_t hTable, hTableNames;
+	FGameDataTableHandle_t hTable, hTableNames, hCommonTable, hPlatformTable;
 	cchar *pszText, *pszTableName;
 	cwchar *pwszText;
 	FGameData_VarType_e nDataType;
@@ -1897,47 +2068,32 @@ static BOOL _Init( void ) {
 
 	/////////////////////////
 	// find the phrases table
-	hTable = fgamedata_GetFirstTableHandle( hFile, _pszPhrasesTableName );
-	if( hTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
+	hCommonTable = fgamedata_GetFirstTableHandle( hFile, _pszPhrasesTableName );
+	if( hCommonTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
 		DEVPRINTF( "wpr_system::_Init() : Could not find the phrases table named '%s'.\n", _pszPhrasesTableName );
 		goto _EXIT_WITH_ERROR;
 	}
-	// get the number of fields in the table
-	i = fgamedata_GetNumFields( hTable );
-	if( i != WPR_DATATYPES_PHRASES_NON_PLATFORM_SPECIFIC_COUNT ) {
-		DEVPRINTF( "wpr_system::_Init() : The phrases table in '%s' didn't contain %d strings as expected.\n", _pszPhrasesTableName, WPR_DATATYPES_PHRASES_NON_PLATFORM_SPECIFIC_COUNT );
-		goto _EXIT_WITH_ERROR;
-	}
-	// walk the string table adding each string to the string table and recording a ptr to them
-	for( i=0; i < WPR_DATATYPES_PHRASES_NON_PLATFORM_SPECIFIC_COUNT; i++ ) {
-		pwszText = (cwchar *)fgamedata_GetPtrToFieldData( hTable, i, nDataType );
-		if( !fclib_wcscmp( pwszText, L"NULL_" ) ) {
-			_apwszPhrases[i] = _pStringTable->AddString( L"" );
-		} else {
-			_apwszPhrases[i] = _pStringTable->AddString( pwszText );
-		}
-	}
-	// now the platform specific table
-	hTable = fgamedata_GetFirstTableHandle( hFile, _pszPlatformPhrasesTableName );
-	if( hTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
+	hPlatformTable = fgamedata_GetFirstTableHandle( hFile, _pszPlatformPhrasesTableName );
+	if( hPlatformTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
 		DEVPRINTF( "wpr_system::_Init() : Could not find the phrases table named '%s'.\n", _pszPlatformPhrasesTableName );
 		goto _EXIT_WITH_ERROR;
 	}
-	// get the number of fields in the table
-	i = fgamedata_GetNumFields( hTable );
-	if( i != WPR_DATATYPES_PHRASES_PLATFORM_SPECIFIC_COUNT ) {
-		DEVPRINTF( "wpr_system::_Init() : The phrases table in '%s' didn't contain %d strings as expected.\n", _pszPlatformPhrasesTableName, WPR_DATATYPES_PHRASES_PLATFORM_SPECIFIC_COUNT );
-		goto _EXIT_WITH_ERROR;
-	}
+
+	DEVPRINTF( "wpr_system::_Init() : '%s' contains %d strings, '%s' contains %d strings.\n",
+			   _pszPhrasesTableName, (int)fgamedata_GetNumFields( hCommonTable ),
+			   _pszPlatformPhrasesTableName, (int)fgamedata_GetNumFields( hPlatformTable ) );
+
 	// walk the string table adding each string to the string table and recording a ptr to them
-	for( i=0; i < WPR_DATATYPES_PHRASES_PLATFORM_SPECIFIC_COUNT; i++ ) {
-		pwszText = (cwchar *)fgamedata_GetPtrToFieldData( hTable, i, nDataType );
-		if( !fclib_wcscmp( pwszText, L"NULL_" ) ) {
-			_apwszPhrases[WPR_DATATYPES_PHRASES_NON_PLATFORM_SPECIFIC_COUNT + i] = _pStringTable->AddString( L"" );
-		} else {
-			_apwszPhrases[WPR_DATATYPES_PHRASES_NON_PLATFORM_SPECIFIC_COUNT + i] = _pStringTable->AddString( pwszText );
+	for( i=0; i < WPR_DATATYPES_PHRASES_COUNT; i++ ) {
+		if( !_WprPhraseMapResolve( (int)i, hCommonTable, hPlatformTable, &pwszText ) ) {
+			goto _EXIT_WITH_ERROR;
 		}
-	}		
+		if( pwszText && !fclib_wcscmp( pwszText, L"NULL_" ) ) {
+			pwszText = (cwchar *)L"";
+		}
+		_apwszPhrases[i] = pwszText ? _pStringTable->AddString( pwszText ) : NULL;
+	}
+
 
 	/////////////////////////////////////////////
 	// allocate enough room for the needed meshes
@@ -1955,8 +2111,8 @@ static BOOL _Init( void ) {
 	}
 	// get the number of fields in the table
 	i = fgamedata_GetNumFields( hTableNames );
-	if( i != (WPR_DATATYPES_SCREEN_COUNT*5) ) {
-		DEVPRINTF( "wpr_system::_Init() : The screen table names table contains %d entries, but %d are expected.\n", i, WPR_DATATYPES_SCREEN_COUNT );
+	if( i != (_SCREEN_NAME_GROUPS * _SCREEN_NAME_FIELDS_PER_GROUP) ) {
+		DEVPRINTF( "wpr_system::_Init() : The screen table names table contains %d entries, but %d are expected.\n", i, (_SCREEN_NAME_GROUPS * _SCREEN_NAME_FIELDS_PER_GROUP) );
 		goto _EXIT_WITH_ERROR;
 	}	
 
@@ -1971,6 +2127,17 @@ static BOOL _Init( void ) {
 	for( i=0; i < WPR_DATATYPES_SCREEN_COUNT; i++ ) {
 		// grab a ptr to the screen data
 		pScreen = &Wpr_DataTypes_paScreenData[i];
+
+		nNameTableIndex = _aScreenNameGroups[i] * _SCREEN_NAME_FIELDS_PER_GROUP;
+		if( _aScreenNameGroups[i] >= _SCREEN_NAME_GROUPS ) {
+			pScreen->nNumTextElements = 0;
+			pScreen->pText = NULL;
+			pScreen->nNumMeshElements = 0;
+			pScreen->pMesh = NULL;
+			pScreen->nNumButtons = 0;
+			pScreen->paButtons = NULL;
+			continue;
+		}
 
 		///////////////////////////
 		// grab the text table name
@@ -1989,8 +2156,8 @@ static BOOL _Init( void ) {
 
 		///////////////////////////
 		// grab the mesh table name
-		pszTableName = (cchar *)fgamedata_GetPtrToFieldData( hTableNames, nNameTableIndex, nDataType );
-		nNameTableIndex++;
+		pszTableName = (cchar *)fgamedata_GetPtrToFieldData( hTableNames, nNameTableIndex + nPlatformOffset, nDataType );
+		nNameTableIndex += 2;
 		if( fclib_stricmp( pszTableName, _pszNoTableUsed ) != 0 ) {
 			// init the mesh layout array
 			if( !wpr_datatypes_InitScreenMeshLayoutArray( hFile, pszTableName, *pScreen, _nNumMeshes, _paMeshInsts ) ) {
