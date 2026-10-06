@@ -134,10 +134,12 @@ BOOL _InitPathFinding(const char* pszLevelFilename)
 		FASSERT(nCount == nSizeBytes);
 		aimain_pAIGraph = (CAIGraph*) aimain_pGraphFileData;
 		aimain_pAIGraph->PointerizeBinaryData();
+		DEVPRINTF( "[AI] TEMP graph .gt '%s' size=%d buf=%p hdr %08x %08x %08x %08x %08x %08x nV=%d nP=%d\r\n", szGraphFileName, (int) nSizeBytes, aimain_pGraphFileData, ((u32*)aimain_pGraphFileData)[0], ((u32*)aimain_pGraphFileData)[1], ((u32*)aimain_pGraphFileData)[2], ((u32*)aimain_pGraphFileData)[3], ((u32*)aimain_pGraphFileData)[4], ((u32*)aimain_pGraphFileData)[5], (int) aimain_pAIGraph->GetNumVerts(), (int) aimain_pAIGraph->GetNumPoi() );
 	}
 	else
 	{	//there isn't any graph for this level.
 		aimain_pAIGraph = APE_NEW CAIGraph();
+		DEVPRINTF( "[AI] TEMP graph .gt '%s' MISSING -> APE_NEW graph=%p\r\n", szGraphFileName, aimain_pAIGraph );
 	}
 
 
@@ -215,6 +217,7 @@ void _UninitGlobalNodePools(void)
 
 BOOL aimain_InitSystem(const char* pszLevelFilename)
 {
+	DEVPRINTF( "[AI] TEMP InitSystem level='%s'\r\n", pszLevelFilename ? pszLevelFilename : "(null)" );
 	FResFrame_t ResFrame = fres_GetFrame();
 
 	if( fres_CreateWithCallback( NULL, NULL, _AISystemDestroyed ) == FRES_NULLHANDLE )
@@ -321,6 +324,14 @@ _ExitAIMain_InitSysWithError:
 BOOL aimain_InitSystemPostWorldLoad(void)
 {
 	BOOL bDidIt;
+	if (aimain_pAIGraph)
+	{
+		DEVPRINTF( "[AI] TEMP PostWorldLoad graph=%p hdr %08x %08x %08x %08x %08x %08x nV=%d nP=%d\r\n", aimain_pAIGraph, ((u32*)aimain_pAIGraph)[0], ((u32*)aimain_pAIGraph)[1], ((u32*)aimain_pAIGraph)[2], ((u32*)aimain_pAIGraph)[3], ((u32*)aimain_pAIGraph)[4], ((u32*)aimain_pAIGraph)[5], (int) aimain_pAIGraph->GetNumVerts(), (int) aimain_pAIGraph->GetNumPoi() );
+	}
+	else
+	{
+		DEVPRINTF( "[AI] TEMP PostWorldLoad graph=NULL!\r\n" );
+	}
 	aimain_pGraphAccess = APE_NEW CAIGraphDataAccess;
 	if (aimain_pGraphAccess)
 	{
