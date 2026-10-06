@@ -265,6 +265,8 @@ BOOL gamecam_InitSystem( void ) {
 
 	// mark the system as up and ready to be used
 	_bInitOK = TRUE;
+	DEVPRINTF( "[ma] TEMP gamecam init done: bot=%p man=%p simple=%p cut=%p\n",
+		_paBotCameramen, _paManualCameramen, _paSimpleCameramen, _paCutsceneCameramen );
 
 	// release our fmem frame so that the temp csv file is unloaded
 	fmem_ReleaseFrame( hMemFrame );
@@ -280,6 +282,8 @@ _ExitSetupWithError:
 
 void gamecam_UninitSystem( void ) {
 	u32 i;
+
+	DEVPRINTF( "[ma] TEMP gamecam_UninitSystem called, retaddr=%p\n", __builtin_return_address( 0 ) );
 
 	_nPlayerToMonitorForDebugging = GAMECAM_DONT_MONITOR_CONTROLS;
 	_nControllerPortToMonitor = 0;
@@ -322,6 +326,11 @@ void gamecam_UninitSystem( void ) {
 	_paCamBotInfos = NULL;
 	// uninit the bot cam system
 	CCamBot::UninitSystem();
+}
+
+void gamecam_DiagSnapshot( cchar *pszWhere ) {
+	DEVPRINTF( "[ma] TEMP gamecam %s: initOK=%d man=%p bot=%p simple=%p cut=%p\n",
+		pszWhere, (int)_bInitOK, _paManualCameramen, _paBotCameramen, _paSimpleCameramen, _paCutsceneCameramen );
 }
 
 // Call after each level has been loaded.  This function will scan the loaded

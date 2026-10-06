@@ -1258,6 +1258,8 @@ void wpr_system_ResetToStartupScreen( BOOL bBootup ) {
 		return;
 	}
 
+	gamecam_DiagSnapshot( "ResetToStartupScreen entry" );
+
 	//////////////////////
 	// init the 3d camera
 	_pCamAnimInst->UpdateUnitTime( 0.71f );

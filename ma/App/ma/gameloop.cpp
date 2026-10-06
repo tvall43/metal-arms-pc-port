@@ -868,6 +868,7 @@ static BOOL _GameInit( void *pParameter ) {
 #endif
 
 	DEVPRINTF( "******** LOAD MARKER - END OF BOOTUP***********.\n" );
+	gamecam_DiagSnapshot( "at END OF BOOTUP" );
 
 	// Success!
 	return TRUE;

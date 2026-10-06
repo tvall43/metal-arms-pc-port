@@ -92,6 +92,7 @@ class CCamBot;
 // be initialized before calling.
 extern BOOL gamecam_InitSystem( void );
 extern void gamecam_UninitSystem( void );
+extern void gamecam_DiagSnapshot( cchar *pszWhere );
 
 // Call after each level has been loaded.  This function will scan the loaded
 // world and init needed level specific classes.
