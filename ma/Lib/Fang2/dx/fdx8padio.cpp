@@ -126,6 +126,87 @@ static FINLINE void _ApplyDeadzone( f32 &rfValue ) {
 	}
 }
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+//// Synthetic keyboard device.
+//
+// Metal Arms is a console title: it has no keyboard path of its own, every
+// action is read through Gamepad_aapSample[][] and fpadio only ever enumerates
+// DirectInput game controllers. With no controller attached (always true under
+// Wine, common on a PC) fpadio_Install used to fail outright, fpad then had
+// nothing to sample, and the game became permanently uncontrolable. Slot 0 is
+// given a synthetic device instead, whose samples are read straight from the
+// keyboard, so fpad, gamepad and every consumer downstream run unchanged.
+//
+static BOOL _KeyDown( int nVK ) {
+	return ( 0 != ( GetAsyncKeyState( nVK ) & 0x8000 ) );
+}
+
+static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
+{
+	static const f32 _fSqrtHalf = 0.70710678118654752440f;
+	f32 fX, fY;
+	f32 *paf = poSample->afInputValues;
+
+	fang_MemZero( paf, sizeof( poSample->afInputValues ) );
+	poSample->bValid = TRUE;
+
+	//// Left stick -- W/A/S/D.
+	//
+	// This alone drives the bootup menu: launcher.cpp reads
+	// GAMEPAD_MENU_LEFT_ANALOG_Y first and only falls back to the d-pad.
+	//
+	fX = 0.0f;
+	fY = 0.0f;
+	if( _KeyDown( 'D' ) ) { fX += 1.0f; }
+	if( _KeyDown( 'A' ) ) { fX -= 1.0f; }
+	if( _KeyDown( 'W' ) ) { fY += 1.0f; }
+	if( _KeyDown( 'S' ) ) { fY -= 1.0f; }
+	if( ( 0.0f != fX ) && ( 0.0f != fY ) ) { fX *= _fSqrtHalf; fY *= _fSqrtHalf; }
+	paf[ FPADIO_INPUT_STICK_LEFT_X - 1 ] = fX;
+	paf[ FPADIO_INPUT_STICK_LEFT_Y - 1 ] = fY;
+
+	//// Right stick -- I/J/K/L, look up/down and turn.
+	//
+	fX = 0.0f;
+	fY = 0.0f;
+	if( _KeyDown( 'L' ) ) { fX += 1.0f; }
+	if( _KeyDown( 'J' ) ) { fX -= 1.0f; }
+	if( _KeyDown( 'I' ) ) { fY += 1.0f; }
+	if( _KeyDown( 'K' ) ) { fY -= 1.0f; }
+	if( ( 0.0f != fX ) && ( 0.0f != fY ) ) { fX *= _fSqrtHalf; fY *= _fSqrtHalf; }
+	paf[ FPADIO_INPUT_STICK_RIGHT_X - 1 ] = fX;
+	paf[ FPADIO_INPUT_STICK_RIGHT_Y - 1 ] = fY;
+
+	//// D-pad -- the arrow keys, which is also how the bootup menu is moved
+	//// when the left stick is idle (launcher.cpp falls back to DPAD_Y).
+	//
+	fX = 0.0f;
+	fY = 0.0f;
+	if( _KeyDown( VK_RIGHT ) ) { fX += 1.0f; }
+	if( _KeyDown( VK_LEFT )  ) { fX -= 1.0f; }
+	if( _KeyDown( VK_UP )    ) { fY += 1.0f; }
+	if( _KeyDown( VK_DOWN )  ) { fY -= 1.0f; }
+	if( ( 0.0f != fX ) && ( 0.0f != fY ) ) { fX *= _fSqrtHalf; fY *= _fSqrtHalf; }
+	paf[ FPADIO_INPUT_DPAD_X - 1 ] = fX;
+	paf[ FPADIO_INPUT_DPAD_Y - 1 ] = fY;
+
+	//// Face buttons and shoulders.
+	//
+	paf[ FPADIO_INPUT_CROSS_BOTTOM          - 1 ] = ( _KeyDown( VK_SPACE ) || _KeyDown( VK_RETURN ) ) ? 1.0f : 0.0f; // A: accept, jump, select
+	paf[ FPADIO_INPUT_CROSS_RIGHT           - 1 ] = _KeyDown( VK_ESCAPE ) ? 1.0f : 0.0f;                              // B: back, cancel
+	paf[ FPADIO_INPUT_CROSS_LEFT            - 1 ] = _KeyDown( 'Q' ) ? 1.0f : 0.0f;                                    // X
+	paf[ FPADIO_INPUT_CROSS_TOP             - 1 ] = _KeyDown( 'E' ) ? 1.0f : 0.0f;                                    // Y: action, interact
+	paf[ FPADIO_INPUT_START                 - 1 ] = ( _KeyDown( VK_RETURN ) || _KeyDown( 'P' ) ) ? 1.0f : 0.0f;       // Start: pause
+	paf[ FPADIO_INPUT_XB_DBUTTON_BACK       - 1 ] = _KeyDown( VK_BACK ) ? 1.0f : 0.0f;                                // Back
+	paf[ FPADIO_INPUT_TRIGGER_RIGHT         - 1 ] = ( _KeyDown( VK_LBUTTON ) || _KeyDown( VK_LCONTROL ) ) ? 1.0f : 0.0f; // RT: fire
+	paf[ FPADIO_INPUT_TRIGGER_LEFT          - 1 ] = ( _KeyDown( VK_RBUTTON ) || _KeyDown( VK_LSHIFT ) ) ? 1.0f : 0.0f;    // LT: aim
+	paf[ FPADIO_INPUT_XB_ABUTTON_BLACK      - 1 ] = _KeyDown( 'X' ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_ABUTTON_WHITE      - 1 ] = _KeyDown( 'C' ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_LEFT - 1 ] = _KeyDown( VK_LMENU ) ? 1.0f : 0.0f;   // LS: crouch
+	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_RIGHT- 1 ] = _KeyDown( 'R' ) ? 1.0f : 0.0f;        // RS: melee
+}
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 BOOL CALLBACK _EnumDevicesCallback( LPCDIDEVICEINSTANCE pDevInst, LPVOID pParam )
@@ -415,20 +496,37 @@ FPadio_Error_e fpadio_Install( const FPadio_Init_t *poInit /* = NULL */ )
 
 	if( ! uCount )
 	{
-		DEVPRINTF( "[ FPADIO ] Error %u: Nothing has been enumerated !!!\n", __LINE__ );
-		ReleaseMutex( _hPollingThreadMutex );
-		ResumeThread( _hPollingThread );
-		do
-		{
-			Sleep( 10 );
-			GetExitCodeThread( _hPollingThread, &dwExitCode );
+		//// No controller attached -- register a keyboard instead of failing.
+		//
+		// DirectInput found nothing. That is always the case under Wine and the
+		// normal one on a PC, but the old code returned FPADIO_ERROR here, which
+		// left fpadio uninstalled, fpad_UpdateSamples() returning 0 every frame
+		// and Gamepad_aapSample permanently reading zeros -- with no keyboard
+		// path of its own the game could not be controlled at all. Slot 0 gets a
+		// synthetic device whose samples come from the keyboard, and install
+		// carries on, so the rest of this function and all of fpad/gamepad run
+		// exactly as they do with a real pad.
+		//
+		static const char _szSynthName[] = "Keyboard (synthetic)";
+		_Device_t *poSynth = &( _aoDevices[ 0 ] );
+		u32 uSynthInput;
 
-		} while( STILL_ACTIVE == dwExitCode );
-		CloseHandle( _hPollingThreadMutex );
-		CloseHandle( _hSamplesAndDevicesMutex );
-		FDX8_SAFE_RELEASE( _pDInput );
-		fres_ReleaseFrame( oTempResFrame );
-		return FPADIO_ERROR;
+		poSynth->bEnumerated = FALSE;  // Skips the DirectInput setup loop below.
+		poSynth->bAcquired   = TRUE;   // The sampling thread fills it.
+		poSynth->poDIDevice  = NULL;   // No DirectInput object to poll or release.
+		poSynth->uAxis       = 0;
+		poSynth->uButtons    = FPADIO_MAX_INPUTS;
+		fang_MemCopy( poSynth->oInfo.szName, _szSynthName, sizeof( _szSynthName ) );
+		poSynth->oInfo.oeID    = FPADIO_INPUT_XB_GAMEPAD;
+		poSynth->oInfo.uInputs = FPADIO_MAX_INPUTS;
+		for( uSynthInput = 0; uSynthInput < FPADIO_MAX_INPUTS; ++uSynthInput )
+		{
+			// IDs 1..19 are contiguous and cover everything both gamepad maps ask
+			// for; 15..19 are read as the Xbox-specific buttons because
+			// Gameloop_nPlatform is GAMELOOP_PLATFORM_XB on this build.
+			poSynth->oInfo.aeInputIDs[ uSynthInput ] = (FPadio_InputID_e)( uSynthInput + 1 );
+		}
+		DEVPRINTF( "[ma] fpadio: no DirectInput controller, keyboard registered as device 0.\n" );
 	}
 	//
 	////
@@ -533,8 +631,14 @@ FPadio_Error_e fpadio_Install( const FPadio_Init_t *poInit /* = NULL */ )
 	//
 	for( uIndex = 0; uIndex < FPADIO_MAX_DEVICES; ++uIndex )
 	{
+		// poDIDevice and the device-name pointer are both required: the synthetic
+		// keyboard device has neither, and main_win.cpp passes a NULL device name,
+		// so without these guards strstr() is handed NULL and the keyboard device
+		// would be treated as an emulatable DirectInput controller.
 		if( ( _aoDevices[ uIndex ].bAcquired ) &&
+			( _aoDevices[ uIndex ].poDIDevice ) &&
 			( FPADIO_INPUT_EMULATION_PLATFORM_NONE != poInit->DX8ONLY_uInputEmulationPlatform ) &&
+			( poInit->DX8ONLY_pszInputEmulationDevName ) &&
 			( strstr( _aoDevices[ uIndex ].oInfo.szName, (char *)poInit->DX8ONLY_pszInputEmulationDevName ) ) )
 		{
 			FASSERT_MSG( poInit->DX8ONLY_pauInputEmulationMap,          "[ FPADIO ] Error: NULL pointer !!!" );
@@ -613,7 +717,7 @@ void fpadio_Uninstall( void )
 
 	for( u32 uIndex = 0; uIndex < FPADIO_MAX_DEVICES; ++uIndex )
 	{
-		if( _aoDevices[ uIndex ].bAcquired )
+		if( ( _aoDevices[ uIndex ].bAcquired ) && ( _aoDevices[ uIndex ].poDIDevice ) )
 		{
 			_aoDevices[ uIndex ].poDIDevice->Unacquire();
 			FDX8_SAFE_RELEASE( _aoDevices[ uIndex ].poDIDevice );
@@ -708,6 +812,13 @@ DWORD WINAPI _fpadio_SamplingThread( LPVOID pParam ) {
 			poTempDevice = &( _aoDevices[ uIndex ] );
 			
 			if( poTempDevice->bAcquired ) {
+				//// Synthetic keyboard device: there is no DirectInput object to
+				//// poll, so read the keys straight into this sample instead.
+				if( ! poTempDevice->poDIDevice ) {
+					_KeyboardSyntheticSample( poTempSample );
+					continue;
+				}
+
 				//// Sample.
 				if( FAILED( poTempDevice->poDIDevice->Poll() ) ) {
 					DEVPRINTF( "[ FPADIO ] Error %u: Poll() failed !!!\n", __LINE__ );

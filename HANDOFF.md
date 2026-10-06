@@ -9,8 +9,9 @@ things that have already been tried and disproved.
 The engine cross-compiles, boots, loads the retail `.mst`, completes bootup and
 runs an unbounded, crash-free frame loop — and **it now renders**. The "Choose
 Bootup Mode" menu draws with correct text, correct layout and a moving selection
-highlight. The black-window bug is fixed (Measurement 8). What is left is that
-**the game cannot be controlled** — see Measurement 9.
+highlight. The black-window bug is fixed (Measurement 8), and input now runs
+through a synthetic keyboard device (Measurement 9). What is left is confirming
+both in a live run.
 
 ## Objective
 
@@ -180,13 +181,11 @@ tried.
   `Difficulty.csv` expecting 4 levels. These log and continue, but will matter in
   actual gameplay.
 - **`w_flamer.csv`** vocab still wants 10 numeric columns retail lacks.
-- **Input is dead — diagnosed, not yet fixed (Measurement 9).** `fpadio`
-  enumerates **DirectInput game controllers only**; under Wine there are none, so
-  `fpadio_Install` fails with `Error 418: Nothing has been enumerated` and
-  `fpad_UpdateSamples()` returns 0 every frame. `Gamepad_aapSample[][]` therefore
-  reads all zeros forever. There is **no keyboard path in the game at all** — it
-  is a console title. The fix is a synthetic keyboard-fed device inside
-  `fdx8padio.cpp` so `fpadio_Install` succeeds.
+- **Input: fixed, awaiting a live run (Measurement 9).** `fpadio` only
+  enumerates DirectInput controllers, so under Wine it used to fail with
+  `Error 418: Nothing has been enumerated` and `fpad_UpdateSamples()` returned 0
+  forever. It now registers a synthetic keyboard device in slot 0 instead. The
+  game still has no keyboard path of its own — do not go looking for one.
 
 ## Housekeeping left behind
 
@@ -873,9 +872,9 @@ Verified on the built exe with `strings -a ma_win.exe`:
 `diag triangle` **0**, `_nDiagFrames` **0**, `mtxLayout` **1**, `postovl` **1**,
 `endscene` **1**, `nonblack=` **1**.
 
-### 3. Input: diagnosed, NOT yet fixed
+### 3. Input: diagnosed, then FIXED with a synthetic keyboard device
 
-The log says it outright:
+The log said it outright:
 
 ```
 [ FPADIO ] Error 418: Nothing has been enumerated !!!
@@ -883,37 +882,91 @@ Could not install input driver (fpadio); continuing without a controller.
 [ma] input driver (fpad) installed.
 ```
 
-Only the **fpad** line has the `[ma]` prefix, so a grep for `[ma]` misses the
+Only the **fpad** line carries the `[ma]` prefix, so a grep for `[ma]` misses the
 failure — grep for `input` instead.
 
-The input stack is `fdx8padio.cpp` (DirectInput) -> `fpad.cpp` -> `gamepad.cpp`
--> the global `Gamepad_aapSample[][]` the game reads:
+The input stack is `fdx8padio.cpp` (DirectInput) → `fpad.cpp` → `gamepad.cpp` →
+the global `Gamepad_aapSample[][]` the game reads:
 
-* `fdx8padio.cpp:418` — `_pDInput->EnumDevices( DI8DEVCLASS_GAMECTRL, ...,
-  DIEDFL_ATTACHEDONLY )` returns `uCount == 0` under Wine. The function bails
-  out with `FPADIO_ERROR`, so `fpadio_IsInstalled()` stays FALSE.
+* `fdx8padio.cpp` — `_pDInput->EnumDevices( DI8DEVCLASS_GAMECTRL, ...,
+  DIEDFL_ATTACHEDONLY )` returns `uCount == 0` under Wine. The function bailed
+  out with `FPADIO_ERROR`, so `fpadio_IsInstalled()` stayed FALSE.
 * `fpad.cpp:191` — `fpad_UpdateSamples()` starts with
-  `if( !_bModuleInstalled || !fpadio_IsInstalled() ) return 0;` — so **nothing is
-  ever sampled**.
-* `fpad.cpp:~140` `fpad_Map()` still runs (that was fixed earlier) and points
-  every action at `_oAlwaysZeroSample`, so reads succeed and report "nothing
-  pressed" rather than crashing. Correct, but therefore permanently inert.
+  `if( !_bModuleInstalled || !fpadio_IsInstalled() ) return 0;`, so nothing was
+  ever sampled; and because `gamepad_Sample()` does
+  `Gamepad_nPortOnlineMask = fpad_UpdateSamples();` the port mask stayed 0 too.
+* `fpad.cpp` `fpad_Map()` still ran (fixed earlier) and pointed every action at
+  `_oAlwaysZeroSample`, so reads succeeded and reported "nothing pressed" —
+  correct, but permanently inert.
 
-This is a console title — **there is no keyboard code path anywhere in the
-game**. `launcher.cpp:506-520` needs `GAMEPAD_MENU_LEFT_ANALOG_Y` or
+This is a console title: **there is no keyboard code path anywhere in the
+game.** `launcher.cpp:506-520` needs `GAMEPAD_MENU_LEFT_ANALOG_Y` or
 `GAMEPAD_MENU_DPAD_Y` carrying
 `FPAD_LATCH_TURNED_ON_WITH_REPEAT_AND_WITH_INITIAL_DELAY`, and
 `launcher.cpp:431` needs `GAMEPAD_MENU_ACCEPT` with
-`GAMEPAD_BUTTON_1ST_PRESS_MASK`. All of those come from `_aoSamples`, which come
-from `fpadio_GetSamples()`.
+`GAMEPAD_BUTTON_1ST_PRESS_MASK`. Those come from `_aoSamples`, which come from
+`fpadio_GetSamples()`.
 
-**The fix:** make `fpadio_Install` succeed when no controller enumerates, by
-registering a synthetic keyboard-driven device whose samples are filled from
-key state each poll. Then `fpad_UpdateSamples()` runs normally and
-`gamepad_SetMapping( i, GAMEPAD_MAP_MENU )` does the rest. Minimum useful
-mapping: arrows/WASD -> stick or dpad Y, Enter/Space -> `GAMEPAD_MENU_ACCEPT`,
-Esc -> `GAMEPAD_MENU_BACK`.
+**The fix — in `Lib/Fang2/dx/fdx8padio.cpp`: when `uCount == 0`, do not fail;
+register a synthetic keyboard device and carry on.**
 
-**Zip rebuilt:** archive crc32 `f1612b75`, `ma_win.exe` crc32 `f30bc0ca`,
-`binkw32.dll` crc32 `55da02b7` (23,800,643 bytes, members `ma_win.exe` +
-`binkw32.dll`). Previous build was exe `67d66a6a` / archive `3bcc7979`.
+* `_KeyDown()` / `_KeyboardSyntheticSample()`, inserted after `_ApplyDeadzone()`,
+  fill one `FPadio_Sample_t` from `GetAsyncKeyState()`.
+* The device is `bEnumerated = FALSE` (so the DirectInput setup loop below skips
+  it), `bAcquired = TRUE`, `poDIDevice = NULL`, `oInfo.uInputs = 19`,
+  `aeInputIDs[i] = i+1`. IDs 15..19 are read as the Xbox-specific buttons
+  because `Gameloop_nPlatform == GAMELOOP_PLATFORM_XB`.
+* `_fpadio_SamplingThread` branches on `!poDIDevice`, calls
+  `_KeyboardSyntheticSample()` instead of `Poll()` / `GetDeviceState()`, then
+  `continue`s to the next device so `_uValidSamples` still increments.
+* Everything downstream — double sample buffer, the latch / hysteresis / repeat
+  logic in `fpad_UpdateSamples()`, `Gamepad_nPortOnlineMask` — is reused
+  untouched.
+
+**Controls**
+
+| Keys | Pad input |
+|---|---|
+| W A S D | left stick (move/strafe; also drives the menu via `GAMEPAD_MENU_LEFT_ANALOG_Y`) |
+| Arrow keys | d-pad (also drives the menu via `GAMEPAD_MENU_DPAD_Y`) |
+| I J K L | right stick (look / turn) |
+| Space, Enter | A `CROSS_BOTTOM` — menu accept, jump, select |
+| Escape | B `CROSS_RIGHT` — menu back / cancel |
+| Q, E | X, Y |
+| Enter, P | Start — pause |
+| Backspace | Back |
+| Left Ctrl or left mouse button | RT — fire |
+| Left Shift or right mouse button | LT — aim |
+| Left Alt, R | LS, RS — crouch, melee |
+| X, C | Black, White |
+
+**Two latent NULL crashes guarded on the way through**
+
+1. The input-emulation condition called
+   `strstr( szName, (char *)poInit->DX8ONLY_pszInputEmulationDevName )` while
+   `main_win.cpp:648` sets that pointer to **NULL**. It never crashed only
+   because every device had `bAcquired == FALSE`, so the `&&` short-circuited.
+   With the keyboard device `bAcquired` it would have faulted. The condition now
+   also requires `poDIDevice` and a non-NULL device name.
+2. `fpadio_Uninstall()` called `poDIDevice->Unacquire()` whenever `bAcquired`,
+   which is NULL for the synthetic device. Now guarded.
+
+**What the next log must show**
+
+* `[ma] fpadio: no DirectInput controller, keyboard registered as device 0.`
+* `[ma] input driver (fpadio) installed.` in place of the old failure line
+* `Nothing has been enumerated` **absent** from `strings -a ma_win.exe`
+* `App/ma/gamepad.cpp` logs the first 30 frames (and any later input activity):
+  `[ma] in %u: portMask=%u map0=%u analogY=%f analogYLatch=%08X accept=%f acceptLatch=%08X`
+  — `portMask` must be **1**, and with the menu up (`map0=1`) pressing W/S must
+  give `analogY=±1` with `analogYLatch=0000003B`, and pressing Space must give
+  `acceptLatch=0000003B` (which satisfies `GAMEPAD_BUTTON_1ST_PRESS_MASK` =
+  `0x0C` through its `0x08` bit).
+
+The `gamepad.cpp` log block is marked TEMPORARY DIAGNOSTIC — remove it once
+controls are confirmed.
+
+**Zip rebuilt:** archive crc32 `845524e1`, `ma_win.exe` crc32 `5de6444b`,
+`binkw32.dll` crc32 `55da02b7` (23,802,593 bytes, members `ma_win.exe` +
+`binkw32.dll`). Previous builds: f1612b75/f30bc0ca (triangle removed),
+3bcc7979/67d66a6a (matrix layout fix).
