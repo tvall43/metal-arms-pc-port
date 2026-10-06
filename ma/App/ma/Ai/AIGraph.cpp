@@ -4146,6 +4146,12 @@ BOOL CAIGraphDataAccess::InitEdgeToPoiLookup(void)
 			continue;
 		}
 
+		static u32 _nBadEdges = 0;
+		if ( pV->GetNumEdges() > AIGRAPH_NUM_EDGES_PER_VERT && _nBadEdges < 5 )
+		{
+			_nBadEdges++;
+			DEVPRINTF( "[AI] TEMP E2P badNEdges i=%d nE=%d uEdgeCount=%d\n", i, (int) pV->GetNumEdges(), uEdgeCount );
+		}
 		for (j = 0; j < pV->GetNumEdges();j++)
 		{
 			GraphEdge* pE = pV->GetEdge((u8) j);
@@ -4157,6 +4163,10 @@ BOOL CAIGraphDataAccess::InitEdgeToPoiLookup(void)
 			else
 			{
 
+				if ( ((u32*)m_pGraph)[0] != 0x00000110 || ((u32*)m_pGraph)[4] != 0x00000000 )
+				{
+					DEVPRINTF( "[AI] TEMP E2P MUTATED i=%d j=%d uEdgeCount=%d nEdges8=%d hdr %08x %08x %08x %08x %08x %08x\n", i, j, uEdgeCount, (int) pV->GetNumEdges(), ((u32*)m_pGraph)[0], ((u32*)m_pGraph)[1], ((u32*)m_pGraph)[2], ((u32*)m_pGraph)[3], ((u32*)m_pGraph)[4], ((u32*)m_pGraph)[5] );
+				}
 				static BOOL _bPoiDumped = FALSE;
 				if (!_bPoiDumped)
 				{
