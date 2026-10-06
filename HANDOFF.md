@@ -27,6 +27,12 @@ retail assets directly.
   ```
 - Test package: `/workspaces/ma/ma_win_test.zip` (`ma_win.exe` + `binkw32.dll`).
   Rebuild and re-zip it after every change.
+- **The exe is not bit-reproducible.** Every link writes a fresh PE
+  `TimeDateStamp` and recomputes the PE `CheckSum`, so `ma_win.exe`'s raw
+  crc32 changes on each relink even from identical source -- verified: two
+  consecutive builds differed in exactly 8 bytes and were identical otherwise.
+  To compare builds, zero those two fields (`e_lfanew+8..+11` and
+  `e_lfanew+88..+91`) and crc the result; call that the *normalized* crc.
 - Retail master file: `/workspaces/ma/xbox/mettlearms_xb.mst` (558,755,840 bytes,
   `FANG` container).
 - Target: PE32 / i686, C++11, `-m32 -msse -msse2 -fpermissive`, `_FANGDEF_WINGC`.
@@ -966,7 +972,11 @@ register a synthetic keyboard device and carry on.**
 The `gamepad.cpp` log block is marked TEMPORARY DIAGNOSTIC — remove it once
 controls are confirmed.
 
-**Zip rebuilt:** archive crc32 `845524e1`, `ma_win.exe` crc32 `5de6444b`,
-`binkw32.dll` crc32 `55da02b7` (23,802,593 bytes, members `ma_win.exe` +
-`binkw32.dll`). Previous builds: f1612b75/f30bc0ca (triangle removed),
-3bcc7979/67d66a6a (matrix layout fix).
+**Zip rebuilt:** archive crc32 `08a73f2a`, `ma_win.exe` raw crc32
+`15efea10` / **normalized crc32 `a167d805`**, `binkw32.dll` crc32
+`55da02b7` (23,802,593 bytes, members `ma_win.exe` + `binkw32.dll`).
+Use the *normalized* crc to compare builds -- the raw one changes every
+link. Earlier normalized values are unknown because the measurement was
+not being taken yet; earlier raw values (3bcc7979/67d66a6a matrix fix,
+f1612b75/f30bc0ca triangle removed, 845524e1/5de6444b input fix) only
+date that particular archive.
