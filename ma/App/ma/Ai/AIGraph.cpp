@@ -4115,6 +4115,7 @@ void CAIGraphDataAccess::UnLockVert(u16 uVertId)
 
 BOOL CAIGraphDataAccess::InitEdgeToPoiLookup(void)
 {
+	DEVPRINTF( "[AI] TEMP E2P entry this=%p m_pGraph=%p hdr %08x %08x %08x %08x %08x %08x\n", this, m_pGraph, ((u32*)m_pGraph)[0], ((u32*)m_pGraph)[1], ((u32*)m_pGraph)[2], ((u32*)m_pGraph)[3], ((u32*)m_pGraph)[4], ((u32*)m_pGraph)[5] );
 	u16 i, j, k;
 	u16 uPoiInEdgeCount = 0;
 	u16 uEdgeCount = 0;
@@ -4156,6 +4157,12 @@ BOOL CAIGraphDataAccess::InitEdgeToPoiLookup(void)
 			else
 			{
 
+				static BOOL _bPoiDumped = FALSE;
+				if (!_bPoiDumped)
+				{
+					_bPoiDumped = TRUE;
+					DEVPRINTF( "[AI] TEMP E2P first-POIloop i=%d j=%d k=%d nP=%d hdr %08x %08x %08x %08x %08x %08x\n", i, j, k, (int) m_pGraph->GetNumPoi(), ((u32*)m_pGraph)[0], ((u32*)m_pGraph)[1], ((u32*)m_pGraph)[2], ((u32*)m_pGraph)[3], ((u32*)m_pGraph)[4], ((u32*)m_pGraph)[5] );
+				}
 				for (k = 0; k < m_pGraph->GetNumPoi();k++)
 				{	//
 					CGraphPoi* pPoi = m_pGraph->GetPoi(k);
