@@ -29,6 +29,7 @@
 #include "ffile.h"
 
 #include <windows.h>
+#include <tlhelp32.h>
 #include <commdlg.h>
 #include <shlobj.h>
 #include <stdio.h>
@@ -138,9 +139,26 @@ static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
 	_Trace( "\n[ma] *** CRASH ***\n" );
 	_Trace( "[ma] exception code : 0x%08lX\n", (unsigned long)pRec->ExceptionCode );
 	_Trace( "[ma] faulting addr  : 0x%08lX\n", (unsigned long)pRec->ExceptionAddress );
-	_Trace( "[ma] EAX=%08lX EBX=%08lX ECX=%08lX EDX=%08lX\n",
-		(unsigned long)pRec->ExceptionInformation[0], (unsigned long)pRec->ExceptionInformation[1],
-		(unsigned long)pRec->ExceptionInformation[2], (unsigned long)pRec->ExceptionInformation[3] );
+	// ExceptionInformation is not a register dump: on an AV it holds only
+	// [0]=read/write and [1]=target address, and the slots past that are stale
+	// garbage.  The real register state lives in ContextRecord.
+	const CONTEXT *pCtx = pEP->ContextRecord;
+	if( pCtx )
+	{
+		_Trace( "[ma] EIP=%08lX ESP=%08lX EBP=%08lX\n",
+			(unsigned long)pCtx->Eip, (unsigned long)pCtx->Esp, (unsigned long)pCtx->Ebp );
+		_Trace( "[ma] EAX=%08lX EBX=%08lX ECX=%08lX EDX=%08lX ESI=%08lX EDI=%08lX\n",
+			(unsigned long)pCtx->Eax, (unsigned long)pCtx->Ebx,
+			(unsigned long)pCtx->Ecx, (unsigned long)pCtx->Edx,
+			(unsigned long)pCtx->Esi, (unsigned long)pCtx->Edi );
+	}
+
+	if( pRec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && pRec->NumberParameters >= 2 )
+	{
+		_Trace( "[ma] access %s   target 0x%08lX\n",
+			pRec->ExceptionInformation[0] ? "WRITE" : "READ",
+			(unsigned long)pRec->ExceptionInformation[1] );
+	}
 
 	// Name the module the address belongs to, so a fault inside a DLL is
 	// distinguishable from one in our own code.
@@ -158,7 +176,35 @@ static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
 			(unsigned long)(ULONG_PTR)hMod,
 			(unsigned long)( (ULONG_PTR)pRec->ExceptionAddress - (ULONG_PTR)hMod ) );
 	}
-	_Trace( "[ma] ma_win.exe base: 0x%08lX\n", (unsigned long)(ULONG_PTR)GetModuleHandleA( "ma_win.exe" ) );
+	// Return addresses of the faulting call chain.  This runs on the faulting
+	// thread, so the range from ESP upward is already-used, committed stack.
+	if( pCtx )
+	{
+		const unsigned int *pStack = (const unsigned int *)(ULONG_PTR)pCtx->Esp;
+		int i;
+		_Trace( "[ma] stack:" );
+		for( i = 0; i < 24; i++ ) _Trace( " %08X", pStack[i] );
+		_Trace( "\n" );
+	}
+
+	// Module bases, so stack words and the fault address can be attributed to
+	// a module offline (GetModuleHandleEx above only covers the fault address).
+	HANDLE hSnap = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetCurrentProcessId() );
+	if( hSnap != INVALID_HANDLE_VALUE )
+	{
+		MODULEENTRY32 Me;
+		int nMods = 0;
+		memset( &Me, 0, sizeof( Me ) );
+		Me.dwSize = sizeof( Me );
+		if( Module32First( hSnap, &Me ) )
+		{
+			do
+			{
+				_Trace( "[ma] module %08lX %s\n", (unsigned long)(ULONG_PTR)Me.modBaseAddr, Me.szModule );
+			} while( ++nMods < 96 && Module32Next( hSnap, &Me ) );
+		}
+		CloseHandle( hSnap );
+	}
 
 	fflush( stdout );
 	if( _pLogFile ) fflush( _pLogFile );
