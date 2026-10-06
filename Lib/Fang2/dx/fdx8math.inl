@@ -22,6 +22,20 @@
 #include <math.h>
 #include <xmmintrin.h>
 
+static void __attribute__((unused)) fmath_TempLogBadRA( void *pvRA )
+{
+	static void *_apvLogged[ 32 ];
+	static u32 _uLogged = 0;
+	u32 i;
+	for( i = 0; i < _uLogged; ++i ) {
+		if( _apvLogged[i] == pvRA ) return;
+	}
+	if( _uLogged < 32 ) {
+		_apvLogged[_uLogged++] = pvRA;
+		DEVPRINTF( "[ma] TEMP math RA %p\n", pvRA );
+	}
+}
+
 
 
 //---------------------------------------------------------------------------------------------
@@ -140,6 +154,7 @@ FINLINE f32 fmath_Sqrt( f32 fVal ) {
 	}
 
 
+	fmath_TempLogBadRA( __builtin_return_address( 0 ) );
 	FMATH_DEBUG_FCHECK( fRetVal );
 
 	return fRetVal;
@@ -156,6 +171,7 @@ FINLINE f32 fmath_InvSqrt( f32 fVal ) {
 	fRetVal = _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(fVal)));
 
 
+	fmath_TempLogBadRA( __builtin_return_address( 0 ) );
 	FMATH_DEBUG_FCHECK( fRetVal );
 
 	return fRetVal;
@@ -172,6 +188,7 @@ FINLINE f32 fmath_Inv( f32 fVal ) {
 	fRetVal = _mm_cvtss_f32(_mm_rcp_ss(_mm_set_ss(fVal)));
 
 
+	fmath_TempLogBadRA( __builtin_return_address( 0 ) );
 	FMATH_DEBUG_FCHECK( fRetVal );
 
 	return fRetVal;
@@ -192,6 +209,7 @@ FINLINE f32 fmath_Div( f32 fNumerator, f32 fDenominator ) {
 	}
 
 
+	fmath_TempLogBadRA( __builtin_return_address( 0 ) );
 	FMATH_DEBUG_FCHECK( fRetVal );
 
 	return fRetVal;
@@ -246,6 +264,7 @@ FINLINE f32 fmath_AcuSqrt( f32 fVal ) {
 	fRetVal = sqrtf(fVal);
 
 
+	fmath_TempLogBadRA( __builtin_return_address( 0 ) );
 	FMATH_DEBUG_FCHECK( fRetVal );
 
 	return fRetVal;
@@ -258,6 +277,7 @@ FINLINE f32 fmath_AcuInvSqrt( f32 fVal ) {
 	FASSERT_POS_FLOAT( fVal );
 
 	f32 fRetVal = 1.0f / fmath_AcuSqrt( fVal );
+	fmath_TempLogBadRA( __builtin_return_address( 0 ) );
 	FMATH_DEBUG_FCHECK( fRetVal );
 
 	return fRetVal;

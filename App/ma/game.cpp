@@ -898,7 +898,7 @@ BOOL game_Work( void ) {
 	}
 
 	#if !FANG_PRODUCTION_BUILD
-		if( FLoop_bGamePaused ) {// game is paused
+		if( CFTextMonitor::IsPaused() ) {
 			{
 				static u32 _uDismissDiagTicks = 0;
 				if( ( ++_uDismissDiagTicks % 60 ) == 1 ) {
@@ -912,14 +912,12 @@ BOOL game_Work( void ) {
 						( GetAsyncKeyState( VK_SPACE ) < 0 ), ( GetAsyncKeyState( VK_RETURN ) < 0 ) );
 				}
 			}
-			if( CFTextMonitor::IsPaused() ) {
-				// allow unpausing after text monitor paused.  (for script errors)
+			// allow unpausing after text monitor paused.  (for script errors)
 				if( ( Gamepad_aapSample[Player_aPlayer[0].m_nControllerIndex][GAMEPAD_MAIN_JUMP]->uLatches & GAMEPAD_BUTTON_1ST_PRESS_MASK ) ||
 					( Gamepad_aapSample[Player_aPlayer[0].m_nControllerIndex][GAMEPAD_MENU_ACCEPT]->uLatches & GAMEPAD_BUTTON_1ST_PRESS_MASK ) ) {
 					CFTextMonitor::Pause( FALSE );
 					CFScriptSystem::ClearErrorMonitor();
 				}
-			}
 		}
 	#endif
 
