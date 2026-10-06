@@ -4142,7 +4142,7 @@ BOOL CAIGraphDataAccess::InitEdgeToPoiLookup(void)
 		GraphVert* pV = m_pGraph->GetVert(i);
 		if (pV->m_nVertSlotStatus == VERT_SLOT_FREE)
 		{
-			uEdgeCount+=6; //skip unused edge slots
+			uEdgeCount+=AIGRAPH_NUM_EDGES_PER_VERT; //skip unused edge slots
 			continue;
 		}
 

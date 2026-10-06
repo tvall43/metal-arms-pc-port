@@ -51,7 +51,7 @@ typedef BOOL (*AIGraph_LOSTestFunc)(const CFVec3A &rRayStart, const CFVec3A &rRa
 void AIGraph_SetLOSTestFunc(AIGraph_LOSTestFunc pFunc);
 
 
-#define AIGRAPH_NUM_EDGES_PER_VERT 6			//How many edges a vert on the graph can have
+#define AIGRAPH_NUM_EDGES_PER_VERT 5			//How many edges a vert on the graph can have
 #define AIGRAPH_FUTURE_NUM_EDGES_PER_VERT 5		 //In the future, How many edges a vert on the graph can have
 #define AIGRAPH_INVALID_VERTID 0
 
@@ -542,6 +542,10 @@ extern const f32 aigraph_kfMinUsefullPathHalfWidth;
 extern f32 aigraph_RenderLODDist01;
 extern f32 aigraph_RenderLODDist02;
 extern f32 aigraph_fVertVisualRadius;
+static_assert(sizeof(GraphVert) == 128, "GraphVert must match .gt file layout");
+static_assert(sizeof(CGraphPoi) == 16, "CGraphPoi must match .gt file layout");
+static_assert(sizeof(CAIGraph) == 48, "CAIGraph header must match .gt file layout");
+
 #ifdef XVIRTUAL
 #undef XVIRTUAL
 
