@@ -398,6 +398,7 @@ BOOL CWeaponStaff::ClassHierarchyLoadSharedResources ( void )
 	if ( !fgamedata_ReadFileUsingMap( m_aUserPropMapTable, _USER_PROP_FILENAME ) )
 	{
 		DEVPRINTF( "CWeaponStaff::ClassHierarchyLoadSharedResources: Could not read user properties from file '%s'.\n", _USER_PROP_FILENAME );
+		m_aUserProps[0].pszMeshName = "GRMMshell01";
 		m_aUserProps[0].pszProjectileMeshName = "GRMMshell01";
 		m_aUserProps[0].fProjInPoolCount = 8.0f;
 		m_aUserProps[0].fMaxLiveRange = 2500.0f;

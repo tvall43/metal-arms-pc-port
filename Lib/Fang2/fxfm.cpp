@@ -284,8 +284,8 @@ CFXfm &CFXfm::BuildFromMtx( const CFMtx43A &rMtx, BOOL bComputeScale ) {
 		// Compute scale...
 
 		m_fScaleF = rMtx.m_vRight.Mag();
-		if( 0.0f == m_fScaleF ) {
-			DEVPRINTF( "[ma] TEMP BuildFromMtx43A computed zero scale ra=%p\n", __builtin_return_address( 0 ) );
+		if( ( 0.0f == m_fScaleF ) || ( m_fScaleF != m_fScaleF ) ) {
+			DEVPRINTF( "[ma] TEMP BuildFromMtx43A computed bad scale f=%g ra=%p\n", m_fScaleF, __builtin_return_address( 0 ) );
 		}
 		FASSERT( m_fScaleF != 0.0f );
 		m_fScaleR = fmath_Inv( m_fScaleF );
@@ -300,8 +300,8 @@ CFXfm &CFXfm::BuildFromMtx( const CFMtx43A &rMtx, BOOL bComputeScale ) {
 CFXfm &CFXfm::BuildFromMtx( const CFMtx33 &rMtx, f32 fScale ) {
 	f32 fOOScale2;
 
-	if( 0.0f == fScale ) {
-		DEVPRINTF( "[ma] TEMP BuildFromMtx33 zero scale ra=%p\n", __builtin_return_address( 0 ) );
+	if( ( 0.0f == fScale ) || ( fScale != fScale ) ) {
+		DEVPRINTF( "[ma] TEMP BuildFromMtx33 bad scale fScale=%g ra=%p\n", fScale, __builtin_return_address( 0 ) );
 	}
 	FASSERT( fScale != 0.0f );
 
@@ -337,8 +337,8 @@ CFXfm &CFXfm::BuildFromMtx( const CFMtx33 &rMtx, f32 fScale ) {
 CFXfm &CFXfm::BuildFromMtx( const CFMtx43 &rMtx, f32 fScale ) {
 	f32 fNegX, fOOScale2;
 
-	if( 0.0f == fScale ) {
-		DEVPRINTF( "[ma] TEMP BuildFromMtx43 zero scale ra=%p\n", __builtin_return_address( 0 ) );
+	if( ( 0.0f == fScale ) || ( fScale != fScale ) ) {
+		DEVPRINTF( "[ma] TEMP BuildFromMtx43 bad scale fScale=%g ra=%p\n", fScale, __builtin_return_address( 0 ) );
 	}
 	FASSERT( fScale != 0.0f );
 
@@ -382,8 +382,8 @@ CFXfm &CFXfm::BuildFromMtx( const CFMtx43 &rMtx, f32 fScale ) {
 CFXfm &CFXfm::BuildFromMtx( const CFMtx43A &rMtx, f32 fScale ) {
 	CFVec3A ScaleVec;
 
-	if( ( 0.0f == fScale ) || ( 0.0f == m_fScaleF ) ) {
-		DEVPRINTF( "[ma] TEMP BuildFromMtx43A zero scale: fScale=%f m_fScaleF=%f ra=%p\n", fScale, m_fScaleF, __builtin_return_address( 0 ) );
+	if( ( 0.0f == fScale ) || ( fScale != fScale ) || ( 0.0f == m_fScaleF ) || ( m_fScaleF != m_fScaleF ) ) {
+		DEVPRINTF( "[ma] TEMP BuildFromMtx43A bad scale: fScale=%g m_fScaleF=%g ra=%p\n", fScale, m_fScaleF, __builtin_return_address( 0 ) );
 	}
 	FASSERT( m_fScaleF != 0.0f );
 

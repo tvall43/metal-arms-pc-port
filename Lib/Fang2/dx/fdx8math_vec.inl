@@ -162,9 +162,9 @@ FINLINE BOOL CFVec3::operator != ( const CFVec3 &v ) const { return ((v.x!=x) ||
 FINLINE CFVec3 CFVec3::Cross( const CFVec3 &v ) const { return CFVec3( y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x ); }
 FINLINE CFVec3 CFVec3::UnitCross( const CFVec3 &v ) const { return Cross(v).Unit(); }
 FINLINE f32 CFVec3::Dot( const CFVec3 &v ) const { return (x*v.x + y*v.y + z*v.z); }
-FINLINE f32 CFVec3::Mag() const { return fmath_Sqrt( x*x + y*y + z*z ); }
+FINLINE f32 CFVec3::Mag() const { f32 fMagResult = fmath_Sqrt( x*x + y*y + z*z ); if( fmath_Fcheck( fMagResult ) != FMATH_FCHECK_RESULT_OK ) { fmath_TempLogBadRA( __builtin_return_address( 0 ), fMagResult, x, y, z ); } return fMagResult; }
 FINLINE f32 CFVec3::Mag2() const { return (x*x + y*y + z*z); }
-FINLINE f32 CFVec3::InvMag() const { return (fmath_InvSqrt( x*x + y*y + z*z )); }
+FINLINE f32 CFVec3::InvMag() const { f32 fMagResult = fmath_InvSqrt( x*x + y*y + z*z ); if( fmath_Fcheck( fMagResult ) != FMATH_FCHECK_RESULT_OK ) { fmath_TempLogBadRA( __builtin_return_address( 0 ), fMagResult, x, y, z ); } return fMagResult; }
 FINLINE f32 CFVec3::InvMag2() const { return (fmath_Inv(x*x + y*y + z*z)); }
 FINLINE f32 CFVec3::MagXZ() const { return fmath_Sqrt( x*x + z*z ); }
 FINLINE f32 CFVec3::MagXZ2() const { return (x*x + z*z); }

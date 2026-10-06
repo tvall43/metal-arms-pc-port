@@ -483,7 +483,6 @@ BOOL CEProj_Slower::InitEffects( void )
 	pMesh = (FMesh_t*)fresload_Load( FMESH_RESTYPE, _SPLASH_MESH );
 	if( pMesh == NULL ) {
 		DEVPRINTF( "CEShield::InitSystem():  Unable to load mesh %s\n", _SPLASH_MESH );
-		goto _ExitInitEffectsWithError;
 	}
 
 	
@@ -496,6 +495,11 @@ BOOL CEProj_Slower::InitEffects( void )
 		m_aSplashes[i].fUnitTime	= 1.0f;
 		m_aSplashes[i].pShield		= NULL;
 		m_aSplashes[i].vDisplacement.Zero();
+		m_aSplashes[i].pMesh = NULL;
+		m_aSplashes[i].hTexLayer = -1;
+		if( pMesh == NULL ) {
+			continue;
+		}
 		m_aSplashes[i].pMesh = fnew CFWorldMesh;
 		m_aSplashes[i].pMesh->Init( &meshInit );
 		m_aSplashes[i].pMesh->SetCollisionFlag( FALSE );
@@ -521,6 +525,8 @@ BOOL CEProj_Slower::InitEffects( void )
 
 	// Error:
 _ExitInitEffectsWithError:
+	m_bEffectsLoaded = FALSE;
+	m_aSplashes = NULL;
 	fres_ReleaseFrame( frame );
 	return FALSE;
 }
@@ -595,6 +601,10 @@ void CEProj_Slower::_AddSplashEffect(CEProj *pProj, const CFVec3A &rvPos, f32 fM
 	
 	_UpdateSplashPosition( pProj->m_pWorldMesh->GetBoundingSphere().m_Pos, pSplash );
 
+	if( pSplash->pMesh == NULL ) {
+		flinklist_AddTail( &m_FreeSplashList, pSplash );
+		return;
+	}
 	pSplash->pMesh->m_Xfm.BuildScale( pProj->m_fScaleToWorld );
 	pSplash->pMesh->AddToWorld();
 	pSplash->pMesh->SetMeshAlpha( _SPLASH_INITIAL_ALPHA );
@@ -654,6 +664,9 @@ void CEProj_Slower::_UpdateSplashPosition( const CFVec3A &vShieldPos, _ShieldSpl
 
 	mtxTemp.m_vPos.Add(vShieldPos,pSplash->vDisplacement);
 
+	if( pSplash->pMesh == NULL ) {
+		return;
+	}
 	pSplash->pMesh->m_Xfm.BuildFromMtx( mtxTemp );
 	pSplash->pMesh->UpdateTracker();
 
