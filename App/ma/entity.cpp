@@ -3062,7 +3062,7 @@ void CEntity::_Compute_ChildMtxAndScale( void ) {
 		}
 	}
 	if( ( 0.0f == m_fScaleToWorld ) || ( m_fScaleToWorld != m_fScaleToWorld ) ) {
-		DEVPRINTF( "[ma] TEMP scale0 childCompute: name=%s parent=%s flags=%08X scaleToParent=%g\n", m_pszName ? m_pszName : "(null)", ( m_pParentEntity && m_pParentEntity->m_pszName ) ? m_pParentEntity->m_pszName : "(null)", m_nEntityFlags, m_fScaleToParent );
+		DEVPRINTF( "[ma] TEMP scale0 childCompute: name=%s parent=%s flags=%08X scaleToParent=%g pMtx=%p pRight=(%g,%g,%g)\n", m_pszName ? m_pszName : "(null)", ( m_pParentEntity && m_pParentEntity->m_pszName ) ? m_pParentEntity->m_pszName : "(null)", m_nEntityFlags, m_fScaleToParent, m_pParentMtxToWorld, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.x : -999.0f, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.y : -999.0f, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.z : -999.0f );
 	}
 }
 

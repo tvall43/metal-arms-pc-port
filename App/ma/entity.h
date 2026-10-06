@@ -936,8 +936,29 @@ private:
 
 
 FINLINE void CEntity::ClassHierarchyRelocated( void *pIdentifier ) {
+	CEntity *pChild;
 	if( m_pAmbientEmitter ) {
 		m_pAmbientEmitter->SetPosition( &m_MtxToWorld.m_vPos );
+	}
+
+	// Re-derive bone-attach child matrix pointers; the parent's palette may have
+	// been reallocated since Attach, and RelocateAllChildren runs right after this.
+	for( pChild = GetFirstChild(); pChild; pChild = GetNextChild( pChild ) ) {
+		if( pChild->m_pszAttachBone ) {
+			CFMtx43A *pNewMtx = ClassHierarchyAttachChild( pChild, pChild->m_pszAttachBone );
+			if( pNewMtx != pChild->m_pParentMtxToWorld ) {
+				DEVPRINTF( "[ma] TEMP attach rebase: parent=%s child=%s bone=%s old=%p new=%p\n",
+					m_pszName ? m_pszName : "(null)", pChild->m_pszName ? pChild->m_pszName : "(null)",
+					pChild->m_pszAttachBone, pChild->m_pParentMtxToWorld, pNewMtx );
+				if( pNewMtx ) {
+					pChild->m_pParentMtxToWorld = pNewMtx;
+					FMATH_CLEARBITMASK( pChild->m_nEntityFlags, ENTITY_FLAG_PARENTMTXTOWORLD_POINTS_TO_MTXTOWORLD );
+				} else {
+					pChild->m_pParentMtxToWorld = &m_MtxToWorld;
+					FMATH_SETBITMASK( pChild->m_nEntityFlags, ENTITY_FLAG_PARENTMTXTOWORLD_POINTS_TO_MTXTOWORLD );
+				}
+			}
+		}
 	}
 }
 
