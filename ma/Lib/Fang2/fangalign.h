@@ -57,12 +57,12 @@ extern BOOL _FRes_bHasDestructor;
 		// Windows or Xbox builds:
 		#define FCLASS_BYTE_ALIGN	16
 	#else
-		// WinGC build (use GC alignment):
-		#define FCLASS_BYTE_ALIGN	8
+		// WinGC build (no SSE): retail Xbox data is 16-byte aligned, not GC 8-byte.
+		#define FCLASS_BYTE_ALIGN	16
 	#endif
 
-	#define FCLASS_ALIGN_PREFIX		__declspec( align(FCLASS_BYTE_ALIGN) )
-	#define FCLASS_ALIGN_SUFFIX
+	#define FCLASS_ALIGN_PREFIX
+	#define FCLASS_ALIGN_SUFFIX		__attribute__ ((aligned (FCLASS_BYTE_ALIGN)))
 #elif FANG_PLATFORM_GC
 	#define FCLASS_BYTE_ALIGN		8
 	#define FCLASS_ALIGN_PREFIX
