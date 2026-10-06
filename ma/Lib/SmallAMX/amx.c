@@ -1079,7 +1079,7 @@ AMX_NATIVE_INFO * AMXAPI amx_NativeInfo(char *name,AMX_NATIVE func)
      * fast "indirect threaded" interpreter.
      */
 
-#define NEXT(cip)       goto *(void**)cip++
+#define NEXT(cip)       goto **(void**)cip++
 
 int AMXAPI amx_Exec(AMX *amx, cell *retval, int index, int numparams, ...)
 {
