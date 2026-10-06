@@ -27,6 +27,8 @@
 
 #include <stdio.h>
 #include <io.h>
+#include <direct.h>
+#include <errno.h>
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -49,6 +51,30 @@ static u64 _uDevicePollDelay, _uDevicePollTimeStamp;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+// Profiles live next to the exe, not in the launch directory.
+static void _fstorage_ExeDir( u16 *pu16Out )
+{
+	u32 uLen = GetModuleFileNameW( NULL, pu16Out, MAX_PATH );
+	while( uLen && ( pu16Out[ uLen - 1 ] != (u16)'\\' ) && ( pu16Out[ uLen - 1 ] != (u16)'/' ) )
+	{
+		pu16Out[ --uLen ] = 0;
+	}
+}
+
+static void _fstorage_ProfilePath( u16 *pu16Out, const u16 *pwszName )
+{
+	u16 wszDir[ MAX_PATH ];
+	_fstorage_ExeDir( wszDir );
+	wsprintfW( (unsigned short *)pu16Out, L"%sprofile-%s", (unsigned short *)wszDir, (unsigned short *)pwszName );
+}
+
+static void _fstorage_ProfileGlob( u16 *pu16Out )
+{
+	u16 wszDir[ MAX_PATH ];
+	_fstorage_ExeDir( wszDir );
+	wsprintfW( (unsigned short *)pu16Out, L"%sprofile-*", (unsigned short *)wszDir );
+}
+
 FStorage_Error_e _fstorage_ReadWriteProfile( BOOL bRead, FStorage_DeviceID_e oeID, const u16 *pwszName, u32 uPosition, void *puBuff, u32 uBuffSize )
 {
 	FASSERT_MSG( _bModuleInstalled,                          "[ FSTORAGE ] Error: System not installed !!!" );
@@ -62,12 +88,12 @@ FStorage_Error_e _fstorage_ReadWriteProfile( BOOL bRead, FStorage_DeviceID_e oeI
 	//// Open.
 	//
 	u16 au16Buff1[ MAX_PATH ];
-	wsprintfW( (unsigned short *)au16Buff1, L"profile-%s", pwszName );
+	_fstorage_ProfilePath( au16Buff1, pwszName );
 
-	FILE *pFile = _wfopen( (unsigned short *)au16Buff1, L"rb+" );
+	FILE *pFile = _wfopen( (unsigned short *)au16Buff1, bRead ? L"rb" : L"rb+" );
 	if( ! pFile )
 	{
-		DEVPRINTF( "[ FSTORAGE ] Error %u: _wfopen() failed for device #%u !!!\n", __LINE__, 0 );
+		DEVPRINTF( "[ FSTORAGE ] Error %u: _wfopen() failed for device #%u (errno %d) !!!\n", __LINE__, 0, errno );
 		return FSTORAGE_ERROR;
 	}
 	//
@@ -181,6 +207,14 @@ FStorage_Error_e fstorage_Install( const FStorage_Init_t *poInit /* = NULL */ )
 
 	_bModuleInstalled = TRUE;
 
+	{
+		u16 wszCwd[ MAX_PATH ];
+		if( _wgetcwd( (unsigned short *)wszCwd, MAX_PATH ) )
+		{
+			DEVPRINTF( "[ FSTORAGE ] cwd %ls\n", wszCwd );
+		}
+	}
+
 	return FSTORAGE_ERROR_NONE;
 
 } // fstorage_Install
@@ -269,7 +303,9 @@ void _fstorage_UpdateNumProfiles( void ) {
 	_oDeviceInfo.uNumProfiles = 0;
 
 	_wfinddata_t oFindData;
-	u32 uHandle = _wfindfirst( L"profile-*", &oFindData );
+	u16 wszGlob[ MAX_PATH ];
+	_fstorage_ProfileGlob( wszGlob );
+	u32 uHandle = _wfindfirst( (unsigned short *)wszGlob, &oFindData );
 
 	if( -1 != uHandle )
 	{
@@ -370,7 +406,7 @@ FStorage_Error_e fstorage_CreateProfile( FStorage_DeviceID_e oeID, const u16 *pw
 	////
 	//
 	u16 au16Buff1[ MAX_PATH ];
-	wsprintfW( (unsigned short *)au16Buff1, L"profile-%s", pwszName );
+	_fstorage_ProfilePath( au16Buff1, pwszName );
 
 	FILE *pFile = _wfopen( (unsigned short *)au16Buff1, L"wb" );
 	if( ! pFile )
@@ -381,24 +417,25 @@ FStorage_Error_e fstorage_CreateProfile( FStorage_DeviceID_e oeID, const u16 *pw
 	//
 	////
 
-	//// Expand.
+	//// Zero-fill.
 	//
-	u8 au8Buff1[ MAX_PATH ];
-	au8Buff1[ 0 ] = 0;
+	u8 au8Zero[ 256 ];
+	u32 uRemain = uSize;
+	memset( au8Zero, 0, sizeof( au8Zero ) );
 
-	if( uSize != fwrite( au8Buff1, 1, uSize, pFile ) )
+	while( uRemain )
 	{
-		DEVPRINTF( "[ FSTORAGE ] Error %u: fwrite() failed for device #%u !!!\n", __LINE__, 0 );
-		fclose( pFile );
-#ifdef _UNICODE
-		DeleteFile( (unsigned short *)au16Buff1 );
-#else
-		u32 nLen = wcslen( (unsigned short *)au16Buff1 );
-		WideCharToMultiByte( CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, (unsigned short *)au16Buff1, nLen, (char *)au8Buff1, sizeof( au8Buff1 ), NULL, NULL );
-		au8Buff1[nLen] = 0;
-		DeleteFile( (char *)au8Buff1 );
-#endif
-		return FSTORAGE_ERROR;
+		u32 uChunk = ( uRemain < sizeof( au8Zero ) ) ? uRemain : sizeof( au8Zero );
+		size_t uChunkWritten = fwrite( au8Zero, 1, uChunk, pFile );
+		if( uChunk != uChunkWritten )
+		{
+			DEVPRINTF( "[ FSTORAGE ] Error %u: fwrite() wrote %u of %u bytes (errno %d) !!!\n",
+				__LINE__, (u32)( uSize - uRemain + uChunkWritten ), uSize, errno );
+			fclose( pFile );
+			DeleteFileW( (const wchar_t *)au16Buff1 );
+			return FSTORAGE_ERROR;
+		}
+		uRemain -= uChunk;
 	}
 	//
 	////
@@ -424,7 +461,7 @@ FStorage_Error_e fstorage_DeleteProfile( FStorage_DeviceID_e oeID, const u16 *pw
 	////
 	//
 	u16 au16Buff1[ MAX_PATH ];
-	wsprintfW( (unsigned short *)au16Buff1, L"profile-%s", pwszName );
+	_fstorage_ProfilePath( au16Buff1, pwszName );
 
 #ifdef _UNICODE
 	if( ! DeleteFile( (unsigned short *)au16Buff1 ) )
@@ -500,7 +537,9 @@ FStorage_Error_e fstorage_GetProfileInfos( FStorage_DeviceID_e oeID,
 	////
 	//
 	_wfinddata_t oFindData;
-	u32 uHandle = _wfindfirst( L"profile-*", &oFindData );
+	u16 wszGlob[ MAX_PATH ];
+	_fstorage_ProfileGlob( wszGlob );
+	u32 uHandle = _wfindfirst( (unsigned short *)wszGlob, &oFindData );
 	u32 nIndex = 0;
 
 	if( -1 != uHandle )
