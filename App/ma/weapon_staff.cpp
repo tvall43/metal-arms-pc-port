@@ -744,8 +744,9 @@ void CWeaponStaff::ClassHierarchyRemoveFromWorld( void )
 	}
 
 	CWeapon::ClassHierarchyRemoveFromWorld();
-	FASSERT(m_pWorldLight);
-	m_pWorldLight->m_Light.Enable(FALSE);
+	if( m_pWorldLight ) {
+		m_pWorldLight->m_Light.Enable(FALSE);
+	}
 }
 
 
@@ -881,8 +882,9 @@ void CWeaponStaff::ClassHierarchyWork( void )
 		{						// add to world, start charging up
 			m_aResourceData[m_nUpgradeLevel].m_pWorldMesh->m_Xfm.BuildFromMtx( m_MtxToWorld, m_aUserProps[m_nUpgradeLevel].fChargeBeginScale );
 			m_aResourceData[m_nUpgradeLevel].m_pWorldMesh->UpdateTracker();
-			FASSERT(m_pWorldLight);
-			m_pWorldLight->m_Light.Enable(TRUE);
+			if( m_pWorldLight ) {
+				m_pWorldLight->m_Light.Enable(TRUE);
+			}
 			_PlaySnd(STAFFSND_CHARGE_UP, TRUE);
 		}
 	}
@@ -902,8 +904,9 @@ void CWeaponStaff::ClassHierarchyWork( void )
 		else // else fire or scale down
 		{
 			m_aResourceData[m_nUpgradeLevel].m_pWorldMesh->RemoveFromWorld();
-			FASSERT(m_pWorldLight);
-			m_pWorldLight->m_Light.Enable(FALSE);
+			if( m_pWorldLight ) {
+				m_pWorldLight->m_Light.Enable(FALSE);
+			}
 
 			if (m_bFireThisFrame)
 			{
@@ -932,13 +935,16 @@ void CWeaponStaff::ClassHierarchyWork( void )
 				m_pParticleEmitter->Attach_ToParent_WS(this);
 				m_pParticleEmitter->StartEmission(m_hParticleDef,m_fUnitCharge*m_fParticleIntensityMult);
 			}
-			m_pWorldLight->m_Light.SetIntensity(0.0f); // starting from out.
+			if( m_pWorldLight ) {
+				m_pWorldLight->m_Light.SetIntensity(0.0f); // starting from out.
+			}
 		}
 		else
 		{
 			m_pParticleEmitter->SetUnitIntensity(m_fUnitCharge*m_fParticleIntensityMult);
-			FASSERT(m_pWorldLight);
-			m_pWorldLight->m_Light.SetIntensity(m_fUnitCharge); 
+			if( m_pWorldLight ) {
+				m_pWorldLight->m_Light.SetIntensity(m_fUnitCharge);
+			}
 		}
 	}
 	else
