@@ -754,6 +754,9 @@ void CWeaponLaser::ClassHierarchyRelocated( void *pIdentifier ) {
 	CWeapon::ClassHierarchyRelocated( pIdentifier );
 
 	if( IsInWorld() ) {
+		if( ( 0.0f == m_fScaleToWorld ) || ( m_fScaleToWorld != m_fScaleToWorld ) ) {
+			DEVPRINTF( "[ma] TEMP laser reloc bad scale: name=%s scale=%g\n", Name() ? Name() : "(null)", m_fScaleToWorld );
+		}
 		m_pResourceData->m_pWorldMesh->m_Xfm.BuildFromMtx( m_MtxToWorld, m_fScaleToWorld );
 		m_pResourceData->m_pWorldMesh->UpdateTracker();
 	}

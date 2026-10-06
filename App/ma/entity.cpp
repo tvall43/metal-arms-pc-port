@@ -185,6 +185,9 @@ BOOL CEntityBuilder::InterpretFile( void ) {
 		CFVec3A ScaleVec;
 
 		m_fEC_Scale_WS = fmath_Sqrt( m_fEC_Scale_WS );
+		if( ( 0.0f == m_fEC_Scale_WS ) || ( m_fEC_Scale_WS != m_fEC_Scale_WS ) ) {
+			DEVPRINTF( "[ma] TEMP scale0 builder: entity=%s type=%s magSq=%g\n", CEntityParser::m_pszEntityName ? CEntityParser::m_pszEntityName : "(null)", CEntityParser::m_pszTableName ? CEntityParser::m_pszTableName : "(null)", m_EC_Mtx_WS.m_vRight.MagSq() );
+		}
 
 		ScaleVec.Set( fmath_Inv( m_fEC_Scale_WS ) );
 		m_EC_Mtx_WS.m_vRight.Mul( ScaleVec );
@@ -2007,6 +2010,9 @@ BOOL CEntity::ClassHierarchyBuild( void ) {
 	m_MtxToWorld = pBuilder->m_EC_Mtx_WS;
 	m_MtxToParent = pBuilder->m_EC_Mtx_WS;
 	m_fScaleToWorld = pBuilder->m_fEC_Scale_WS;
+	if( ( 0.0f == m_fScaleToWorld ) || ( m_fScaleToWorld != m_fScaleToWorld ) ) {
+		DEVPRINTF( "[ma] TEMP scale0 entity-build: name=%s scale=%g\n", m_pszName ? m_pszName : "(null)", m_fScaleToWorld );
+	}
 	m_fScaleToParent = pBuilder->m_fEC_Scale_WS;
 	m_fHealthContainerCount = (f32)( (pBuilder->m_nEC_HealthContainerCount >= 1) ? pBuilder->m_nEC_HealthContainerCount : 1 );
 	m_fOOHealthContainerCount = 1.0f / m_fHealthContainerCount;
@@ -3055,6 +3061,9 @@ void CEntity::_Compute_ChildMtxAndScale( void ) {
 			m_fScaleToParent = m_fScaleToWorld * fOOParentMtxScaleToWorld;
 		}
 	}
+	if( ( 0.0f == m_fScaleToWorld ) || ( m_fScaleToWorld != m_fScaleToWorld ) ) {
+		DEVPRINTF( "[ma] TEMP scale0 childCompute: name=%s parent=%s flags=%08X scaleToParent=%g\n", m_pszName ? m_pszName : "(null)", ( m_pParentEntity && m_pParentEntity->m_pszName ) ? m_pParentEntity->m_pszName : "(null)", m_nEntityFlags, m_fScaleToParent );
+	}
 }
 
 
@@ -3111,6 +3120,9 @@ void CEntity::_Compute_MtxToParent_And_ScaleToParent_From_Modified_MtxToWorld_An
 			m_fScaleToParent = m_fScaleToWorld * fOOParentMtxScaleToWorld;
 		}
 	}
+	if( ( 0.0f == m_fScaleToParent ) || ( m_fScaleToParent != m_fScaleToParent ) ) {
+		DEVPRINTF( "[ma] TEMP scale0 toParentCompute: name=%s parent=%s flags=%08X scaleToWorld=%g\n", m_pszName ? m_pszName : "(null)", ( m_pParentEntity && m_pParentEntity->m_pszName ) ? m_pParentEntity->m_pszName : "(null)", m_nEntityFlags, m_fScaleToWorld );
+	}
 }
 
 
@@ -3155,6 +3167,9 @@ void CEntity::_Compute_MtxToWorld_And_ScaleToWorld_From_Modified_MtxToParent_And
 
 			m_fScaleToWorld = fmath_Inv( fOOParentMtxScaleToWorld ) * m_fScaleToParent;
 		}
+	}
+	if( ( 0.0f == m_fScaleToWorld ) || ( m_fScaleToWorld != m_fScaleToWorld ) ) {
+		DEVPRINTF( "[ma] TEMP scale0 worldCompute: name=%s parent=%s flags=%08X parentScale=%g scaleToParent=%g\n", m_pszName ? m_pszName : "(null)", ( m_pParentEntity && m_pParentEntity->m_pszName ) ? m_pParentEntity->m_pszName : "(null)", m_nEntityFlags, m_pParentEntity ? m_pParentEntity->m_fScaleToWorld : -1.0f, m_fScaleToParent );
 	}
 }
 
