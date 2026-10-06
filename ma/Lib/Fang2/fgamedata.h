@@ -463,12 +463,12 @@ extern BOOL fgamedata_GetFieldFromTable( FGameDataTableHandle_t hTableHandle, u3
 // Returns TRUE if table was created ok, FALSE if there was a problem (there are many DEVPRINTFs that report all errors)
 extern BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle, 
 								    const FGameData_TableEntry_t *paTableEntries, u32 nNumTableEntries,
-									void *pDest, u32 nNumDestBytes, u32 nFieldStartIndex=0 );
+									void *pDest, u32 nNumDestBytes, u32 nFieldStartIndex=0, const u8 *pu8FieldMap=NULL );
 
 // A version of the previous function that's much easier to use.
 extern BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle, 
 								    const FGameData_TableEntry_t *paTableEntries,
-									void *pDest, u32 nNumDestBytes, u32 nFieldStartIndex=0 );
+									void *pDest, u32 nNumDestBytes, u32 nFieldStartIndex=0, const u8 *pu8FieldMap=NULL );
 
 extern BOOL fgamedata_GetTableData_ArrayOfStructures( FGameDataTableHandle_t hTableHandle, 
 								    const FGameData_TableEntry_t *paTableEntries,
@@ -477,7 +477,7 @@ extern BOOL fgamedata_GetTableData_ArrayOfStructures( FGameDataTableHandle_t hTa
 extern FGameDataTableHandle_t fgamedata_GetFirstTable( FGameDataFileHandle_t hFileHandle, FGameDataWalker_t &rWalker );
 extern FGameDataTableHandle_t fgamedata_GetNextTable( FGameDataWalker_t &rWalker );
 
-extern BOOL fgamedata_ReadFileUsingMap( const FGameDataMap_t *pMapTable, cchar *pszFileName );
+extern BOOL fgamedata_ReadFileUsingMap( const FGameDataMap_t *pMapTable, cchar *pszFileName, const u8 *pu8FieldMap=NULL );
 
 
 

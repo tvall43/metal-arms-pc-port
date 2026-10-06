@@ -557,13 +557,13 @@ BOOL fgamedata_GetFieldFromTable( FGameDataTableHandle_t hTableHandle, u32 nFiel
 // FGAMEDATA_VAR_TYPE_COUNT.
 BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle, 
 							 const FGameData_TableEntry_t *paTableEntries,
-							 void *pDest, u32 nNumDestBytes, u32 nFieldStartIndex ) {
+							 void *pDest, u32 nNumDestBytes, u32 nFieldStartIndex, const u8 *pu8FieldMap ) {
 	u32 nTableEntryCount;
 
 	for( nTableEntryCount=0; paTableEntries[nTableEntryCount].GetDataType() != FGAMEDATA_VAR_TYPE_COUNT; ++nTableEntryCount ) {}
 
 	if( nTableEntryCount ) {
-		return fgamedata_GetTableData( hTableHandle, paTableEntries, nTableEntryCount, pDest, nNumDestBytes, nFieldStartIndex );
+		return fgamedata_GetTableData( hTableHandle, paTableEntries, nTableEntryCount, pDest, nNumDestBytes, nFieldStartIndex, pu8FieldMap );
 	} else {
 		return TRUE;
 	}
@@ -605,7 +605,7 @@ BOOL fgamedata_GetTableData_ArrayOfStructures( FGameDataTableHandle_t hTableHand
 
 BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle, 
 							 const FGameData_TableEntry_t *paTableEntries, u32 nNumTableEntries,
-							 void *pDest, u32 nNumDestBytes, u32 nFieldStartIndex ) {
+							 void *pDest, u32 nNumDestBytes, u32 nFieldStartIndex, const u8 *pu8FieldMap ) {
 	FDataGamFile_Table_t *pTable = _TH_2_TP( hTableHandle );
 
 	// make sure our input parameters are valid
@@ -626,7 +626,7 @@ BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle,
 	}
 
 	// make sure that there are enough fields in the table
-	if( (nFieldStartIndex + nNumTableEntries) > pTable->nNumFields ) {
+	if( pu8FieldMap == NULL && (nFieldStartIndex + nNumTableEntries) > pTable->nNumFields ) {
 		// our table doesn't contain enough fields to fill all of the requested entries
 
 		if( nFieldStartIndex == 0 ) {
@@ -644,8 +644,13 @@ BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle,
 	FDataGamFile_Field_t *pField;
 	const FGameData_TableEntry_t *pEntry;
 
-	for( nFieldIndex=nFieldStartIndex, nTableEntryIndex=0; nTableEntryIndex<nNumTableEntries ; ++nFieldIndex, ++nTableEntryIndex ) {
+	for( nTableEntryIndex=0; nTableEntryIndex<nNumTableEntries ; ++nTableEntryIndex ) {
 		// grab a ptr to our field
+		nFieldIndex = nFieldStartIndex + ( ( pu8FieldMap ) ? pu8FieldMap[nTableEntryIndex] : nTableEntryIndex );
+		if( nFieldIndex >= pTable->nNumFields ) {
+			DEVPRINTF( "fgamedata_GetTableData(): The table %s in file %s does not contain field %d.\n", fgamedata_GetTableName( hTableHandle ), fgamedata_GetFileNameFromTableHandle( hTableHandle ), nFieldIndex );
+			return FALSE;
+		}
 		pField = &pTable->paFields[nFieldIndex];
 		pEntry = &paTableEntries[nTableEntryIndex];
 		
@@ -701,8 +706,9 @@ BOOL fgamedata_GetTableData( FGameDataTableHandle_t hTableHandle,
 
 	// copy the fields
 	u8 *pCurrentDest = (u8 *)pDest;
-	for( nFieldIndex=nFieldStartIndex, nTableEntryIndex=0; nTableEntryIndex<nNumTableEntries ; ++nFieldIndex, ++nTableEntryIndex ) {
+	for( nTableEntryIndex=0; nTableEntryIndex<nNumTableEntries ; ++nTableEntryIndex ) {
 		// grab a ptr to our field
+		nFieldIndex = nFieldStartIndex + ( ( pu8FieldMap ) ? pu8FieldMap[nTableEntryIndex] : nTableEntryIndex );
 		pField = &pTable->paFields[nFieldIndex];
 		pEntry = &paTableEntries[nTableEntryIndex];
 
@@ -792,7 +798,7 @@ FGameDataTableHandle_t fgamedata_GetNextTable( FGameDataWalker_t &rWalker ) {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-BOOL fgamedata_ReadFileUsingMap( const FGameDataMap_t *pMapTable, cchar *pszFileName ) {
+BOOL fgamedata_ReadFileUsingMap( const FGameDataMap_t *pMapTable, cchar *pszFileName, const u8 *pu8FieldMap ) {
 	FGameDataFileHandle_t hGameDataFile;
 	FGameDataTableHandle_t hTableHandle;
 	FGameDataWalker_t GameDataWalker;
@@ -825,7 +831,7 @@ BOOL fgamedata_ReadFileUsingMap( const FGameDataMap_t *pMapTable, cchar *pszFile
 
 		// Found table in pMapTable...
 
-		if( !fgamedata_GetTableData( hTableHandle, pMap->pVocabTable, pMap->pDestTableData, pMap->nDestTableBytes ) ) {
+		if( !fgamedata_GetTableData( hTableHandle, pMap->pVocabTable, pMap->pDestTableData, pMap->nDestTableBytes, 0, pu8FieldMap ) ) {
 			// Error...
 			DEVPRINTF( "fgamedata_ReadFileUsingMap(): Error in definition of table '%s' found in '%s'.\n", pszTableName, pszFileName );
 			goto _ExitWithError;

@@ -1331,6 +1331,11 @@ _ExitWithError:
 }
 
 
+static const u8 _aDebrisFieldMap[] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14,
+	15, 16, 17, 18, 19, 20, 21, 22, 23,
+};
+
 CFDebrisGroup *CFDebrisGroup::LoadFromGameData( FGameDataTableHandle_t hTable, cchar *pszMeshSetFileName ) {
 	cchar *pszDebrisGroupName;
 	CFDebrisGroup *pMeshGroup;
@@ -1343,7 +1348,7 @@ CFDebrisGroup *CFDebrisGroup::LoadFromGameData( FGameDataTableHandle_t hTable, c
 
 	pszDebrisGroupName = fgamedata_GetTableName( hTable );
 
-	if( !fgamedata_GetTableData( hTable, m_aGameDataVocab, &UserProps, sizeof(_UserProps_t) ) ) {
+	if( !fgamedata_GetTableData( hTable, m_aGameDataVocab, &UserProps, sizeof(_UserProps_t), 0, _aDebrisFieldMap ) ) {
 		DEVPRINTF( "CFDebrisGroup::LoadFromGameData(): Trouble parsing debris group data for '%s.csv'.\n", pszDebrisGroupName );
 		goto _ExitWithError;
 	}

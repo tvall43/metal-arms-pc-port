@@ -257,6 +257,11 @@ const FGameData_TableEntry_t CWeaponLaser::m_aUserPropVocab[] = {
 };
 
 
+static const u8 _aUserPropFieldMap[] = {
+	0, 7, 23, 8, 43, 56, 13, 44, 15, 26, 10, 11, 12, 24, 46, 14,
+	2, 1, 20, 21, 59, 65, 71,
+};
+
 const FGameDataMap_t CWeaponLaser::m_aUserPropMapTable[] = {
 	"LaserL1",
 	m_aUserPropVocab,
@@ -298,7 +303,7 @@ BOOL CWeaponLaser::InitSystem( void ) {
 	fang_MemZero( m_aUserProps, sizeof(m_aUserProps) );
 
 	// Read the user properties for all EUK levels of this weapon...
-	if( !fgamedata_ReadFileUsingMap( m_aUserPropMapTable, _USER_PROP_FILENAME ) ) {
+	if( !fgamedata_ReadFileUsingMap( m_aUserPropMapTable, _USER_PROP_FILENAME, _aUserPropFieldMap ) ) {
 		DEVPRINTF( "CWeaponLaser::InitSystem(): Could not read user properties from file '%s'.\n", _USER_PROP_FILENAME );
 		goto _ExitWithError;
 		return FALSE;

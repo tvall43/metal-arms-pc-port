@@ -2058,13 +2058,246 @@ _EXIT_WITH_ERROR:
 // This function loads a phrases CSV table that
 // will contain the games displayable text.  This text
 // is wide-char localized.
+#define _PHRASE_COMMON		0
+#define _PHRASE_PLATFORM	1
+#define _PHRASE_NONE		2
+#define _PHRASE_AUTHORED	3
+
+typedef struct PhraseMapEntry_t {
+	u8	nTable;
+	u16	nRow;
+} PhraseMapEntry_t;
+
+static const PhraseMapEntry_t _aGamePhraseMap[ GAMEPHRASE_COUNT ] = {
+	{ _PHRASE_COMMON,   0 },
+	{ _PHRASE_COMMON,   1 },
+	{ _PHRASE_PLATFORM, 12 },
+	{ _PHRASE_PLATFORM, 13 },
+	{ _PHRASE_PLATFORM, 14 },
+	{ _PHRASE_COMMON,   2 },
+	{ _PHRASE_COMMON,   3 },
+	{ _PHRASE_PLATFORM, 15 },
+	{ _PHRASE_PLATFORM, 16 },
+	{ _PHRASE_COMMON,   4 },
+	{ _PHRASE_COMMON,   5 },
+	{ _PHRASE_PLATFORM, 17 },
+	{ _PHRASE_PLATFORM, 18 },
+	{ _PHRASE_COMMON,   6 },
+	{ _PHRASE_COMMON,   7 },
+	{ _PHRASE_COMMON,   8 },
+	{ _PHRASE_COMMON,   9 },
+	{ _PHRASE_COMMON,   10 },
+	{ _PHRASE_COMMON,   11 },
+	{ _PHRASE_COMMON,   12 },
+	{ _PHRASE_COMMON,   13 },
+	{ _PHRASE_COMMON,   14 },
+	{ _PHRASE_COMMON,   15 },
+	{ _PHRASE_COMMON,   16 },
+	{ _PHRASE_COMMON,   17 },
+	{ _PHRASE_COMMON,   18 },
+	{ _PHRASE_COMMON,   19 },
+	{ _PHRASE_COMMON,   20 },
+	{ _PHRASE_COMMON,   23 },
+	{ _PHRASE_COMMON,   24 },
+	{ _PHRASE_COMMON,   25 },
+	{ _PHRASE_COMMON,   26 },
+	{ _PHRASE_COMMON,   27 },
+	{ _PHRASE_COMMON,   28 },
+	{ _PHRASE_COMMON,   29 },
+	{ _PHRASE_COMMON,   30 },
+	{ _PHRASE_COMMON,   31 },
+	{ _PHRASE_COMMON,   32 },
+	{ _PHRASE_COMMON,   33 },
+	{ _PHRASE_COMMON,   34 },
+	{ _PHRASE_COMMON,   35 },
+	{ _PHRASE_COMMON,   36 },
+	{ _PHRASE_COMMON,   37 },
+	{ _PHRASE_COMMON,   38 },
+	{ _PHRASE_COMMON,   39 },
+	{ _PHRASE_COMMON,   40 },
+	{ _PHRASE_COMMON,   41 },
+	{ _PHRASE_COMMON,   42 },
+	{ _PHRASE_COMMON,   43 },
+	{ _PHRASE_COMMON,   44 },
+	{ _PHRASE_COMMON,   45 },
+	{ _PHRASE_COMMON,   46 },
+	{ _PHRASE_COMMON,   47 },
+	{ _PHRASE_COMMON,   48 },
+	{ _PHRASE_COMMON,   49 },
+	{ _PHRASE_COMMON,   50 },
+	{ _PHRASE_COMMON,   51 },
+	{ _PHRASE_COMMON,   52 },
+	{ _PHRASE_COMMON,   53 },
+	{ _PHRASE_COMMON,   54 },
+	{ _PHRASE_COMMON,   60 },
+	{ _PHRASE_COMMON,   61 },
+	{ _PHRASE_COMMON,   62 },
+	{ _PHRASE_COMMON,   63 },
+	{ _PHRASE_COMMON,   64 },
+	{ _PHRASE_COMMON,   65 },
+	{ _PHRASE_COMMON,   66 },
+	{ _PHRASE_COMMON,   67 },
+	{ _PHRASE_COMMON,   68 },
+	{ _PHRASE_COMMON,   69 },
+	{ _PHRASE_COMMON,   70 },
+	{ _PHRASE_COMMON,   71 },
+	{ _PHRASE_COMMON,   72 },
+	{ _PHRASE_COMMON,   73 },
+	{ _PHRASE_COMMON,   74 },
+	{ _PHRASE_COMMON,   75 },
+	{ _PHRASE_COMMON,   76 },
+	{ _PHRASE_COMMON,   77 },
+	{ _PHRASE_COMMON,   78 },
+	{ _PHRASE_COMMON,   79 },
+	{ _PHRASE_COMMON,   80 },
+	{ _PHRASE_COMMON,   81 },
+	{ _PHRASE_COMMON,   82 },
+	{ _PHRASE_COMMON,   83 },
+	{ _PHRASE_COMMON,   84 },
+	{ _PHRASE_COMMON,   85 },
+	{ _PHRASE_COMMON,   86 },
+	{ _PHRASE_COMMON,   87 },
+	{ _PHRASE_COMMON,   88 },
+	{ _PHRASE_COMMON,   89 },
+	{ _PHRASE_COMMON,   90 },
+	{ _PHRASE_COMMON,   91 },
+	{ _PHRASE_COMMON,   92 },
+	{ _PHRASE_COMMON,   93 },
+	{ _PHRASE_COMMON,   94 },
+	{ _PHRASE_COMMON,   95 },
+	{ _PHRASE_COMMON,   96 },
+	{ _PHRASE_PLATFORM, 19 },
+	{ _PHRASE_COMMON,   97 },
+	{ _PHRASE_COMMON,   98 },
+	{ _PHRASE_COMMON,   99 },
+	{ _PHRASE_COMMON,   100 },
+	{ _PHRASE_COMMON,   101 },
+	{ _PHRASE_COMMON,   102 },
+	{ _PHRASE_COMMON,   103 },
+	{ _PHRASE_COMMON,   104 },
+	{ _PHRASE_COMMON,   105 },
+	{ _PHRASE_COMMON,   106 },
+	{ _PHRASE_COMMON,   107 },
+	{ _PHRASE_COMMON,   108 },
+	{ _PHRASE_COMMON,   109 },
+	{ _PHRASE_COMMON,   110 },
+	{ _PHRASE_COMMON,   111 },
+	{ _PHRASE_COMMON,   112 },
+	{ _PHRASE_COMMON,   113 },
+	{ _PHRASE_COMMON,   114 },
+	{ _PHRASE_COMMON,   115 },
+	{ _PHRASE_COMMON,   116 },
+	{ _PHRASE_COMMON,   117 },
+	{ _PHRASE_COMMON,   118 },
+	{ _PHRASE_COMMON,   119 },
+	{ _PHRASE_COMMON,   120 },
+	{ _PHRASE_COMMON,   121 },
+	{ _PHRASE_COMMON,   122 },
+	{ _PHRASE_COMMON,   123 },
+	{ _PHRASE_COMMON,   125 },
+	{ _PHRASE_COMMON,   126 },
+	{ _PHRASE_COMMON,   127 },
+	{ _PHRASE_COMMON,   128 },
+	{ _PHRASE_COMMON,   129 },
+	{ _PHRASE_COMMON,   130 },
+	{ _PHRASE_COMMON,   131 },
+	{ _PHRASE_COMMON,   132 },
+	{ _PHRASE_COMMON,   133 },
+	{ _PHRASE_COMMON,   134 },
+	{ _PHRASE_COMMON,   135 },
+	{ _PHRASE_COMMON,   136 },
+	{ _PHRASE_PLATFORM, 20 },
+	{ _PHRASE_COMMON,   138 },
+	{ _PHRASE_COMMON,   139 },
+	{ _PHRASE_COMMON,   140 },
+	{ _PHRASE_COMMON,   141 },
+	{ _PHRASE_COMMON,   142 },
+	{ _PHRASE_COMMON,   143 },
+	{ _PHRASE_COMMON,   144 },
+	{ _PHRASE_COMMON,   145 },
+	{ _PHRASE_COMMON,   146 },
+	{ _PHRASE_COMMON,   147 },
+	{ _PHRASE_COMMON,   148 },
+	{ _PHRASE_COMMON,   149 },
+	{ _PHRASE_COMMON,   150 },
+	{ _PHRASE_COMMON,   151 },
+	{ _PHRASE_COMMON,   152 },
+	{ _PHRASE_COMMON,   153 },
+	{ _PHRASE_COMMON,   154 },
+	{ _PHRASE_COMMON,   155 },
+	{ _PHRASE_COMMON,   156 },
+	{ _PHRASE_PLATFORM, 21 },
+	{ _PHRASE_PLATFORM, 22 },
+	{ _PHRASE_COMMON,   157 },
+	{ _PHRASE_COMMON,   158 },
+	{ _PHRASE_COMMON,   159 },
+	{ _PHRASE_COMMON,   160 },
+	{ _PHRASE_COMMON,   161 },
+	{ _PHRASE_COMMON,   162 },
+	{ _PHRASE_COMMON,   163 },
+	{ _PHRASE_COMMON,   164 },
+	{ _PHRASE_COMMON,   165 },
+	{ _PHRASE_PLATFORM, 0 },
+	{ _PHRASE_NONE,     0 },
+	{ _PHRASE_NONE,     0 },
+	{ _PHRASE_NONE,     0 },
+	{ _PHRASE_NONE,     0 },
+	{ _PHRASE_PLATFORM, 5 },
+	{ _PHRASE_AUTHORED, 0 },
+	{ _PHRASE_AUTHORED, 1 },
+	{ _PHRASE_AUTHORED, 2 },
+	{ _PHRASE_PLATFORM, 9 },
+	{ _PHRASE_PLATFORM, 10 },
+};
+static const cwchar * const _apwszGamePhraseAuthored[] = {
+	L"The memory card\n'%ls'\nneeds to be formatted.\nDo you want to format it now?",
+	L"Are you sure you want to format this memory card?\nAll data on it will be lost.",
+	L"The memory card must be formatted before you can save to it.",
+};
+
+static BOOL _GamePhraseMapResolve( int iPhrase, FGameDataTableHandle_t hCommonTable, FGameDataTableHandle_t hPlatformTable, cwchar **ppwszText ) {
+	const PhraseMapEntry_t *pMap = &_aGamePhraseMap[iPhrase];
+	FGameDataTableHandle_t hTable;
+	FGameData_VarType_e nDataType;
+	int nFields;
+
+	*ppwszText = NULL;
+	switch( pMap->nTable ) {
+		case _PHRASE_COMMON:
+			hTable = hCommonTable;
+			break;
+		case _PHRASE_PLATFORM:
+			hTable = hPlatformTable;
+			break;
+		case _PHRASE_NONE:
+			return TRUE;
+		case _PHRASE_AUTHORED:
+			*ppwszText = (cwchar *)_apwszGamePhraseAuthored[ pMap->nRow ];
+			return TRUE;
+		default:
+			FASSERT_NOW;
+			return FALSE;
+	}
+	nFields = fgamedata_GetNumFields( hTable );
+	if( (int)pMap->nRow >= nFields ) {
+		DEVPRINTF( "game::_LoadPhrasesTable() : Phrase %d needs row %d but the phrases table only contains %d strings.\n", iPhrase, pMap->nRow, nFields );
+		return FALSE;
+	}
+	*ppwszText = (cwchar *)fgamedata_GetPtrToFieldData( hTable, pMap->nRow, nDataType );
+	if( nDataType != FGAMEDATA_VAR_TYPE_WIDESTRING ) {
+		DEVPRINTF( "game::_LoadPhrasesTable() : Field %d in the phrases table is not a WIDESTRING format!\n", pMap->nRow );
+		return FALSE;
+	}
+	return TRUE;
+}
+
 BOOL _LoadPhraseTable( void ) {
 	FMemFrame_t hMemFrame;
 	FResFrame_t hResFrame;
 	FGameDataFileHandle_t hFile;
-	FGameDataTableHandle_t hTable;
-	FGameData_VarType_e nDataType;
-	int i, nStringsAdded = 0;
+	FGameDataTableHandle_t hCommonTable;
+	FGameDataTableHandle_t hPlatformTable;
+	int i;
 	cwchar *pwszText;
 	
 	// grab an fres and fmem frame
@@ -2081,51 +2314,32 @@ BOOL _LoadPhraseTable( void ) {
 
 	//////////////////////////////////
 	// find the 'common_phrases' table
-	hTable = fgamedata_GetFirstTableHandle( hFile, _pszGamePhrasesTableName );
-	if( hTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
+	hCommonTable = fgamedata_GetFirstTableHandle( hFile, _pszGamePhrasesTableName );
+	if( hCommonTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
 		DEVPRINTF( "game::_LoadPhrasesTable() : Could not find the phrases table named '%s'.\n", _pszGamePhrasesTableName );
 		goto _EXIT_WITH_ERROR;
-	}
-	// get the number of fields in the table
-	i = fgamedata_GetNumFields( hTable );
-	if( i != GAMEPHRASE_NUM_COMMON_STRINGS ) {
-		DEVPRINTF( "game::_LoadPhrasesTable() : The phrases table in '%s' didn't contain %d strings as expected.\n", _pszGamePhrasesTableName, GAMEPHRASE_NUM_COMMON_STRINGS );
-		goto _EXIT_WITH_ERROR;
-	}	
-	// walk the string table adding each string to the string table and recording a ptr to them
-	for( i=0; i < GAMEPHRASE_NUM_COMMON_STRINGS; i++ ) {
-		pwszText = (cwchar *)fgamedata_GetPtrToFieldData( hTable, i, nDataType );
-		if( nDataType != FGAMEDATA_VAR_TYPE_WIDESTRING ) {
-			DEVPRINTF("game::_LoadPhrasesTable() : Field %d in phrases table %s is not a WIDESTRING format!\n", i, _pszGamePhrasesTableName );
-			goto _EXIT_WITH_ERROR;
-		}
-		Game_apwszPhrases[nStringsAdded++] = gstring_Main.AddString( pwszText );
 	}
 
 	///////////////////////////////////////////
 	// find the platform specific phrase table
-	hTable = fgamedata_GetFirstTableHandle( hFile, _pszPlatformPhrasesTableName );
-	if( hTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
+	hPlatformTable = fgamedata_GetFirstTableHandle( hFile, _pszPlatformPhrasesTableName );
+	if( hPlatformTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
 		DEVPRINTF( "game::_LoadPhrasesTable() : Could not find the phrases table named '%s'.\n", _pszPlatformPhrasesTableName );
 		goto _EXIT_WITH_ERROR;
 	}
-	// get the number of fields in the table
-	i = fgamedata_GetNumFields( hTable );
-	if( i != GAMEPHRASE_NUM_PLATFORM_STRINGS ) {
-		DEVPRINTF( "game::_LoadPhrasesTable() : The phrases table in '%s' didn't contain %d strings as expected.\n", _pszPlatformPhrasesTableName, GAMEPHRASE_NUM_PLATFORM_STRINGS );
-		goto _EXIT_WITH_ERROR;
-	}	
+
+	DEVPRINTF( "game::_LoadPhrasesTable() : '%s' contains %d strings, '%s' contains %d strings.\n",
+			   _pszGamePhrasesTableName, (int)fgamedata_GetNumFields( hCommonTable ),
+			   _pszPlatformPhrasesTableName, (int)fgamedata_GetNumFields( hPlatformTable ) );
+
 	// walk the string table adding each string to the string table and recording a ptr to them
-	for( i=0; i < GAMEPHRASE_NUM_PLATFORM_STRINGS; i++ ) {
-		pwszText = (cwchar *)fgamedata_GetPtrToFieldData( hTable, i, nDataType );
-		if( nDataType != FGAMEDATA_VAR_TYPE_WIDESTRING ) {
-			DEVPRINTF("game::_LoadPhrasesTable() : Field %d in phrases table %s is not a WIDESTRING format!\n", i, _pszPlatformPhrasesTableName );
+	for( i=0; i < GAMEPHRASE_COUNT; i++ ) {
+		if( !_GamePhraseMapResolve( i, hCommonTable, hPlatformTable, &pwszText ) ) {
 			goto _EXIT_WITH_ERROR;
 		}
-		Game_apwszPhrases[nStringsAdded++] = gstring_Main.AddString( pwszText );
+		Game_apwszPhrases[i] = pwszText ? gstring_Main.AddString( pwszText ) : NULL;
 	}
 
-	FASSERT( nStringsAdded == GAMEPHRASE_COUNT );
 
 	////////////////////////////////	    
 	// done with the loaded csv file

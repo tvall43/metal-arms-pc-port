@@ -2073,6 +2073,10 @@ _ExitWithError:
 	return FALSE;
 }
 
+static const u8 _aCollectableFieldMap[] = {
+	0, 1, 2, 4, 5, 6, 7, 8, 8, 9, 10, 11,
+};
+
 void CCollectable::_LoadFromGameData( FGameDataTableHandle_t hTable ) {
 	FASSERT( IsSystemInitialized() );
 
@@ -2091,7 +2095,7 @@ void CCollectable::_LoadFromGameData( FGameDataTableHandle_t hTable ) {
 
 	FResFrame_t ResFrame = fres_GetFrame();
 
-	if( !fgamedata_GetTableData( hTable, CCollectableType::m_aGameDataVocab, &UserProp, sizeof( CollectableUserProp_t ) ) ) {
+	if( !fgamedata_GetTableData( hTable, CCollectableType::m_aGameDataVocab, &UserProp, sizeof( CollectableUserProp_t ), 0, _aCollectableFieldMap ) ) {
 		DEVPRINTF( "CCollectable::_LoadFromGameData(): Trouble parsing data for '%s'.\n", pszTableName );
 		goto _ExitWithError;
 	}

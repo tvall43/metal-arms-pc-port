@@ -259,6 +259,10 @@ void CGColl::ClearMaterial( CGCollMaterial *pMaterial, u32 nMtlID ) {
 }
 
 
+static const u8 _aMaterialFieldMap[] = {
+	0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+};
+
 BOOL CGColl::LoadMaterial( FGameDataTableHandle_t hTable, u32 nMtlID ) {
 	FASSERT( IsSystemInitialized() );
 	FASSERT( nMtlID < MATERIAL_TYPE_MAX_COUNT );
@@ -279,7 +283,7 @@ BOOL CGColl::LoadMaterial( FGameDataTableHandle_t hTable, u32 nMtlID ) {
 		goto _ExitWithError;
 	}
 
-	if( !fgamedata_GetTableData( hTable, m_aMaterialVocab, &UserData, sizeof(UserData) ) ) {
+	if( !fgamedata_GetTableData( hTable, m_aMaterialVocab, &UserData, sizeof(UserData), 0, _aMaterialFieldMap ) ) {
 		// Error...
 		DEVPRINTF( "CGColl::LoadMaterialTable(): Error in definition of material name '%s' found in '%s'.\n", pMaterial->m_pszMtlName, fgamedata_GetFileNameFromTableHandle(hTable) );
 		goto _ExitWithError;
