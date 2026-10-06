@@ -212,10 +212,7 @@ CFXEMPBlast::CFXEMPBlast() {
 }
 
 BOOL CFXEMPBlast::InitSystem( void ) {
-//	DEVPRINTF( "*** %d CFXEMPBlast\n", sizeof( CFXEMPBlast ) );
-//	DEVPRINTF( "*** %d bolt grp\n", sizeof( CEMPLightningBoltGroup ) );
-//	DEVPRINTF( "*** %d bolt\n", sizeof( CEMPLightningBolt ) );
-//	DEVPRINTF( "*** %d bolt branch\n", sizeof( CEMPLBBranch ) );
+	DEVPRINTF( "[ma] TEMP sizeof CFXEMPBlast=%d boltgrp=%d bolt=%d branch=%d\n", sizeof( CFXEMPBlast ), sizeof( CEMPLightningBoltGroup ), sizeof( CEMPLightningBolt ), sizeof( CEMPLBBranch ) );
 	FResFrame_t Frame;
 	FMesh_t *pMesh = NULL;
 
@@ -233,6 +230,8 @@ BOOL CFXEMPBlast::InitSystem( void ) {
 		DEVPRINTF( "CFXEMPBlast::InitSystem(): Could not allocate blast array\n" );
 		goto _ExitInitSystemWithError;
 	}
+
+	DEVPRINTF( "[ma] TEMP FXEMPB blasts=%p\n", m_pBlasts );
 
 	// Kill them
 	for( u32 i = 0; i < _EMP_MAX_BLASTS; ++i ) {
@@ -1003,6 +1002,8 @@ BOOL CEMPLightningBoltGroup::InitSystem( void ) {
 		DEVPRINTF( "CEMPLightningBoltGroup::InitSystem() : Out of memory.\n" );
 		goto _ExitWithError;
 	}
+
+	DEVPRINTF( "[ma] TEMP boltgrp pool=%p\n", m_aBoltGroupPool );
 
 //CPS 4.7.03 FTexDef_t *pTexDef = (FTexDef_t *)fresload_Load( FTEX_RESNAME, _LIGHTB_BOLT_TEXTURE );
 	pTexDef = (FTexDef_t *)fresload_Load( FTEX_RESNAME, _LIGHTB_BOLT_TEXTURE );		//CPS 4.7.03

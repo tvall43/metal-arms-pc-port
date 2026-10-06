@@ -330,10 +330,13 @@ void gamecam_UninitSystem( void ) {
 }
 
 extern BOOL game_IsInitialized( void );
+extern BOOL _FRes_bTestForDestructor;
+extern BOOL _FRes_bHasDestructor;
 
 void gamecam_DiagSnapshot( cchar *pszWhere ) {
-	DEVPRINTF( "[ma] TEMP gamecam %s: initOK=%d game=%d man=%p bot=%p simple=%p cut=%p\n",
-		pszWhere, (int)_bInitOK, (int)game_IsInitialized(), _paManualCameramen, _paBotCameramen, _paSimpleCameramen, _paCutsceneCameramen );
+	DEVPRINTF( "[ma] TEMP gamecam %s: initOK=%d game=%d test=%d hasd=%d man=%p bot=%p simple=%p cut=%p\n",
+		pszWhere, (int)_bInitOK, (int)game_IsInitialized(), (int)_FRes_bTestForDestructor, (int)_FRes_bHasDestructor,
+		_paManualCameramen, _paBotCameramen, _paSimpleCameramen, _paCutsceneCameramen );
 }
 
 // Call after each level has been loaded.  This function will scan the loaded
