@@ -1116,52 +1116,6 @@ static void _DiagDumpBackBuffer( const char *pTag, u32 nFrame )
 #endif
 
 
-		//
-		// TEMPORARY DIAGNOSTIC -- full-screen magenta triangle, drawn last.
-		//
-		// Placement matters as much as state here. Drawn right after fvid_Begin(),
-		// this triangle was erased in the same frame by _BootupDraw's
-		// fviewport_Clear(FVIEWPORT_CLEARFLAG_ALL) before it was ever presented, so
-		// the test could not have passed no matter what state it set. It now runs
-		// after ftext_Draw() and before EndScene(): the last thing in the scene,
-		// so the next frame's Present has nothing left to overwrite it.
-		//
-		// State: the engine's own full-screen ortho viewport (pixel coordinates,
-		// [0,640]x[0,480] -- not NDC), pixel shader cleared, and culling, blending
-		// and the depth test disabled. The alpha test matters: Renderer_Open leaves
-		// D3DRS_ALPHATESTENABLE TRUE, and with no texture bound the diffuse alpha is
-		// zero, so every fragment would fail it.
-		//
-		// If magenta appears, the engine's draw path works and the remaining fault is
-		// specific to the ftext path. If not, nothing in the renderer can put a
-		// pixel on screen and the fault is in window/Present setup.
-		{
-			static const FDrawVtx_t _aTri[3] = {
-				{   0.0f,   0.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
-				{   0.0f, 480.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
-				{ 640.0f,   0.0f, 0.5f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f },
-			};
-			static u32 _nDiagFrames = 0;
-			_nDiagFrames++;
-			fviewport_SetActive( FViewport_pDefaultOrtho );
-			FDX8_pDev->SetPixelShader( NULL );
-			fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
-			fdx8_SetRenderState_ALPHABLENDENABLE( FALSE );
-			fdx8_SetRenderState_ALPHATESTENABLE( FALSE );
-			FDX8_pDev->SetRenderState( D3DRS_ZENABLE, FALSE );
-			fdx8_SetTextureState_COLOROP( 0, D3DTOP_SELECTARG1 );
-			fdx8tex_SetTexture( 0, NULL, 0 );
-			frenderer_Push( FRENDERER_DRAW, NULL );
-			fdraw_PrimList( FDRAW_PRIMTYPE_TRILIST, _aTri, 3 );
-			frenderer_Pop();
-			if( _nDiagFrames <= 3 ) {
-				DEVPRINTF( "[ma] diag triangle drawn last in scene, frame %u\r\n", _nDiagFrames );
-			}
-		}
-#if FANG_PLATFORM_WIN
-		_DiagProbe( "tri" );
-#endif
-
 		if( _pFcnDrawOverlay ) {
 			_pFcnDrawOverlay();
 		}

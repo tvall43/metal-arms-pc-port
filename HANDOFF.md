@@ -7,9 +7,10 @@ things that have already been tried and disproved.
 ## The one-line status
 
 The engine cross-compiles, boots, loads the retail `.mst`, completes bootup and
-runs an unbounded, crash-free frame loop — but **the window is black**. Every
-layer of the renderer has been verified working individually. The fault has not
-been located.
+runs an unbounded, crash-free frame loop — and **it now renders**. The "Choose
+Bootup Mode" menu draws with correct text, correct layout and a moving selection
+highlight. The black-window bug is fixed (Measurement 8). What is left is that
+**the game cannot be controlled** — see Measurement 9.
 
 ## Objective
 
@@ -179,7 +180,13 @@ tried.
   `Difficulty.csv` expecting 4 levels. These log and continue, but will matter in
   actual gameplay.
 - **`w_flamer.csv`** vocab still wants 10 numeric columns retail lacks.
-- **Input** is dead under wined3d (no gamepad); keyboard input does not exist.
+- **Input is dead — diagnosed, not yet fixed (Measurement 9).** `fpadio`
+  enumerates **DirectInput game controllers only**; under Wine there are none, so
+  `fpadio_Install` fails with `Error 418: Nothing has been enumerated` and
+  `fpad_UpdateSamples()` returns 0 every frame. `Gamepad_aapSample[][]` therefore
+  reads all zeros forever. There is **no keyboard path in the game at all** — it
+  is a console title. The fix is a synthetic keyboard-fed device inside
+  `fdx8padio.cpp` so `fpadio_Install` succeeds.
 
 ## Housekeeping left behind
 
@@ -824,3 +831,89 @@ backbuffer dumps on frames `{1,2,3,8,16,32,64,128}`.
 No `WINEDEBUG` needed for this run; the plain log is enough.
 
 **Zip exe crc32 `67d66a6a`, archive crc32 `3bcc7979`.**
+
+## Measurement 9 — **it renders**; the magenta was our own probe, input is the remaining fault
+
+Build after Measurement 8. Two facts, both from evidence:
+
+### 1. The matrix fix worked
+
+From `ma_win_log.txt`:
+
+```
+[ma] mtxLayout sizeof=64 m_vX@0 m_vY@16 m_vZ@32 m_vP@48 m44@0 aa@0
+```
+
+exactly the wanted `64 / 0,16,32,48 / 0,0`. `srcPun` equals `mtxStatic`
+(`y=0,1,0 z=0,0,1`), `oneRow` shows the write landing in row 1, and
+`viewFull16` / `modelFull16` are identities. The window is no longer black: the
+"Choose Bootup Mode" menu from `App/ma/launcher.cpp` draws with correct text,
+the orange selection highlight on "Development Mode", the separator rule and
+`Ver 1.19.1`.
+
+### 2. The magenta triangle was ours, not a fault
+
+The half-screen magenta came from the TEMPORARY DIAGNOSTIC block in
+`Lib/Fang2/dx/fdx8vid.cpp` (~line 1117): a fixed `(0,0) (0,480) (640,0)` triangle
+in `FFFF00FF`, logged as `[ma] diag triangle drawn last in scene`. It is drawn
+*after* `ftext_Draw()` and before `EndScene()`, which is why only the right half
+of the menu was visible. Measured: `probe tri magenta=2460` and
+`bbdump magenta=154080` of 307200 pixels = **50.2%** of the frame — exactly the
+lower-left half of the 640x480 screen.
+
+Removed: the block plus its `_DiagProbe( "tri" )` call — **46 lines, pure
+deletion, zero bytes altered elsewhere**. `if( _pFcnDrawOverlay )` was briefly
+lost during editing and is restored (verified at `fdx8vid.cpp:1119`).
+
+> **Careful with `fdx8vid.cpp`:** it is **mixed line ending** at HEAD — 429 CRLF
+> and 3023 bare-LF lines. A blind "normalize to CRLF" pass rewrites 3023 lines.
+> Edit it byte-precisely, or check `git diff` for a wall of whitespace changes.
+
+Verified on the built exe with `strings -a ma_win.exe`:
+`diag triangle` **0**, `_nDiagFrames` **0**, `mtxLayout` **1**, `postovl` **1**,
+`endscene` **1**, `nonblack=` **1**.
+
+### 3. Input: diagnosed, NOT yet fixed
+
+The log says it outright:
+
+```
+[ FPADIO ] Error 418: Nothing has been enumerated !!!
+Could not install input driver (fpadio); continuing without a controller.
+[ma] input driver (fpad) installed.
+```
+
+Only the **fpad** line has the `[ma]` prefix, so a grep for `[ma]` misses the
+failure — grep for `input` instead.
+
+The input stack is `fdx8padio.cpp` (DirectInput) -> `fpad.cpp` -> `gamepad.cpp`
+-> the global `Gamepad_aapSample[][]` the game reads:
+
+* `fdx8padio.cpp:418` — `_pDInput->EnumDevices( DI8DEVCLASS_GAMECTRL, ...,
+  DIEDFL_ATTACHEDONLY )` returns `uCount == 0` under Wine. The function bails
+  out with `FPADIO_ERROR`, so `fpadio_IsInstalled()` stays FALSE.
+* `fpad.cpp:191` — `fpad_UpdateSamples()` starts with
+  `if( !_bModuleInstalled || !fpadio_IsInstalled() ) return 0;` — so **nothing is
+  ever sampled**.
+* `fpad.cpp:~140` `fpad_Map()` still runs (that was fixed earlier) and points
+  every action at `_oAlwaysZeroSample`, so reads succeed and report "nothing
+  pressed" rather than crashing. Correct, but therefore permanently inert.
+
+This is a console title — **there is no keyboard code path anywhere in the
+game**. `launcher.cpp:506-520` needs `GAMEPAD_MENU_LEFT_ANALOG_Y` or
+`GAMEPAD_MENU_DPAD_Y` carrying
+`FPAD_LATCH_TURNED_ON_WITH_REPEAT_AND_WITH_INITIAL_DELAY`, and
+`launcher.cpp:431` needs `GAMEPAD_MENU_ACCEPT` with
+`GAMEPAD_BUTTON_1ST_PRESS_MASK`. All of those come from `_aoSamples`, which come
+from `fpadio_GetSamples()`.
+
+**The fix:** make `fpadio_Install` succeed when no controller enumerates, by
+registering a synthetic keyboard-driven device whose samples are filled from
+key state each poll. Then `fpad_UpdateSamples()` runs normally and
+`gamepad_SetMapping( i, GAMEPAD_MAP_MENU )` does the rest. Minimum useful
+mapping: arrows/WASD -> stick or dpad Y, Enter/Space -> `GAMEPAD_MENU_ACCEPT`,
+Esc -> `GAMEPAD_MENU_BACK`.
+
+**Zip rebuilt:** archive crc32 `f1612b75`, `ma_win.exe` crc32 `f30bc0ca`,
+`binkw32.dll` crc32 `55da02b7` (23,800,643 bytes, members `ma_win.exe` +
+`binkw32.dll`). Previous build was exe `67d66a6a` / archive `3bcc7979`.
