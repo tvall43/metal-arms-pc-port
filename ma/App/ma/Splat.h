@@ -74,7 +74,7 @@ private:
 	BOOL	m_bActive;		// should this splat do work/be drawn
 	f32		m_fSize;		// how big per side
 	u64		m_uTime;		// time this splat was created
-	CFVec3	m_vPos;			// where the splat is
+	CFVec3	m_vSplatPos;	// where the splat is
 
 
 

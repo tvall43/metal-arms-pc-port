@@ -208,8 +208,8 @@ class FCLASS_ALIGN_PREFIX CFTQuatA : public CFQuatA {
 public:
 	union {
 		CFVec4A m_PosScale;
-				CFVec3 m_Pos;
-		f32 m_fScale;
+		CFVec3 m_Pos;
+		struct { f32 _posPad[3]; f32 m_fScale; };
 	};
 
 	// Constructors:

@@ -454,3 +454,373 @@ above the vertex alpha, the fill not landing in the VB (`vtx0` empty/garbage),
 or a failing `DrawPrimitive`. If all of those come back sane, the last
 possibility is that the draw targets something other than the presented buffer
 (`GetRenderTarget` vs `GetBackBuffer`).
+
+---
+
+## Measurement 5 — `WINEDEBUG` trace (done) → **the transforms are the bug**
+
+The game runs under Wine (`Z:\home\tim\games\...`), so wined3d's own trace is
+available. The stderr redirect the earlier note asked for *was* the missing
+piece: `WINEDEBUG` only writes to the console, never into `ma_win_log.txt`.
+
+    cd ~/games/ma
+    WINEDEBUG=+d3d wine ma_win.exe 2> log.txt     # ~29 MB, ~287k lines; kill after a few seconds
+
+Result is in `outputs/log.txt` (`backtrace.txt` there is **stale**, ignore it).
+
+### What the trace proves is *working*
+
+| evidence | count | meaning |
+|---|---|---|
+| `wined3d_device_context_draw` / `draw_primitive … Draw completed.` | 1217 / 1216 | wined3d really executes the draws |
+| `swapchain_gl_present` + `swapchain_blit (0,0)-(640,480)` | 226 | `Present` runs and blits the offscreen backbuffer to the window every frame |
+| `wined3d_device_clear … color 2.74509806e-02` (=7/255) | per frame | the clear reaches texture `05A60240`, i.e. the same resource `GetBackBuffer` returns |
+| `context_gl_check_fbo_status FBO complete.` | 1896 | the framebuffer the draws render into is complete |
+| `device_context_set_viewports 0,0 640x480 z=0..1` | 3 | viewport is correct |
+| `wined3d_texture_load_location … WINED3D_LOCATION_SYSMEM` | 42 | exactly our 42 probes — so each probe **downloads GL contents**; the probe is trustworthy (it saw 0x000000 → 0x000007 after the first clear) |
+
+So: draws execute, into a complete FBO on the presented backbuffer, and our
+readback of that backbuffer is genuine. Something upstream makes the draws
+degenerate.
+
+### THE FINDING — VIEW and WORLD arrive degenerate
+
+`wined3d_stateblock_set_transform` prints the full 4x4. Across the whole run:
+
+    VIEW    (492 samples, every one identical)
+      1 0 0 0
+      0 0 0 0      <-- row 2 zero
+      0 0 0 0      <-- row 3 zero
+      0 0 0 1
+    WORLD   (488 samples) — identical structure
+    PROJECTION — sane, three variants:
+      ortho   diag(0.003125, -0.004167, 0.001, 1) t=(-1, 1, -0.0001)   [HUD 640x480]
+      ortho   diag(0.003125, -0.004167, 0.526, 1) t=(-1, 1, -0.053)    [diag triangle]
+      persp   diag(1, 1.3333, 1.001, 0) with m43=1, m44=-1.001
+
+Row-vector maths: for `v' = v * VIEW` this matrix forces **y' = 0 and z' = 0 for
+every vertex**. Feeding that into the sane ortho projection puts *every* vertex
+at NDC y = +1 — all triangles collapse onto one horizontal line, area 0, nothing
+rasterizes. With the perspective projection w' comes out 0 and the vertices are
+fully clipped instead. Either way: `DrawPrimitive` returns `D3D_OK`, wined3d logs
+`Draw completed.`, and not one pixel changes. That is the entire black screen.
+
+**We already had this data.** `_DiagBeforeDraw` printed
+`view=1.000/0.000/0.000/1.000` on every draw — that is the **diagonal**
+`(_11,_22,_33,_44)`, so `_22=0` and `_33=0` was on screen the whole time. It was
+read as "identity"; identity would print `1/1/1/1`.
+
+### Where the bad matrix comes from (next run answers this)
+
+`FDX8_SetViewMatrix()` (`fdx8.h:225`) copies `FXfm_pView->m_MtxF` row by row into
+the D3D matrix — rows are `Right / Up / Front / Pos`, since `CFMtx43A`'s union is
+`f32 aa[4][4]` (`fmath_mtx.h:366`). The D3D matrix we measured implies the Fang
+view matrix is `Right=(1,0,0)` with **`Up`, `Front`, `Pos` all zero**. WORLD comes
+from `FXfm_pModel->m_MtxF` the same way (`_ConvertXfmToD3DMtx`).
+
+So either the Fang transforms really are degenerate (ftransform/camera never
+built — but `Identity()` would give full identity, not this), or the
+conversion/struct layout is wrong. The build in the zip prints, on the first 24
+draws:
+
+* `viewXF r=… u=… f=… p=…` and `modelXF …` — the 12 floats of both Fang matrices
+* `viewFULL=` — all 16 floats of the D3D VIEW straight from `GetTransform`
+* `sizes CFVec3A=… CFMtx43A=… CFMtx44=… CFMtx44A=… D3DMATRIX=… CFXfm=…` — if
+  `CFVec3A` is not 16 bytes or `CFMtx43A` not 64, the row mapping is misaligned
+
+Also in this build: `Present hr=0x%08X frame N` plus `probe present`. Note the
+previous `present` probe had been added **inside the Xbox `#else` branch of
+`_SwapBuffers`**, so it never compiled on Windows and its absence proved
+nothing — Windows calls `Present` at `fdx8vid.cpp:2622`.
+
+### Other things the trace surfaced (not yet acted on)
+
+* `wined3d_resource_check_box_dimensions Box (off,0,0)-(off+size,0,0) is invalid`
+  + `Map box is invalid` — **1260 times**, on index-buffer locks. For a buffer
+  wined3d wants `(off,0,0)-(off+size,1,1)` (compare the healthy
+  `upload_bo … box (256,0,0)-(320,1,1)`). Engine index-buffer content may be
+  garbage; worth checking once the transforms are fixed.
+* `sanitise_map_flags DISCARD or NOOVERWRITE map not on dynamic GPU-accessible
+  buffer, ignoring.` x5 — `fdx8vb_Lock` passes `D3DLOCK_DISCARD` on dynamic VBs.
+* `wined3d_texture_load_location Operation requires 0x2 access, but texture only
+  has 0xd.` x20.
+* `state_undefined Undefined state UNKNOWN_STATE(0) (0).` x1.
+
+**Zip exe crc32 `c7f9c9b6`.**
+
+---
+
+## Measurement 6 — struct layout is fine, the *Fang* transforms are the bad ones
+
+New log (`sizes`/`viewXF`/`modelXF`/`viewFULL`/`Present hr=`) answers the
+question Measurement 5 left open:
+
+    sizes CFVec3A=16 CFMtx43A=64 CFMtx44=64 CFMtx44A=64 D3DMATRIX=64 CFXfm=136
+    viewXF  r=1,0,0  u=0,0,0  f=0,0,0  p=0,0,0      <-- FXfm_pView->m_MtxF
+    modelXF r=1,0,0  u=0,0,0  f=0,0,0  p=0,0,0      <-- FXfm_pModel->m_MtxF
+    viewFULL 1/0/0/0 0/0/0/0 0/0/0/0 0/0/0/1        <-- GetTransform(D3DTS_VIEW)
+    Present   hr=0x00000000
+
+* **Layout is correct** — `CFVec3A` is 16, `CFMtx43A` is 64, `aa[4][4]` lines up
+  with the four `CFVec3A` rows. So it is *not* a struct/alignment mismatch.
+* **The conversion is faithful** — `viewFULL` is exactly `_ConvertXfmToD3DMtx`'s
+  output of `m_MtxF` (it forces `_44=1`), so the corruption is already present in
+  the Fang matrix.
+* **`Present` succeeds** (`hr=0x00000000`) — finally confirmed, and `probe present`
+  now runs (the previous probe had been inside the Xbox `#else` branch).
+
+### Why this must come from `CFMtx43A::Identity()`
+
+`_ViewXfm` is written in exactly two places (`fxfm.cpp:111` and `:114`), and
+`CFXfm::InitStack()` is only ever called **with the default NULL** (`fxfm.cpp:93`,
+`fdx8xfm.cpp:428`). `InitStackWithView()` — the only caller that passes a view —
+is declared inline at `fxfm.h:143` but is called solely from `gc/*.cpp`, and
+**zero `gc/*.obj` are in the link** (confirmed against `link.txt`). So `_ViewXfm`
+can only ever be `Identity()`-ed.
+
+Yet it reads back as `r=(1,0,0)` with Up/Front/Pos all zero. `_pModelStack[0]`
+is likewise `Identity()`-ed (`fxfm.cpp:104`) and reads back identically.
+`fxfm_SetViewAndWorldSpaceModelMatrices()` on Windows (`fdx8xfm.cpp:242`) only
+sets the *world* matrix to `m_IdentityMtx` and never touches VIEW.
+
+Every candidate on paper is correct:
+
+| source | result |
+|---|---|
+| `CFMtx43A::m_IdentityMtx` init (`fdx8math_mtx.cpp:444`) | real identity, and **outside** both `#if !FANG_WINGC` blocks (247→430, 613→852), so it *is* compiled |
+| `Identity()` → `Set(m_IdentityMtx)` (`fdx8gcmath_mtx.inl:343`, `:375`) | copies `m_vX/m_vY/m_vZ/m_vP` row-wise |
+| `Identity33()` (`fdx8gcmath_mtx.inl:348`) | assigns `m_UnitAxisX/Y/Z` |
+| `CFVec3A` 3-float ctor / `Set(x,y,z)` (`fdx8gcmath_vec.inl:452`, `:470`) | stores all three |
+| `CFVec3A::m_UnitAxisX/Y/Z` (`fdx8math_vec.cpp:62-64`) | defined, no preprocessor guards |
+
+Note the live config: **`-D_FANGDEF_WINGC` → `FANG_WINGC=1`**, so the whole
+SSE/MSVC-`__asm` body of `fdx8math_mtx.inl` (lines 526→2526) is compiled *out*
+and `fdx8gcmath_mtx.inl` supplies the math instead — that is the implementation
+actually running.
+
+So either the static reads wrong at runtime or `Set()` mis-copies — both
+undecidable from reading. **Next build measures directly** (`_DiagBeforeDraw`,
+first draw only):
+
+* `mtxDefault` / `mtxIdentity` — a fresh `CFMtx43A`, then `Identity()`-ed
+* `mtxStatic` — `CFMtx43A::m_IdentityMtx` itself
+* `unitAxes` — `CFVec3A::m_UnitAxisX/Y/Z`
+* `viewFull16` / `modelFull16` — all 16 floats of both live matrices (including
+  the `[3][3]` we could not see before)
+* `viewR` / `modelR` + `scaleF`/`scaleR` — the inverse halves and scales
+
+If `mtxIdentity` is a proper identity → the static and `Set()` are fine and the
+live objects are overwritten by a writer we have not found. If `mtxIdentity`
+comes back degenerate → `Identity()`/`Set()`/the static is broken and we fix it
+there.
+
+**Zip exe crc32 `a4f03465`.**
+
+---
+
+## Measurement 7 — `Identity()` proven broken; the port is the suspect
+
+Log (`mtxStatic`/`mtxIdentity`/`unitAxes`):
+
+    mtxStatic   r=1,0,0 u=0,1,0 f=0,0,1 p=0,0,0   <-- source is a perfect identity
+    mtxIdentity r=1,0,0 u=0,0,0 f=0,0,0 p=0,0,0   <-- T.Identity() mangles it
+    unitAxes    x=1,0,0 y=0,1,0 z=0,0,1           <-- the statics are fine too
+
+So the corruption is inside `CFMtx43A::Identity()` -> `Set(m_IdentityMtx)` ->
+`m_vX/Y/Z/P.Set(rM.m_vX...)` -> `v3 = rV.v3` -> `CFVec3::operator=`, because a
+fresh temporary comes back wrong while the object it copies *from* comes back
+right. That also settles why **both** the view and the model matrix are wrong:
+both are `Identity()`-ed (`fxfm.cpp:114` and `:104`).
+
+### Context: this is very likely a porting bug
+
+The GCC/MinGW port is one of the earliest things done here, and two of its
+commits touch exactly this code path:
+
+* **`6e7f3a9` "Port remaining Fang2 math to GCC: C++11 unions"** —
+  - switched the build to `CMAKE_CXX_STANDARD 11` *specifically because*
+    "the vector/quaternion types are type-punning unions whose members have
+    non-trivial constructors... GCC only accepts those from -std=c++11
+    ('unrestricted unions')";
+  - `cmake/fix_union_anon_struct.py` unwrapped `struct { T n; };` to `T n;`
+    inside those unions (layout verified unchanged — offsets are identical).
+
+  Under MSVC (the compiler `win/` was written for) reading a union member other
+  than the active one just works. In C++11 that read is undefined unless that
+  member is active, and `-O2`/`-fstrict-aliasing` is free to conclude the
+  `CFVec3A`/`CFVec3` subobject was never written — which is precisely a copy
+  that silently keeps only some of its values.
+
+* **`05c0b7f` "Complete the _FANGDEF_WINGC configuration"** — this is what made
+  `FANG_WINGC=1` buildable at all (15 members lived inside `#if !FANG_WINGC`
+  and could not link). It added `dx/fdx8wingc_missing.inl`, included last from
+  `fmath.h`. Checked: it does **not** shadow `CFMtx43A::Set`/`Identity`
+  (it only adds `RevMul`, `CFVec3A::CrossVecWithY`-family and `CFQuatA::Set`).
+
+`git log` shows `fdx8gcmath_*.inl`, `fdx8math_*.inl`, `fmath_vec.h`,
+`fmath_mtx.h` are otherwise untouched since baseline `8e4fc78` apart from the
+MSVC-hex-literal rewrites (`52dd5b2`, `4032872`, asm-only) — so the original
+source of those files is intact.
+
+### What this build measures
+
+`_DiagBeforeDraw`, first draw only, all one-time:
+
+| line | question it answers |
+|---|---|
+| `mtxStatic` | re-confirm the source object (via `aa[][]`) |
+| `srcPun` | **read the same static through `m_vX/m_vY/m_vZ/m_vP.v3`** — if this disagrees with `mtxStatic`, the union type-punning is the bug and it is a porting bug |
+| `sIdent` | `Identity()` into a `static` object (rules out stack/varargs clobber of the earlier `T`) |
+| `oneRow` | one `m_vY.Set()` on a zeroed matrix, everything else observed |
+| `rawCopy` | `a[]` -> `a[]` element-wise, bypassing every operator |
+| `unitAxes` | re-confirm the vector statics |
+
+Reading: `srcPun` wrong => union/aliasing => fix the port (e.g. copy through
+`a[]`, or give the unions a plain `float[16]` path). `srcPun` right but
+`oneRow` wrong => `CFVec3A::Set`/`CFVec3::operator=` miscompiled.
+`rawCopy` right and everything else right => the earlier `T` was clobbered.
+
+**Zip exe crc32 `80086479`.**
+
+---
+
+## Measurement 8 — **ROOT CAUSE FOUND AND FIXED**: the port flattened multi-member anonymous structs
+
+### The measurement
+
+First draw, one-time lines (from the log this pass shipped):
+
+    mtxStatic  r=1,0,0 u=0,1,0 f=0,0,1 p=0,0,0     <-- read via aa[][]: perfect identity
+    srcPun     x=1,0,0 y=1,0,0 z=1,0,0 p=1,0,0     <-- same object via m_vX/m_vY/m_vZ/m_vP.v3
+    oneRow     r0=1,0,0 r1=0,0,0 ...               <-- one sU.m_vY.Set() landed in r0
+    rawCopy    correct                              <-- a[] -> a[] element-wise is fine
+    unitAxes   x=1,0,0 y=0,1,0 z=0,0,1             <-- the vector statics are fine
+
+`mtxStatic` (through `aa[][]`) is a **perfect identity** while `srcPun` (through
+`m_vX/m_vY/m_vZ/m_vP`) reads `x == y == z == p` — i.e. **all four row members
+resolve to the same address**. `oneRow` confirms it in the other direction: a
+write to `m_vY` shows up in row 0.
+
+That is not type-punning or aliasing. Measurement 7's "strict aliasing" guess
+was wrong. It is **member layout**.
+
+### The cause
+
+Commit **`6e7f3a9` "Port remaining Fang2 math to GCC: C++11 unions"** ran
+`cmake/fix_union_anon_struct.py` over `fmath_mtx.h` and friends. Its job was to
+unwrap `struct { T n; };` to `T n;` — a single-member unwrap, which **is**
+layout-neutral. But it also unwrapped the **multi-member** groups:
+
+    -  struct { CFVec3A m_vX, m_vY, m_vZ, m_vP; };
+    -  struct { CFVec3A m_vRight, m_vUp, m_vFront, m_vPos; };
+    +  CFVec3A m_vX, m_vY, m_vZ, m_vP;
+    +  CFVec3A m_vRight, m_vUp, m_vFront, m_vPos;
+
+Those become four *independent union members*, all at **offset 0**. The struct
+was the only thing giving them sequential addresses. With every row aliasing
+row 0:
+
+* `Identity()` / `Set()` copy row 0 into all four rows, and the source's rows
+  1-3 are zeroes, so the destination collapses to `[1,0,0,0 / 0,0,0,0 /
+  0,0,0,0 / 0,0,0,1]` — exactly the `WINED3D_TS_VIEW` /
+  `WINED3D_TS_WORLD_MATRIX(0)` value seen 980 times in the `WINEDEBUG=+d3d`
+  trace;
+* `y' = z' = 0` for every vertex, every triangle has zero area, and nothing
+  rasterises. Everything else (clear, present, FBO, viewport, scissor, 1217
+  draws) was already proven correct — which is why the window was black with
+  no error anywhere.
+
+Sites broken (all in `fmath_mtx.h`): `CFMtx33`, `CFMtx43`, `CFMtx44`,
+`CFMtx44A`, `CFMtx43A` — 10 structs. Plus `CFTQuatA`
+(`struct { CFVec3 m_Pos; f32 m_fScale; };` → `m_fScale` moved from +12 to +0,
+breaking `CFAnimFrame`) and `fmath_vec.h`'s two `struct { __vec2x32float__ _A,
+_B; };` (GC-only).
+
+`CFMtx44`'s *single*-member groups (`m33`, `m44`, `m44a`) were **not** broken by
+the flatten — a lone member genuinely sits at offset 0 — so they stay unwrapped.
+
+### Why the obvious repairs do not work
+
+Verified against the real toolchain (`i686-w64-mingw32-g++ -std=gnu++11`):
+
+| approach | result |
+|---|---|
+| restore `struct { CFVec3 m_vX, m_vY, m_vZ; };` | **rejected**: `member 'CFVec3' with constructor not allowed in anonymous aggregate` |
+| same + `-fms-extensions` | **rejected** — this is not an MSVC-compat gap |
+| same + `-fpermissive` | **rejected** |
+| member with only *implicit* special members in an anon struct | **accepted** |
+| anon struct holding an **array** of ctor-typed elements | **accepted** |
+| a *direct* union member with a ctor | accepted (this is what the flatten does) |
+| rename ~10 000 `m_vX`/`m_vPos` call sites to `m_vRows[i]` | rejected — `m_vPos` alone appears 3518 times, and non-matrix classes own fields with those names |
+
+GCC's restriction is fundamental here: `CFVec3`/`CFVec3A`/`CFVec4`/`CFVec4A`
+have user-declared constructors and copy assignment, so they may not appear in
+an anonymous struct — but they *may* appear as an array inside one.
+
+### The fix
+
+`Lib/Fang2/fmath_mtx.h` — each matrix stores its rows as **one array member**
+inside the anonymous struct, which GCC accepts and which lays out at
+0/16/32/48 exactly as the original four-member struct did:
+
+    union {
+        struct { CFVec3A m_vRows[4]; };   // was: m_vX, m_vY, m_vZ, m_vP
+        CFMtx44 m44;                      // single members stay unwrapped
+        CFMtx44A m44a;
+        f32 a[16];
+        f32 aa[4][4];
+    };
+
+and eight `#define`s near the top of the same header restore the original
+names verbatim, so no call site changes:
+
+    #define m_vX m_vRows[0]   ...   #define m_vPos m_vRows[3]
+
+They must be defined **before** the class bodies because `ChangeEndian()` uses
+those names, and they are visible to `fmath_quat.h`, `fmath_geo.h` and every
+`.inl` because of `fmath.h`'s include order (`fmath_vec` 297 → `fmath_mtx` 298
+→ `fmath_quat` 299 → `fmath_geo` 300 → `.inl` 330+).
+
+`Lib/Fang2/fmath_quat.h` — `CFTQuatA` keeps `m_Pos` as a direct union member
+(offset 0, legal) and moves `m_fScale` to +12 with a POD tail:
+
+    union {
+        CFVec4A m_PosScale;
+        CFVec3  m_Pos;
+        struct { f32 _posPad[3]; f32 m_fScale; };
+    };
+
+Because `m_vPos` is now a macro, the two **non-matrix** fields that shared the
+name had to be renamed, or they would silently have become `CFVec3 m_vRows[3]`
+and still compiled:
+
+* `App/ma/CamCutscene.h` — `CFVec3 m_vPos` → `m_vCutPos`
+* `App/ma/Splat.h` — `CFVec3 m_vPos` → `m_vSplatPos`
+
+### Verification (all passed)
+
+* **Full build: 0 errors**, `Built target ma_win`.
+* **Compile-time layout test** (`static_assert` / `__builtin_offsetof` with the
+  project's own flags) — exit 0:
+  `CFMtx33=36 CFMtx43=48 CFMtx44=64 CFMtx44A=64 CFMtx43A=64`,
+  `m_vRows@0` in all five, `a`/`aa`/`m44`/`m44a`/`m33` all `@0`,
+  `CFTQuatA::m_fScale == m_PosScale + 12`, `m_Pos == m_PosScale`.
+* `grep m_vRows` outside `fmath_mtx.h` → **empty**, so the macro silently
+  converted no other field.
+* No multi-member anonymous struct with a ctor-bearing member remains anywhere
+  under `ma/`.
+* `strings -a ma_win.exe` confirms the new probe:
+  `[ma] mtxLayout sizeof=%u m_vX@%u m_vY@%u m_vZ@%u m_vP@%u m44@%u aa@%u (want 64 / 0,16,32,48 / 0,0)`
+
+### What the next run should show
+
+`mtxLayout` must print `m_vX@0 m_vY@16 m_vZ@32 m_vP@48`. `srcPun` must equal
+`mtxStatic` (`y=0,1,0 z=0,0,1`), `oneRow` must show the write in row 1, and
+`viewXF`/`viewFULL`/`modelFull16` must become real identities instead of
+`[1,0,0,0 / 0,0,0,0 / 0,0,0,0 / 0,0,0,1]`. With a non-degenerate world
+transform the 1217 draws should finally produce non-clear pixels — check the
+backbuffer dumps on frames `{1,2,3,8,16,32,64,128}`.
+
+No `WINEDEBUG` needed for this run; the plain log is enough.
+
+**Zip exe crc32 `67d66a6a`, archive crc32 `3bcc7979`.**

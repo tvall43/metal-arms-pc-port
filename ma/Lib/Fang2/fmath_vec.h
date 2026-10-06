@@ -318,7 +318,7 @@ public:
 #if FANG_PLATFORM_DX && !FANG_WINGC
 		__m128 _m;								// Private SIMD form (aligns on a 16-byte boundary and allows us to use XMM intrinsics)
 #elif FANG_PLATFORM_GC
-				__vec2x32float__ _A, _B;
+				struct { __vec2x32float__ _A, _B; };
 #endif
 		struct { f32 x, y, z, w; };				// Individual components form
 		CFVec2 v2;					// CFVec2 form
@@ -528,7 +528,7 @@ public:
 #if FANG_PLATFORM_DX && !FANG_WINGC
 		__m128 _m;								// Private SIMD form (aligns on a 16-byte boundary and allows us to use XMM intrinsics)
 #elif FANG_PLATFORM_GC
-				__vec2x32float__ _A, _B;
+				struct { __vec2x32float__ _A, _B; };
 #endif
 		struct { f32 x, y, z, w; };				// Individual components form (w is always 0)
 		CFVec2 v2;					// CFVec2 form

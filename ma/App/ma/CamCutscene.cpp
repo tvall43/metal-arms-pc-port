@@ -100,8 +100,8 @@ void CCamCutscene::Work()
 		}
 
 		//update the camera position and orientation here...
-		m_pCamInfo->m_pCamAnimInst->ComputeFrame( m_fHalfFOV, m_qOrient, m_vPos );
-		m_pCameraData->m_Xfm.BuildFromInvQuat( m_qOrient, m_vPos );
+		m_pCamInfo->m_pCamAnimInst->ComputeFrame( m_fHalfFOV, m_qOrient, m_vCutPos );
+		m_pCameraData->m_Xfm.BuildFromInvQuat( m_qOrient, m_vCutPos );
 
 		//update the camera FOV here...
 		m_pCamera->SetFOV( m_fHalfFOV ); //this routine expects a HALF fov.

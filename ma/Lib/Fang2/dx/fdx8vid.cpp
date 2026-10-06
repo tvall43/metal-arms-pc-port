@@ -2618,8 +2618,19 @@ static DWORD _ComputePresentationInterval( u32 *pnSwapInterval, const D3DCAPS8 *
 static BOOL _SwapBuffers( void ) 
 {
 #if FANG_PLATFORM_WIN
-	if( FDX8_pDev->Present( NULL, NULL, NULL, NULL ) == D3DERR_DEVICELOST ) 
 	{
+		HRESULT _hrPresent = FDX8_pDev->Present( NULL, NULL, NULL, NULL );
+
+		// TEMPORARY DIAGNOSTIC: prove Present runs on the Windows path and
+		// record what it returned (D3D_OK means the frame was handed to the
+		// swap chain; D3DERR_DEVICELOST means it was not).
+		if( _DiagProbeThisFrame() ) {
+			DEVPRINTF( "[ma] Present   hr=0x%08X frame %u\r\n", (u32)_hrPresent, FVid_nFrameCounter );
+			_DiagProbe( "present" );
+		}
+
+		if( _hrPresent == D3DERR_DEVICELOST )
+		{
 		// Device lost...
 
 		_bDeviceLost = TRUE;
@@ -2670,6 +2681,7 @@ static BOOL _SwapBuffers( void )
 
 			_bDeviceLost = FALSE;
 		}
+		}
 	}
 #else
 /*
@@ -2684,7 +2696,6 @@ static BOOL _SwapBuffers( void )
 	_nXBPresentCalls++;
 */
 	FDX8_pDev->Present( NULL, NULL, NULL, NULL );
-	_DiagProbe( "present" );
 #endif
 
 	FVid_nSwapCounter++;

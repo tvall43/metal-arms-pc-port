@@ -65,7 +65,7 @@ public:
 private:
 	f32 m_fHalfFOV;
 	CFQuatA m_qOrient;
-	CFVec3 m_vPos;
+	CFVec3 m_vCutPos;
 	CCamCutsceneInfo *m_pCamInfo;
 	
 

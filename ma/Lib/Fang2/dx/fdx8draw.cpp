@@ -929,6 +929,146 @@ BOOL fdx8draw_IsStencilModeSupported( FDrawStencilTest_e nStencilTest, FDrawSten
 			pTex0->Release();
 		}
 
+		// TEMPORARY DIAGNOSTIC -- the VIEW/WORLD matrices wined3d receives are
+		// degenerate (only _11 and _44 non-zero), so every vertex collapses onto
+		// one horizontal line and no triangle ever has area.  These are the Fang
+		// transforms that FDX8_SetViewMatrix() / _ConvertXfmToD3DMtx() copy out
+		// of, so we can tell whether the bad matrix is built upstream or lost in
+		// the conversion.
+		if( _nDiag == 1 ) {
+			DEVPRINTF( "[ma] sizes CFVec3A=%u CFMtx43A=%u CFMtx44=%u CFMtx44A=%u D3DMATRIX=%u CFXfm=%u\r\n",
+						(unsigned)sizeof(CFVec3A), (unsigned)sizeof(CFMtx43A),
+						(unsigned)sizeof(CFMtx44), (unsigned)sizeof(CFMtx44A),
+						(unsigned)sizeof(D3DMATRIX), (unsigned)sizeof(CFXfm) );
+
+			//
+			// The live view/model matrices come back as r=(1,0,0) with Up, Front
+			// and Pos all zero, while the static m_IdentityMtx prints as a proper
+			// identity -- so Identity() -> Set(m_IdentityMtx) is losing rows 1..3.
+			// Every definition in the source reads correctly, so split the chain:
+			//   sIdent  - Set() into a *static* (rules out stack/varargs clobber)
+			//   srcPun  - read the source through m_vX/m_vY/m_vZ/m_vP instead of
+			//             aa[][]: if these disagree with mtxStatic, the union
+			//             type-punning is the fault
+			//   oneRow  - a single m_vY.Set() on a zeroed matrix
+			//   rawCopy - a[] to a[] element-wise, bypassing every operator
+			{
+				static CFMtx43A sT, sU, sR;
+				int k;
+
+				//
+				// The regression: the port's fix_union_anon_struct.py flattened
+				// 'struct { CFVec3A m_vX, m_vY, m_vZ, m_vP; };' into the union,
+				// which puts all four at offset 0 instead of 0/16/32/48.  Every
+				// matrix row then aliased the first, so Identity() copied row 0
+				// four times, the view and world matrices collapsed, and no
+				// triangle ever had area.  These offsets are the fix, in one line.
+				//
+				DEVPRINTF( "[ma] mtxLayout sizeof=%u m_vX@%u m_vY@%u m_vZ@%u m_vP@%u m44@%u aa@%u (want 64 / 0,16,32,48 / 0,0)\r\n",
+					(unsigned)sizeof(CFMtx43A),
+					(unsigned)((char*)&sT.m_vX - (char*)&sT),
+					(unsigned)((char*)&sT.m_vY - (char*)&sT),
+					(unsigned)((char*)&sT.m_vZ - (char*)&sT),
+					(unsigned)((char*)&sT.m_vP - (char*)&sT),
+					(unsigned)((char*)&sT.m44 - (char*)&sT),
+					(unsigned)((char*)&sT.aa - (char*)&sT) );
+
+				DEVPRINTF( "[ma] mtxStatic   r=%.1f/%.1f/%.1f u=%.1f/%.1f/%.1f f=%.1f/%.1f/%.1f p=%.1f/%.1f/%.1f\r\n",
+					CFMtx43A::m_IdentityMtx.aa[0][0], CFMtx43A::m_IdentityMtx.aa[0][1], CFMtx43A::m_IdentityMtx.aa[0][2],
+					CFMtx43A::m_IdentityMtx.aa[1][0], CFMtx43A::m_IdentityMtx.aa[1][1], CFMtx43A::m_IdentityMtx.aa[1][2],
+					CFMtx43A::m_IdentityMtx.aa[2][0], CFMtx43A::m_IdentityMtx.aa[2][1], CFMtx43A::m_IdentityMtx.aa[2][2],
+					CFMtx43A::m_IdentityMtx.aa[3][0], CFMtx43A::m_IdentityMtx.aa[3][1], CFMtx43A::m_IdentityMtx.aa[3][2] );
+
+				DEVPRINTF( "[ma] srcPun       x=%.1f/%.1f/%.1f y=%.1f/%.1f/%.1f z=%.1f/%.1f/%.1f p=%.1f/%.1f/%.1f\r\n",
+					CFMtx43A::m_IdentityMtx.m_vX.v3.x, CFMtx43A::m_IdentityMtx.m_vX.v3.y, CFMtx43A::m_IdentityMtx.m_vX.v3.z,
+					CFMtx43A::m_IdentityMtx.m_vY.v3.x, CFMtx43A::m_IdentityMtx.m_vY.v3.y, CFMtx43A::m_IdentityMtx.m_vY.v3.z,
+					CFMtx43A::m_IdentityMtx.m_vZ.v3.x, CFMtx43A::m_IdentityMtx.m_vZ.v3.y, CFMtx43A::m_IdentityMtx.m_vZ.v3.z,
+					CFMtx43A::m_IdentityMtx.m_vP.v3.x, CFMtx43A::m_IdentityMtx.m_vP.v3.y, CFMtx43A::m_IdentityMtx.m_vP.v3.z );
+
+				sT.Zero();
+				sT.Identity();
+				DEVPRINTF( "[ma] sIdent       r=%.1f/%.1f/%.1f u=%.1f/%.1f/%.1f f=%.1f/%.1f/%.1f p=%.1f/%.1f/%.1f\r\n",
+					sT.aa[0][0], sT.aa[0][1], sT.aa[0][2],
+					sT.aa[1][0], sT.aa[1][1], sT.aa[1][2],
+					sT.aa[2][0], sT.aa[2][1], sT.aa[2][2],
+					sT.aa[3][0], sT.aa[3][1], sT.aa[3][2] );
+
+				sU.Zero();
+				sU.m_vY.Set( CFMtx43A::m_IdentityMtx.m_vY );
+				DEVPRINTF( "[ma] oneRow       r0=%.1f/%.1f/%.1f r1=%.1f/%.1f/%.1f r2=%.1f/%.1f/%.1f r3=%.1f/%.1f/%.1f\r\n",
+					sU.aa[0][0], sU.aa[0][1], sU.aa[0][2],
+					sU.aa[1][0], sU.aa[1][1], sU.aa[1][2],
+					sU.aa[2][0], sU.aa[2][1], sU.aa[2][2],
+					sU.aa[3][0], sU.aa[3][1], sU.aa[3][2] );
+
+				for( k = 0; k < 16; k++ ) {
+					sR.a[k] = CFMtx43A::m_IdentityMtx.a[k];
+				}
+				DEVPRINTF( "[ma] rawCopy      r=%.1f/%.1f/%.1f u=%.1f/%.1f/%.1f f=%.1f/%.1f/%.1f p=%.1f/%.1f/%.1f\r\n",
+					sR.aa[0][0], sR.aa[0][1], sR.aa[0][2],
+					sR.aa[1][0], sR.aa[1][1], sR.aa[1][2],
+					sR.aa[2][0], sR.aa[2][1], sR.aa[2][2],
+					sR.aa[3][0], sR.aa[3][1], sR.aa[3][2] );
+
+				DEVPRINTF( "[ma] unitAxes     x=%.1f/%.1f/%.1f y=%.1f/%.1f/%.1f z=%.1f/%.1f/%.1f\r\n",
+					CFVec3A::m_UnitAxisX.x, CFVec3A::m_UnitAxisX.y, CFVec3A::m_UnitAxisX.z,
+					CFVec3A::m_UnitAxisY.x, CFVec3A::m_UnitAxisY.y, CFVec3A::m_UnitAxisY.z,
+					CFVec3A::m_UnitAxisZ.x, CFVec3A::m_UnitAxisZ.y, CFVec3A::m_UnitAxisZ.z );
+			}
+			if( FXfm_pView != NULL ) {
+				const CFMtx43A &m = FXfm_pView->m_MtxF;
+				DEVPRINTF( "[ma] viewFull16 %.1f/%.1f/%.1f/%.1f %.1f/%.1f/%.1f/%.1f %.1f/%.1f/%.1f/%.1f %.1f/%.1f/%.1f/%.1f\r\n",
+					m.aa[0][0], m.aa[0][1], m.aa[0][2], m.aa[0][3],
+					m.aa[1][0], m.aa[1][1], m.aa[1][2], m.aa[1][3],
+					m.aa[2][0], m.aa[2][1], m.aa[2][2], m.aa[2][3],
+					m.aa[3][0], m.aa[3][1], m.aa[3][2], m.aa[3][3] );
+				DEVPRINTF( "[ma] viewR    r=%.1f/%.1f/%.1f u=%.1f/%.1f/%.1f f=%.1f/%.1f/%.1f p=%.1f/%.1f/%.1f scaleF=%.3f scaleR=%.3f\r\n",
+					FXfm_pView->m_MtxR.aa[0][0], FXfm_pView->m_MtxR.aa[0][1], FXfm_pView->m_MtxR.aa[0][2],
+					FXfm_pView->m_MtxR.aa[1][0], FXfm_pView->m_MtxR.aa[1][1], FXfm_pView->m_MtxR.aa[1][2],
+					FXfm_pView->m_MtxR.aa[2][0], FXfm_pView->m_MtxR.aa[2][1], FXfm_pView->m_MtxR.aa[2][2],
+					FXfm_pView->m_MtxR.aa[3][0], FXfm_pView->m_MtxR.aa[3][1], FXfm_pView->m_MtxR.aa[3][2],
+					FXfm_pView->m_fScaleF, FXfm_pView->m_fScaleR );
+			}
+			if( FXfm_pModel != NULL ) {
+				const CFMtx43A &m = FXfm_pModel->m_MtxF;
+				DEVPRINTF( "[ma] modelFull16 %.1f/%.1f/%.1f/%.1f %.1f/%.1f/%.1f/%.1f %.1f/%.1f/%.1f/%.1f %.1f/%.1f/%.1f/%.1f\r\n",
+					m.aa[0][0], m.aa[0][1], m.aa[0][2], m.aa[0][3],
+					m.aa[1][0], m.aa[1][1], m.aa[1][2], m.aa[1][3],
+					m.aa[2][0], m.aa[2][1], m.aa[2][2], m.aa[2][3],
+					m.aa[3][0], m.aa[3][1], m.aa[3][2], m.aa[3][3] );
+				DEVPRINTF( "[ma] modelR   r=%.1f/%.1f/%.1f u=%.1f/%.1f/%.1f f=%.1f/%.1f/%.1f p=%.1f/%.1f/%.1f scaleF=%.3f scaleR=%.3f\r\n",
+					FXfm_pModel->m_MtxR.aa[0][0], FXfm_pModel->m_MtxR.aa[0][1], FXfm_pModel->m_MtxR.aa[0][2],
+					FXfm_pModel->m_MtxR.aa[1][0], FXfm_pModel->m_MtxR.aa[1][1], FXfm_pModel->m_MtxR.aa[1][2],
+					FXfm_pModel->m_MtxR.aa[2][0], FXfm_pModel->m_MtxR.aa[2][1], FXfm_pModel->m_MtxR.aa[2][2],
+					FXfm_pModel->m_MtxR.aa[3][0], FXfm_pModel->m_MtxR.aa[3][1], FXfm_pModel->m_MtxR.aa[3][2],
+					FXfm_pModel->m_fScaleF, FXfm_pModel->m_fScaleR );
+			}
+		}
+		if( FXfm_pView != NULL ) {
+			const CFMtx43A &m = FXfm_pView->m_MtxF;
+			nLen += sprintf( szLine + nLen,
+				" viewXF r=%.2f,%.2f,%.2f u=%.2f,%.2f,%.2f f=%.2f,%.2f,%.2f p=%.2f,%.2f,%.2f",
+				m.aa[0][0], m.aa[0][1], m.aa[0][2],
+				m.aa[1][0], m.aa[1][1], m.aa[1][2],
+				m.aa[2][0], m.aa[2][1], m.aa[2][2],
+				m.aa[3][0], m.aa[3][1], m.aa[3][2] );
+		}
+		if( FXfm_pModel != NULL ) {
+			const CFMtx43A &m = FXfm_pModel->m_MtxF;
+			nLen += sprintf( szLine + nLen,
+				" modelXF r=%.2f,%.2f,%.2f u=%.2f,%.2f,%.2f f=%.2f,%.2f,%.2f p=%.2f,%.2f,%.2f",
+				m.aa[0][0], m.aa[0][1], m.aa[0][2],
+				m.aa[1][0], m.aa[1][1], m.aa[1][2],
+				m.aa[2][0], m.aa[2][1], m.aa[2][2],
+				m.aa[3][0], m.aa[3][1], m.aa[3][2] );
+		}
+		nLen += sprintf( szLine + nLen,
+			" viewFULL=%.3f/%.3f/%.3f/%.3f %.3f/%.3f/%.3f/%.3f %.3f/%.3f/%.3f/%.3f %.3f/%.3f/%.3f/%.3f",
+			MtxView._11, MtxView._12, MtxView._13, MtxView._14,
+			MtxView._21, MtxView._22, MtxView._23, MtxView._24,
+			MtxView._31, MtxView._32, MtxView._33, MtxView._34,
+			MtxView._41, MtxView._42, MtxView._43, MtxView._44 );
+
 		DEVPRINTF( "%s\r\n", szLine );
 		return TRUE;
 	}

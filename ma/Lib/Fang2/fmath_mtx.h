@@ -57,6 +57,33 @@ class CFMtx44A;
 
 
 //--------------------------------------------------------------------
+// Matrix row aliases.
+//
+// GCC rejects an anonymous struct whose members have constructors
+// ("member 'X' with constructor not allowed in anonymous aggregate"), which
+// is how MSVC spelled these four rows out.  Unwrapping them into the union
+// instead -- what the original GCC port did -- puts all four at offset 0, so
+// every row aliases the first one: Identity() copies row0 into all four, the
+// view and world matrices collapse to zero, and every triangle comes out with
+// zero area.  Storing the rows as one array keeps them at 0/16/32/48 and
+// these aliases restore the original member names exactly.
+//
+// Defined before the classes because their ChangeEndian() methods use these
+// names; lazy expansion means m_vRows does not need to exist yet.  Nothing
+// outside the matrix types may declare a member with one of these names.
+//--------------------------------------------------------------------
+#define m_vX		m_vRows[0]
+#define m_vY		m_vRows[1]
+#define m_vZ		m_vRows[2]
+#define m_vP		m_vRows[3]
+#define m_vRight	m_vRows[0]
+#define m_vUp		m_vRows[1]
+#define m_vFront	m_vRows[2]
+#define m_vPos		m_vRows[3]
+
+
+
+//--------------------------------------------------------------------
 // CFMtx33 Definition:
 //--------------------------------------------------------------------
 class CFMtx33 {
@@ -64,8 +91,7 @@ public:
 	union {
 		f32 a[9];
 		f32 aa[3][3];
-		CFVec3 m_vX, m_vY, m_vZ;
-		CFVec3 m_vRight, m_vUp, m_vFront;
+		struct { CFVec3 m_vRows[3]; };
 	};
 
 	static const CFMtx33 m_IdentityMtx;
@@ -129,8 +155,7 @@ public:
 		f32 a[12];
 		f32 aa[4][3];
 		CFMtx33 m33;
-		CFVec3 m_vX, m_vY, m_vZ;
-		CFVec3 m_vRight, m_vUp, m_vFront, m_vPos;
+		struct { CFVec3 m_vRows[4]; };
 	};
 
 	static const CFMtx43 m_IdentityMtx;
@@ -206,8 +231,7 @@ public:
 	union {
 		f32 a[16];
 		f32 aa[4][4];
-		CFVec4 m_vX, m_vY, m_vZ;
-		CFVec4 m_vRight, m_vUp, m_vFront, m_vPos;
+		struct { CFVec4 m_vRows[4]; };
 	};
 
 	static const CFMtx44 m_IdentityMtx;
@@ -269,8 +293,7 @@ public:
 FCLASS_ALIGN_PREFIX class CFMtx44A {
 public:
 	union {
-		CFVec4A m_vX, m_vY, m_vZ, m_vP;
-		CFVec4A m_vRight, m_vUp, m_vFront, m_vPos;
+		struct { CFVec4A m_vRows[4]; };
 		CFMtx44 m44;
 		f32 a[16];
 		f32 aa[4][4];
@@ -366,8 +389,7 @@ public:
 FCLASS_ALIGN_PREFIX class CFMtx43A {
 public:
 	union {
-		CFVec3A m_vX, m_vY, m_vZ, m_vP;
-		CFVec3A m_vRight, m_vUp, m_vFront, m_vPos;
+		struct { CFVec3A m_vRows[4]; };
 		CFMtx44 m44;
 		CFMtx44A m44a;		// (careful using this because bottom row of CFMtx43A[0-3][3] MUST always be 0)
 		f32 a[16];

@@ -203,7 +203,7 @@ void CSplat::AddSplat( u32 uType, f32 fSize, const CFVec3A &rvPos, const CFVec3A
 	}
 
 	pSplat->m_uTime		= FLoop_nTotalLoopTicks;
-	pSplat->m_vPos		= rvPos.v3;
+	pSplat->m_vSplatPos		= rvPos.v3;
 	pSplat->m_bActive	= TRUE;
 	
 	m_bSystemActive		= TRUE;
@@ -320,7 +320,7 @@ CSplat::CSplat() {
 	m_aVtx		= NULL;
 	m_fSize		= 1.0f;
 	m_uTime		= 0;	
-	m_vPos.Zero();
+	m_vSplatPos.Zero();
 }
 
 
@@ -333,7 +333,7 @@ BOOL CSplat::_IsOffscreen( void ) {
 
 	//check vs. viewing frustrum
 	CFSphere sphTemp;
-	sphTemp.m_Pos		= m_vPos;
+	sphTemp.m_Pos		= m_vSplatPos;
 	sphTemp.m_fRadius	= m_fSize * 0.5f;
 	if( fviewport_TestSphere_WS( CPlayer::m_pCurrent->m_pViewportPersp3D, &sphTemp, FVIEWPORT_PLANESMASK_ALL ) != -1 ) {
 		// in current frustrum
