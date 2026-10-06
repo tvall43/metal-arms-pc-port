@@ -797,7 +797,11 @@ void CFWorldTracker::DeleteAllFlagedTrackers( void )
 
 	while( pWorldTracker = GetLastTrackerDel() ) 
 	{
-		FASSERT( pWorldTracker->IsAutoDelFlagSet() );
+		if( !pWorldTracker->IsAutoDelFlagSet() )
+		{
+			DEVPRINTF( "CFWorldTracker::DeleteAllFlagedTrackers(): tracker %p (type %d) is in the delete list without the auto-delete flag; %u entries left.\n", pWorldTracker, (int)pWorldTracker->GetType(), GetTrackerDelCount() );
+			break;
+		}
 		fdelete( pWorldTracker );
 	}
 }
