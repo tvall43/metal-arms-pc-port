@@ -765,10 +765,12 @@ static BOOL _GameInit( void *pParameter ) {
 		// Trouble initializing a game system...
 		do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 	}
+	gamecam_DiagSnapshot( "after _InitGameSystems" );
 
 	if( !CDifficulty::LoadData() ) {
 		DEVPRINTF( "CDifficulty::LoadData() could not load difficulty data. There will be no difference between difficulty settings.\n" );
 	}
+	gamecam_DiagSnapshot( "after Difficulty::LoadData" );
 
 #if !LAUNCHER_GO_DIRECTLY_TO_E3_WRAPPERS
 	// This is not an E3 or demo version, we can install the fstorage system
@@ -798,6 +800,8 @@ static BOOL _GameInit( void *pParameter ) {
 		fstorage_UpdateDeviceInfos( &uConnected, &uInserted, &uRemoved );
 	}
 #endif
+
+	gamecam_DiagSnapshot( "after fstorage_Install" );
 
 	#if !FANG_PRODUCTION_BUILD
 		_SetupScreenSafeAreaVtxs();
@@ -832,6 +836,7 @@ static BOOL _GameInit( void *pParameter ) {
 			do { DEVPRINTF( "[ma] _GameInit: FAILED at gameloop.cpp:%d\n", __LINE__ ); goto _ExitGameInitWithError; } while(0);
 		}
 	}
+	gamecam_DiagSnapshot( "after launcher" );
 
 	#if( SAS_ACTIVE_USER == SAS_USER_STEVE )
 		bInitReturnValue = 	user_steve_PrelevelInit();
@@ -1207,6 +1212,7 @@ static BOOL _InitGameSystems( void ) {
 			// Return back error...
 			return FALSE;
 		}
+		gamecam_DiagSnapshot( _aSystemFunctionArray[i].pszSysName );
 	}
 
 

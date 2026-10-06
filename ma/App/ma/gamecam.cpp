@@ -270,6 +270,7 @@ BOOL gamecam_InitSystem( void ) {
 
 	// release our fmem frame so that the temp csv file is unloaded
 	fmem_ReleaseFrame( hMemFrame );
+	gamecam_DiagSnapshot( "after fmem release" );
 
 	return TRUE;
 
@@ -328,9 +329,11 @@ void gamecam_UninitSystem( void ) {
 	CCamBot::UninitSystem();
 }
 
+extern BOOL game_IsInitialized( void );
+
 void gamecam_DiagSnapshot( cchar *pszWhere ) {
-	DEVPRINTF( "[ma] TEMP gamecam %s: initOK=%d man=%p bot=%p simple=%p cut=%p\n",
-		pszWhere, (int)_bInitOK, _paManualCameramen, _paBotCameramen, _paSimpleCameramen, _paCutsceneCameramen );
+	DEVPRINTF( "[ma] TEMP gamecam %s: initOK=%d game=%d man=%p bot=%p simple=%p cut=%p\n",
+		pszWhere, (int)_bInitOK, (int)game_IsInitialized(), _paManualCameramen, _paBotCameramen, _paSimpleCameramen, _paCutsceneCameramen );
 }
 
 // Call after each level has been loaded.  This function will scan the loaded
