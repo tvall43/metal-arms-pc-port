@@ -122,7 +122,6 @@ target_link_libraries(fang2win PUBLIC
   dinput8             # pad
   dsound              # sound
   winmm               # timers
-  msacm32             # adpcm decode (fdx8audio.cpp)
   dxguid
   uuid
   gdi32

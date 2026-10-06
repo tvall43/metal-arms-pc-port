@@ -30,7 +30,6 @@
 
 #include <dsound.h>
 #include <mmreg.h>
-#include <msacm.h>
 #include <math.h>
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -261,12 +260,6 @@ static BOOL _bSkipEmittersListenersWorkDelay;
 static u32 _uTimeStamp;
 static s32 _anVolumes[ _UNIQUE_VOLUME_LEVELS ]; // Optimization.
 
-// Codec.
-static HINSTANCE _ohCodecInstance;
-static ACMDRIVERPROC _oCodecDriverProc;
-static HACMDRIVERID _ohCodecDriverID;
-static HACMDRIVER _ohCodecDriver;
-
 // Temp.
 static CFVec3A _oTempVec3A, _oTempVec3A_Velocity;
 static CFSphere _oTempSphere;
@@ -329,47 +322,12 @@ FAudio_Error_e faudio_Install( const FAudio_Init_t *poInit )
 	FASSERT_MSG( poInit->DX8ONLY_ohWnd,                                                                            "[ FAUDIO ] Error: Invalid DX8ONLY_ohWnd !!!" );
 	FASSERT_MSG( poInit->DX8ONLY_ohInstance,                                                                       "[ FAUDIO ] Error: Invalid DX8ONLY_ohInstance !!!" );
 
-	////
-	//
-	_ohCodecInstance = LoadLibraryA( "xbadpcm.acm" );
-	if( ! _ohCodecInstance )
-	{
-		DEVPRINTF( "[ FAUDIO ] Error %u: LoadLibrary() failed !!!\n", __LINE__ );
-		return FAUDIO_ERROR;
-	}
-
-	_oCodecDriverProc = (ACMDRIVERPROC)GetProcAddress( _ohCodecInstance, "DriverProc" );
-	if( ! _oCodecDriverProc )
-	{
-		DEVPRINTF( "[ FAUDIO ] Error %u: GetProcAddress() failed !!!\n", __LINE__ );
-		FreeLibrary( _ohCodecInstance );
-		return FAUDIO_ERROR;
-	}
-
-	if( 0 != acmDriverAdd( &_ohCodecDriverID, _ohCodecInstance, (LPARAM)_oCodecDriverProc, 0, ( ACM_DRIVERADDF_FUNCTION | ACM_DRIVERADDF_LOCAL ) ) )
-	{
-		DEVPRINTF( "[ FAUDIO ] Error %u: acmDriverAdd() failed !!!\n", __LINE__ );
-		FreeLibrary( _ohCodecInstance );
-		return FAUDIO_ERROR;
-	}
-
-	if( 0 != acmDriverOpen( &_ohCodecDriver, _ohCodecDriverID, 0 ) )
-	{
-		DEVPRINTF( "[ FAUDIO ] Error %u: acmDriverOpen() failed !!!\n", __LINE__ );
-		acmDriverRemove( _ohCodecDriverID, 0 );
-		FreeLibrary( _ohCodecInstance );
-		return FAUDIO_ERROR;
-	}
-	//
-	////
 
 	////
 	//
 	if( FAILED( DirectSoundCreate8( NULL, &_poDS, NULL ) ) )
 	{
 		DEVPRINTF( "[ FAUDIO ] Error %u: DirectSoundCreate8() failed !!!\n", __LINE__ );
-		acmDriverRemove( _ohCodecDriverID, 0 );
-		FreeLibrary( _ohCodecInstance );
 		return FAUDIO_ERROR;
 	}
 
@@ -377,8 +335,6 @@ FAudio_Error_e faudio_Install( const FAudio_Init_t *poInit )
 	{
 		DEVPRINTF( "[ FAUDIO ] Error %u: SetCooperativeLevel() failed !!!\n", __LINE__ );
 		FDX8_SAFE_RELEASE( _poDS );
-		acmDriverRemove( _ohCodecDriverID, 0 );
-		FreeLibrary( _ohCodecInstance );
 		return FAUDIO_ERROR;
 	}
 
@@ -443,8 +399,6 @@ FAudio_Error_e faudio_Install( const FAudio_Init_t *poInit )
 			DEVPRINTF( "[ FAUDIO ] Error %u: fresload_RegisterHandler() failed !!!\n", __LINE__ );
 			FDX8_SAFE_RELEASE( _poDSRealListener );
 			FDX8_SAFE_RELEASE( _poDS );
-			acmDriverRemove( _ohCodecDriverID, 0 );
-			FreeLibrary( _ohCodecInstance );
 			return FAUDIO_ERROR;
 		}
 	}
@@ -541,8 +495,6 @@ FAudio_Error_e faudio_Install( const FAudio_Init_t *poInit )
 		DEVPRINTF( "[ FAUDIO ] Error %u: fres_AllocAndZero() failed !!!\n", __LINE__ );
 		FDX8_SAFE_RELEASE( _poDSRealListener );
 		FDX8_SAFE_RELEASE( _poDS );
-		acmDriverRemove( _ohCodecDriverID, 0 );
-		FreeLibrary( _ohCodecInstance );
 		fres_ReleaseFrame( oResFrame );
 		return FAUDIO_ERROR;
 	}
@@ -621,8 +573,6 @@ FAudio_Error_e faudio_Install( const FAudio_Init_t *poInit )
 
 		FDX8_SAFE_RELEASE( _poDSRealListener );
 		FDX8_SAFE_RELEASE( _poDS );
-		acmDriverRemove( _ohCodecDriverID, 0 );
-		FreeLibrary( _ohCodecInstance );
 		fres_ReleaseFrame( oResFrame );
 
 		return FAUDIO_ERROR;
@@ -848,12 +798,138 @@ void faudio_Uninstall( void )
 	//
 	////
 
-	acmDriverRemove( _ohCodecDriverID, 0 );
-	FreeLibrary( _ohCodecInstance );
 
 	FAudio_bModuleInstalled = FALSE;
 
 } // faudio_Uninstall
+
+static const s16 _asnXAdpcmStepTable[89] = {
+	7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
+	19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
+	50, 55, 60, 66, 73, 80, 88, 97, 107, 118,
+	130, 143, 157, 173, 190, 209, 230, 253, 279, 307,
+	337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
+	876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066,
+	2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358,
+	5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899,
+	15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
+};
+static const s8 _anXAdpcmIndexTable[16] = { -1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8 };
+
+static u32 _xadpcm_DecodedSize( const FDX8Data_WaveFormatEx_t *poFormat, u32 uSourceBytes )
+{
+	if( FDX8DATA_WAVEFORMATEX_ID_PCM == poFormat->WaveFormatEx.wFormatTag )
+	{
+		return( uSourceBytes );
+	}
+
+	if( FDX8DATA_WAVEFORMATEX_ID_XBOX_ADPCM == poFormat->WaveFormatEx.wFormatTag )
+	{
+		u32 uBlocks;
+
+		if( ( 0 == poFormat->WaveFormatEx.nBlockAlign ) ||
+			( 0 == poFormat->nSamplesPerBlock ) ||
+			( 0 == poFormat->WaveFormatEx.nChannels ) ||
+			( 2 < poFormat->WaveFormatEx.nChannels ) ||
+			( poFormat->WaveFormatEx.nBlockAlign < ( 4 * poFormat->WaveFormatEx.nChannels ) ) )
+		{
+			return( 0 );
+		}
+
+		uBlocks = ( uSourceBytes + poFormat->WaveFormatEx.nBlockAlign - 1 ) / poFormat->WaveFormatEx.nBlockAlign;
+		return( uBlocks * poFormat->nSamplesPerBlock * poFormat->WaveFormatEx.nChannels * sizeof( s16 ) );
+	}
+
+	return( 0 );
+}
+
+static BOOL _xadpcm_DecodeWave( const FDX8Data_WaveFormatEx_t *poFormat, const u8 *pbySource, u32 uSourceBytes, void *pDestination )
+{
+	u32 uChannels, uBlockAlign, uSamplesPerBlock, uGroups, uBlocks, uBlock, uChannel, uGroup, uByte, uNibble, uSample;
+	s16 *psDestination;
+	s32 anPredictor[2], anStepIndex[2], nPredictor, nStepIndex, nNibble, nDelta, nStep, nDiff;
+
+	uChannels        = poFormat->WaveFormatEx.nChannels;
+	uBlockAlign      = poFormat->WaveFormatEx.nBlockAlign;
+	uSamplesPerBlock = poFormat->nSamplesPerBlock;
+
+	if( FDX8DATA_WAVEFORMATEX_ID_PCM == poFormat->WaveFormatEx.wFormatTag )
+	{
+		fang_MemCopy( pDestination, pbySource, uSourceBytes );
+		return( TRUE );
+	}
+
+	if( ( FDX8DATA_WAVEFORMATEX_ID_XBOX_ADPCM != poFormat->WaveFormatEx.wFormatTag ) ||
+		( 0 == uBlockAlign ) ||
+		( 0 == uSamplesPerBlock ) ||
+		( 0 == uChannels ) ||
+		( 2 < uChannels ) ||
+		( uBlockAlign < ( 4 * uChannels ) ) )
+	{
+		return( FALSE );
+	}
+
+	uGroups       = ( uBlockAlign - ( 4 * uChannels ) ) / ( 4 * uChannels );
+	uBlocks       = ( uSourceBytes + uBlockAlign - 1 ) / uBlockAlign;
+	psDestination = (s16 *)pDestination;
+
+	for( uBlock = 0; uBlock < uBlocks; ++uBlock )
+	{
+		const u8 *pbyBlock = pbySource + ( uBlock * uBlockAlign );
+
+		for( uChannel = 0; uChannel < uChannels; ++uChannel )
+		{
+			anPredictor[ uChannel ] = (s32)(s16)( pbyBlock[0] | ( pbyBlock[1] << 8 ) );
+			anStepIndex[ uChannel ] = (s32)(s16)( pbyBlock[2] | ( pbyBlock[3] << 8 ) );
+			if( ( anStepIndex[ uChannel ] < 0 ) || ( 88 < anStepIndex[ uChannel ] ) )
+			{
+				return( FALSE );
+			}
+			psDestination[ uChannel ] = (s16)anPredictor[ uChannel ];
+			pbyBlock += 4;
+		}
+
+		for( uGroup = 0; uGroup < uGroups; ++uGroup )
+		{
+			for( uChannel = 0; uChannel < uChannels; ++uChannel )
+			{
+				const u8 *pbyChunk = pbyBlock + ( ( uGroup * uChannels + uChannel ) * 4 );
+
+				for( uByte = 0; uByte < 4; ++uByte )
+				{
+					u8 byValue = pbyChunk[ uByte ];
+
+					for( uNibble = 0; uNibble < 2; ++uNibble )
+					{
+						nNibble    = uNibble ? ( (s32)( byValue >> 4 ) ) : ( (s32)( byValue & 0x0F ) );
+						nStep      = _asnXAdpcmStepTable[ anStepIndex[ uChannel ] ];
+						nStepIndex = anStepIndex[ uChannel ] + _anXAdpcmIndexTable[ nNibble ];
+						if( nStepIndex < 0 ) { nStepIndex = 0; }
+						if( nStepIndex > 88 ) { nStepIndex = 88; }
+						nDelta = nNibble & 0x07;
+						nDiff  = ( ( ( 2 * nDelta ) + 1 ) * nStep ) >> 3;
+						if( nNibble & 0x08 ) { nPredictor = anPredictor[ uChannel ] - nDiff; }
+						else                 { nPredictor = anPredictor[ uChannel ] + nDiff; }
+						if( nPredictor > 32767 )  { nPredictor = 32767; }
+						if( nPredictor < -32768 ) { nPredictor = -32768; }
+						anPredictor[ uChannel ] = nPredictor;
+						anStepIndex[ uChannel ] = nStepIndex;
+
+						uSample = 1 + ( uGroup * 8 ) + ( uByte * 2 ) + uNibble;
+						if( uSample < uSamplesPerBlock )
+						{
+							psDestination[ ( uSample * uChannels ) + uChannel ] = (s16)nPredictor;
+						}
+					}
+				}
+			}
+		}
+
+		psDestination += ( uSamplesPerBlock * uChannels );
+	}
+
+	return( TRUE );
+}
 
 static BOOL _BankLoadCallback( FResHandle_t hRes, void *pLoadedBase, u32 nLoadedBytes, cchar *pszResName )
 {
@@ -912,9 +988,7 @@ static BOOL _BankLoadCallback( FResHandle_t hRes, void *pLoadedBase, u32 nLoaded
 	//
 	FDataWvbFile_Bank_t *poBankDestination;
 	FDataWvbFile_Wave_t *poWaveSource, *poWaveDestination;
-	FDX8Data_WaveFormatEx_t oTempWaveformat, *poWaveformatSource, *poWaveformatDestination;
-	HACMSTREAM ohCodecStream;
-	ACMSTREAMHEADER oCodecStreamHeader;
+	FDX8Data_WaveFormatEx_t *poWaveformatSource, *poWaveformatDestination;
 	u32 uIndex, uSize, uTotalSize;
 
 	uTotalSize         = ( sizeof( FDataWvbFile_Bank_t ) + ( poBankSource->uWaves * ( sizeof( FDataWvbFile_Wave_t ) + sizeof( FDX8Data_WaveFormatEx_t ) ) ) );
@@ -923,32 +997,14 @@ static BOOL _BankLoadCallback( FResHandle_t hRes, void *pLoadedBase, u32 nLoaded
 
 	for( uIndex = 0; uIndex < poBankSource->uWaves; ++uIndex, ++poWaveSource, ++poWaveformatSource )
 	{
-		oTempWaveformat                             = *poWaveformatSource;
-		oTempWaveformat.WaveFormatEx.wFormatTag     = FDX8DATA_WAVEFORMATEX_ID_PCM;
-		oTempWaveformat.WaveFormatEx.wBitsPerSample = 16;
-
-		if( 0 != acmFormatSuggest( _ohCodecDriver, (WAVEFORMATEX *)poWaveformatSource, (WAVEFORMATEX *)&oTempWaveformat, sizeof( oTempWaveformat ), ( ACM_FORMATSUGGESTF_NCHANNELS | ACM_FORMATSUGGESTF_NSAMPLESPERSEC | ACM_FORMATSUGGESTF_WBITSPERSAMPLE | ACM_FORMATSUGGESTF_WFORMATTAG ) ) )
+		uSize = _xadpcm_DecodedSize( poWaveformatSource, poWaveSource->uLength );
+		if( 0 == uSize )
 		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmFormatSuggest() !!!\n", __LINE__ );
-			return FALSE;
-		}
-
-		if( 0 != acmStreamOpen( &ohCodecStream, _ohCodecDriver, (WAVEFORMATEX *)poWaveformatSource, (WAVEFORMATEX *)&oTempWaveformat, NULL, NULL, NULL, ACM_STREAMOPENF_NONREALTIME ) )
-		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmStreamOpen() !!!\n", __LINE__ );
-			return FALSE;
-		}
-
-		uSize = 0;
-		if( 0 != acmStreamSize( ohCodecStream, poWaveSource->uLength, (unsigned long *)&uSize, ACM_STREAMSIZEF_SOURCE ) )
-		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmStreamSize() !!!\n", __LINE__ );
-			acmDriverClose( _ohCodecDriver, 0 );
+			DEVPRINTF( "[ FAUDIO ] Error %u: unsupported wave format 0x%X in bank '%s' !!!\n", __LINE__, poWaveformatSource->WaveFormatEx.wFormatTag, pszResName );
 			return FALSE;
 		}
 
 		uTotalSize += uSize;
-		acmDriverClose( _ohCodecDriver, 0 );
 	}
 	//
 	////
@@ -980,27 +1036,17 @@ static BOOL _BankLoadCallback( FResHandle_t hRes, void *pLoadedBase, u32 nLoaded
 
 	for( uIndex = 0; uIndex < poBankSource->uWaves; ++uIndex, ++poWaveSource, ++poWaveDestination, ++poWaveformatSource, ++poWaveformatDestination )
 	{
-		*poWaveformatDestination                             = *poWaveformatSource;
-		poWaveformatDestination->WaveFormatEx.wFormatTag     = FDX8DATA_WAVEFORMATEX_ID_PCM;
-		poWaveformatDestination->WaveFormatEx.wBitsPerSample = 16;
+		*poWaveformatDestination                              = *poWaveformatSource;
+		poWaveformatDestination->WaveFormatEx.wFormatTag      = FDX8DATA_WAVEFORMATEX_ID_PCM;
+		poWaveformatDestination->WaveFormatEx.wBitsPerSample  = 16;
+		poWaveformatDestination->WaveFormatEx.nBlockAlign     = (u16)( poWaveformatSource->WaveFormatEx.nChannels * 2 );
+		poWaveformatDestination->WaveFormatEx.nAvgBytesPerSec = poWaveformatSource->WaveFormatEx.nSamplesPerSec * poWaveformatDestination->WaveFormatEx.nBlockAlign;
+		poWaveformatDestination->WaveFormatEx.cbSize          = 0;
 
-		if( 0 != acmFormatSuggest( _ohCodecDriver, (WAVEFORMATEX *)poWaveformatSource, (WAVEFORMATEX *)poWaveformatDestination, sizeof( FDX8Data_WaveFormatEx_t ), ( ACM_FORMATSUGGESTF_NCHANNELS | ACM_FORMATSUGGESTF_NSAMPLESPERSEC | ACM_FORMATSUGGESTF_WBITSPERSAMPLE | ACM_FORMATSUGGESTF_WFORMATTAG ) ) )
+		uSize = _xadpcm_DecodedSize( poWaveformatSource, poWaveSource->uLength );
+		if( 0 == uSize )
 		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmFormatSuggest() !!!\n", __LINE__ );
-			return FALSE;
-		}
-
-		if( 0 != acmStreamOpen( &ohCodecStream, _ohCodecDriver, (WAVEFORMATEX *)poWaveformatSource, (WAVEFORMATEX *)poWaveformatDestination, NULL, NULL, NULL, ACM_STREAMOPENF_NONREALTIME ) )
-		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmStreamOpen() !!!\n", __LINE__ );
-			return FALSE;
-		}
-
-		uSize = 0;
-		if( 0 != acmStreamSize( ohCodecStream, poWaveSource->uLength, (unsigned long *)&uSize, ACM_STREAMSIZEF_SOURCE ) )
-		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmStreamSize() !!!\n", __LINE__ );
-			acmDriverClose( _ohCodecDriver, 0 );
+			DEVPRINTF( "[ FAUDIO ] Error %u: unsupported wave format 0x%X in bank '%s' !!!\n", __LINE__, poWaveformatSource->WaveFormatEx.wFormatTag, pszResName );
 			return FALSE;
 		}
 
@@ -1015,36 +1061,14 @@ static BOOL _BankLoadCallback( FResHandle_t hRes, void *pLoadedBase, u32 nLoaded
 			poWaveDestination->uOffset = 0;
 		}
 
-		fang_MemZero( &oCodecStreamHeader, sizeof( oCodecStreamHeader ) );
-		oCodecStreamHeader.cbStruct    = sizeof( oCodecStreamHeader );
-		oCodecStreamHeader.pbSrc       = (unsigned char *)( (u32)poBankSource->pData + uFormatDataSize + poWaveSource->uOffset );
-		oCodecStreamHeader.cbSrcLength = poWaveSource->uLength;
-		oCodecStreamHeader.pbDst       = (unsigned char *)( (u32)poBankDestination->pData + uFormatDataSize + poWaveDestination->uOffset );
-		oCodecStreamHeader.cbDstLength = uSize;
-
-		if( 0 != acmStreamPrepareHeader( ohCodecStream, &oCodecStreamHeader, 0 ) )
+		if( !_xadpcm_DecodeWave( poWaveformatSource,
+									(const u8 *)( (u32)poBankSource->pData + uFormatDataSize + poWaveSource->uOffset ),
+									poWaveSource->uLength,
+									(u8 *)( (u32)poBankDestination->pData + uFormatDataSize + poWaveDestination->uOffset ) ) )
 		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmStreamPrepareHeader() !!!\n", __LINE__ );
-			acmDriverClose( _ohCodecDriver, 0 );
+			DEVPRINTF( "[ FAUDIO ] Error %u: decoding wave '%s' failed !!!\n", __LINE__, poWaveSource->szName );
 			return FALSE;
 		}
-
-		if( 0 != acmStreamConvert( ohCodecStream, &oCodecStreamHeader, ACM_STREAMCONVERTF_START ) )
-		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmStreamConvert() !!!\n", __LINE__ );
-			acmStreamUnprepareHeader( ohCodecStream, &oCodecStreamHeader, 0 );
-			acmDriverClose( _ohCodecDriver, 0 );
-			return FALSE;
-		}
-
-		if( 0 != acmStreamUnprepareHeader( ohCodecStream, &oCodecStreamHeader, 0 ) )
-		{
-			DEVPRINTF( "[ FAUDIO ] Error %u: acmStreamUnprepareHeader() !!!\n", __LINE__ );
-			acmDriverClose( _ohCodecDriver, 0 );
-			return FALSE;
-		}
-
-		acmDriverClose( _ohCodecDriver, 0 );
 	}
 	//
 	////
