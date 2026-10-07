@@ -2544,96 +2544,175 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 
 	for( pnExecPointer=m_ppnBoneMixExecBuf[nBoneIndex]; *pnExecPointer!=EXECCMD_END; pnExecPointer++ ) {
 		switch( *pnExecPointer ) {
-		case EXECCMD_BLEND_LINEAR:
+		case EXECCMD_BLEND_LINEAR: {
 			// Blend the last two things on the stack...
+
+			{
+				static u32 s_nTEMPuf = 0;
+				if( nAnimFrameSrcStackNextFree < 2 && s_nTEMPuf < 100 ) { s_nTEMPuf++; DEVPRINTF( "[ma] TEMP exec underflow: op=LINEAR depth=%u bone=%u mesh=%s\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
 
 			pnExecPointer++;
 			pCombinerMix = &m_pCombinerMixArray[ *pnExecPointer ];
-
-			AnimFrame.ReceiveSlerpOf(
-				pCombinerMix->m_fValue,
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
-			);
-
-			_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-			nAnimFrameSrcStackNextFree--;
+			{
+				static u32 s_nTEMPoo = 0;
+				if( *pnExecPointer >= m_nCombinerMixCount && s_nTEMPoo < 100 ) { s_nTEMPoo++; DEVPRINTF( "[ma] TEMP exec OOB mix: op=LINEAR idx=%u cnt=%u depth=%u bone=%u mesh=%s\n", (u32)*pnExecPointer, m_nCombinerMixCount, nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
+			{
+				f32 fTEMPi0 = 0.0f, fTEMPi1 = 0.0f, fTEMPc = pCombinerMix->m_fValue;
+				if( nAnimFrameSrcStackNextFree >= 2 ) { fTEMPi0 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq(); fTEMPi1 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1].v.MagSq(); }
+				AnimFrame.ReceiveSlerpOf(
+					fTEMPc,
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
+				);
+				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
+				nAnimFrameSrcStackNextFree--;
+				{
+					static u32 s_nTEMPpo = 0;
+					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
+					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=LINEAR depth=%u bone=%u mesh=%s d0=%g d1=%g ctrl=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPc, fTEMPpo ); }
+				}
+			}
 
 			break;
+		}
 
-		case EXECCMD_BLEND_SMOOTH:
+		case EXECCMD_BLEND_SMOOTH: {
 			// Blend the last two things on the stack...
+
+			{
+				static u32 s_nTEMPuf = 0;
+				if( nAnimFrameSrcStackNextFree < 2 && s_nTEMPuf < 100 ) { s_nTEMPuf++; DEVPRINTF( "[ma] TEMP exec underflow: op=SMOOTH depth=%u bone=%u mesh=%s\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
 
 			pnExecPointer++;
 			pCombinerMix = &m_pCombinerMixArray[ *pnExecPointer ];
-
-			AnimFrame.ReceiveSlerpOf(
-				fmath_UnitLinearToSCurve( pCombinerMix->m_fValue ),
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
-			);
-
-			_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-			nAnimFrameSrcStackNextFree--;
+			{
+				static u32 s_nTEMPoo = 0;
+				if( *pnExecPointer >= m_nCombinerMixCount && s_nTEMPoo < 100 ) { s_nTEMPoo++; DEVPRINTF( "[ma] TEMP exec OOB mix: op=SMOOTH idx=%u cnt=%u depth=%u bone=%u mesh=%s\n", (u32)*pnExecPointer, m_nCombinerMixCount, nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
+			{
+				f32 fTEMPi0 = 0.0f, fTEMPi1 = 0.0f, fTEMPc = pCombinerMix->m_fValue;
+				if( nAnimFrameSrcStackNextFree >= 2 ) { fTEMPi0 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq(); fTEMPi1 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1].v.MagSq(); }
+				AnimFrame.ReceiveSlerpOf(
+					fmath_UnitLinearToSCurve( fTEMPc ),
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
+				);
+				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
+				nAnimFrameSrcStackNextFree--;
+				{
+					static u32 s_nTEMPpo = 0;
+					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
+					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=SMOOTH depth=%u bone=%u mesh=%s d0=%g d1=%g ctrl=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPc, fTEMPpo ); }
+				}
+			}
 
 			break;
+		}
 
-		case EXECCMD_SUM:
+		case EXECCMD_SUM: {
 			// Sum the last two things on the stack...
 
-			AnimFrame.Mul(
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
-			);
-
-			_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-			nAnimFrameSrcStackNextFree--;
+			{
+				static u32 s_nTEMPuf = 0;
+				if( nAnimFrameSrcStackNextFree < 2 && s_nTEMPuf < 100 ) { s_nTEMPuf++; DEVPRINTF( "[ma] TEMP exec underflow: op=SUM depth=%u bone=%u mesh=%s\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
+			{
+				f32 fTEMPi0 = 0.0f, fTEMPi1 = 0.0f;
+				if( nAnimFrameSrcStackNextFree >= 2 ) { fTEMPi0 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq(); fTEMPi1 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1].v.MagSq(); }
+				AnimFrame.Mul(
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
+				);
+				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
+				nAnimFrameSrcStackNextFree--;
+				{
+					static u32 s_nTEMPpo = 0;
+					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
+					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=SUM depth=%u bone=%u mesh=%s d0=%g d1=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPpo ); }
+				}
+			}
 
 			break;
+		}
 
-		case EXECCMD_SUM_BLEND:
+		case EXECCMD_SUM_BLEND: {
 			// Perform LERP( fControl, Input0, Input0 + Input1 )...
 
+			{
+				static u32 s_nTEMPuf = 0;
+				if( nAnimFrameSrcStackNextFree < 2 && s_nTEMPuf < 100 ) { s_nTEMPuf++; DEVPRINTF( "[ma] TEMP exec underflow: op=SUM_BLEND depth=%u bone=%u mesh=%s\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
+
 			pnExecPointer++;
 			pCombinerMix = &m_pCombinerMixArray[ *pnExecPointer ];
-
-			AnimFrame2.Mul(
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
-			);
-
-			AnimFrame.ReceiveSlerpOf(
-				pCombinerMix->m_fValue,
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
-				AnimFrame2
-			);
-
-			_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-			nAnimFrameSrcStackNextFree--;
+			{
+				static u32 s_nTEMPoo = 0;
+				if( *pnExecPointer >= m_nCombinerMixCount && s_nTEMPoo < 100 ) { s_nTEMPoo++; DEVPRINTF( "[ma] TEMP exec OOB mix: op=SUM_BLEND idx=%u cnt=%u depth=%u bone=%u mesh=%s\n", (u32)*pnExecPointer, m_nCombinerMixCount, nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
+			{
+				f32 fTEMPi0 = 0.0f, fTEMPi1 = 0.0f, fTEMPc = pCombinerMix->m_fValue;
+				if( nAnimFrameSrcStackNextFree >= 2 ) { fTEMPi0 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq(); fTEMPi1 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1].v.MagSq(); }
+				AnimFrame2.Mul(
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
+				);
+				AnimFrame.ReceiveSlerpOf(
+					fTEMPc,
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
+					AnimFrame2
+				);
+				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
+				nAnimFrameSrcStackNextFree--;
+				{
+					static u32 s_nTEMPpo = 0;
+					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
+					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=SUM_BLEND depth=%u bone=%u mesh=%s d0=%g d1=%g ctrl=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPc, fTEMPpo ); }
+				}
+			}
 
 			break;
+		}
 
-		case EXECCMD_SUM_BLEND_SMOOTH:
+		case EXECCMD_SUM_BLEND_SMOOTH: {
 			// Perform LERP( Smooth(fControl), Input0, Input0 + Input1 )...
 
+			{
+				static u32 s_nTEMPuf = 0;
+				if( nAnimFrameSrcStackNextFree < 2 && s_nTEMPuf < 100 ) { s_nTEMPuf++; DEVPRINTF( "[ma] TEMP exec underflow: op=SUM_BLEND_SMOOTH depth=%u bone=%u mesh=%s\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
+
 			pnExecPointer++;
 			pCombinerMix = &m_pCombinerMixArray[ *pnExecPointer ];
-
-			AnimFrame2.Mul(
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
-			);
-
-			AnimFrame.ReceiveSlerpOf(
-				fmath_UnitLinearToSCurve( pCombinerMix->m_fValue ),
-				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
-				AnimFrame2
-			);
-
-			_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-			nAnimFrameSrcStackNextFree--;
+			{
+				static u32 s_nTEMPoo = 0;
+				if( *pnExecPointer >= m_nCombinerMixCount && s_nTEMPoo < 100 ) { s_nTEMPoo++; DEVPRINTF( "[ma] TEMP exec OOB mix: op=SUM_BLEND_SMOOTH idx=%u cnt=%u depth=%u bone=%u mesh=%s\n", (u32)*pnExecPointer, m_nCombinerMixCount, nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName ); }
+			}
+			{
+				f32 fTEMPi0 = 0.0f, fTEMPi1 = 0.0f, fTEMPc = pCombinerMix->m_fValue;
+				if( nAnimFrameSrcStackNextFree >= 2 ) { fTEMPi0 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq(); fTEMPi1 = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1].v.MagSq(); }
+				AnimFrame2.Mul(
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
+				);
+				AnimFrame.ReceiveSlerpOf(
+					fmath_UnitLinearToSCurve( fTEMPc ),
+					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2],
+					AnimFrame2
+				);
+				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
+				nAnimFrameSrcStackNextFree--;
+				{
+					static u32 s_nTEMPpo = 0;
+					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
+					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=SUM_BLEND_SMOOTH depth=%u bone=%u mesh=%s d0=%g d1=%g ctrl=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPc, fTEMPpo ); }
+				}
+			}
 
 			break;
+		}
 
 		default:
 			// Tap index...
@@ -2732,11 +2811,37 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 				const CFAnimFrame &rTEMPFr = _pAnimFrameResultStack[0];
 				u8 *pnTEMPbuf = m_ppnBoneMixExecBuf[nBoneIndex];
 				u32 nTEMPi;
-				DEVPRINTF( "[ma] TEMP bad dest frame: lerp=%u q=(%g,%g,%g,%g) pos=(%g,%g,%g) scale=%g buf=", (u32)m_nKeyInterpolationMode, rTEMPFr.x, rTEMPFr.y, rTEMPFr.z, rTEMPFr.w, rTEMPFr.m_Pos.x, rTEMPFr.m_Pos.y, rTEMPFr.m_Pos.z, rTEMPFr.m_fScale );
-				for( nTEMPi=0; nTEMPi<16 && pnTEMPbuf[nTEMPi]!=EXECCMD_END; nTEMPi++ ) {
-					DEVPRINTF( "%02X ", pnTEMPbuf[nTEMPi] );
+				DEVPRINTF( "[ma] TEMP bad dest frame: lerp=%u q=(%g,%g,%g,%g) pos=(%g,%g,%g) scale=%g\n", (u32)m_nKeyInterpolationMode, rTEMPFr.x, rTEMPFr.y, rTEMPFr.z, rTEMPFr.w, rTEMPFr.m_Pos.x, rTEMPFr.m_Pos.y, rTEMPFr.m_Pos.z, rTEMPFr.m_fScale );
+				{
+					u32 nTEMPd = 0, nTEMPfl = 0;
+					DEVPRINTF( "[ma] TEMP bad dest raw: " );
+					for( nTEMPi=0; nTEMPi<8; nTEMPi++ ) {
+						DEVPRINTF( "%02X ", pnTEMPbuf[nTEMPi] );
+					}
+					DEVPRINTF( " tapcnt=%u mixcnt=%u walk=", m_nCombinerTapCount, m_nCombinerMixCount );
+					for( nTEMPi=0; nTEMPi<32; nTEMPi++ ) {
+						u8 nTEMPtok = pnTEMPbuf[nTEMPi];
+						if( nTEMPtok == EXECCMD_END ) {
+							break;
+						} else if( nTEMPtok == EXECCMD_BLEND_LINEAR || nTEMPtok == EXECCMD_BLEND_SMOOTH || nTEMPtok == EXECCMD_SUM_BLEND || nTEMPtok == EXECCMD_SUM_BLEND_SMOOTH ) {
+							if( nTEMPd < 2 ) { nTEMPfl |= 1; }
+							nTEMPi++;
+							if( pnTEMPbuf[nTEMPi] == EXECCMD_END ) { nTEMPfl |= 2; break; }
+							if( pnTEMPbuf[nTEMPi] >= m_nCombinerMixCount ) { nTEMPfl |= 4; }
+							nTEMPd--;
+						} else if( nTEMPtok == EXECCMD_SUM ) {
+							if( nTEMPd < 2 ) { nTEMPfl |= 1; }
+							nTEMPd--;
+						} else if( nTEMPtok < m_nCombinerTapCount ) {
+							nTEMPd++;
+						} else {
+							nTEMPfl |= 8;
+							break;
+						}
+					}
+					if( nTEMPi >= 32 ) { nTEMPfl |= 16; }
+					DEVPRINTF( "depth=%u flags=%02X\n", nTEMPd, nTEMPfl );
 				}
-				DEVPRINTF( "\n" );
 				for( nTEMPi=0; nTEMPi<m_nCombinerTapCount; nTEMPi++ ) {
 					CFAnimSource *pTEMPsrc = m_pCombinerTapArray[nTEMPi].m_pAnimSource;
 					u32 nTEMPab = m_pCombinerTapArray[nTEMPi].m_pBoneIndexMeshToAnimTable[nBoneIndex];
