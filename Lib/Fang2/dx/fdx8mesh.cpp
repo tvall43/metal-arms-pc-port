@@ -453,6 +453,41 @@ BOOL CFMeshInst::DrawPrep_P( BOOL bFlushImmediate )
 //
 //
 //
+static void *_s_apTEMPMDKey[192];
+static char _s_acTEMPMDBranch[192];
+static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
+{
+	u32 i;
+	for ( i = 0; i < 192; i++ )
+	{
+		if ( _s_apTEMPMDKey[i] == pKey && _s_acTEMPMDBranch[i] == cBranch ) { return TRUE; }
+	}
+	for ( i = 0; i < 192; i++ )
+	{
+		if ( _s_apTEMPMDKey[i] == NULL ) { _s_apTEMPMDKey[i] = pKey; _s_acTEMPMDBranch[i] = cBranch; return FALSE; }
+	}
+	return TRUE;
+}
+
+static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const char *pName,
+	u32 nClusters, u32 nPartSkip, u32 nLodSkip, u32 nDrawn, u32 nSeg0, u32 nSeg1, u32 nSegSkin,
+	u32 nBoneCount, u32 nPartsMask, u32 nLODIndex, f32 fScale, f32 fM0, f32 fM1, f32 fM2 )
+{
+	DWORD dwShader = 0xFFFFFFFF;
+	DWORD dwBlend = 0xFFFFFFFF;
+	D3DMATRIX Wm;
+	if ( _TEMPMDSeen( pKey, cBranch ) ) { return; }
+	FDX8_pDev->GetVertexShader( &dwShader );
+	FDX8_pDev->GetRenderState( D3DRS_VERTEXBLEND, &dwBlend );
+	memset( &Wm, 0, sizeof(Wm) );
+	FDX8_pDev->GetTransform( D3DTS_WORLDMATRIX(0), &Wm );
+	int nNan = ( fM0 != fM0 || fM1 != fM1 || fM2 != fM2 || Wm._41 != Wm._41 || Wm._44 != Wm._44 ) ? 1 : 0;
+	DEVPRINTF( "[ma] TEMP mdraw %s%c %s clu=%u partskip=%u lodskip=%u drawn=%u seg01sk=%u/%u/%u bone=%u parts=%08x lod=%u scale=%g pos=(%g,%g,%g) sh=0x%08X blend=%u wm=(%g,%g,%g,%g) nan=%d\r\n",
+		pPass, cBranch, pName, nClusters, nPartSkip, nLodSkip, nDrawn, nSeg0, nSeg1, nSegSkin,
+		nBoneCount, nPartsMask, nLODIndex, fScale, fM0, fM1, fM2,
+		(unsigned)dwShader, (unsigned)dwBlend, (float)Wm._41, (float)Wm._42, (float)Wm._43, (float)Wm._44, nNan );
+}
+
 BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMaterial_t *pMaterial, u32 nLODIndex )
 {
 	FASSERT( _bWindowCreated );
@@ -462,6 +497,8 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 	u32 nBoneMtxNum, nStrip;
 	s32 nShadowID;
 	BOOL bFastPass = FALSE;
+	u32 nTEMPClusters = 0, nTEMPPartSkip = 0, nTEMPLodSkip = 0, nTEMPDrawn = 0;
+	u32 nTEMPSeg0 = 0, nTEMPSeg1 = 0, nTEMPSegSkin = 0;
 
 	#if FPERF_ENABLE
 		u32 nPreStripCount = FPerf_nRawStripTriCount;
@@ -517,6 +554,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 
 	if ( !SetupShaderParameters( pMaterial, FSHADERS_PASS_LIGHTING ) )
 	{
+		_TEMPMDLog( "light", 'F', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z );
 		return FALSE;
 	}
 
@@ -552,16 +590,20 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		FDX8MeshCluster_t *pEndCluster = &pCluster[((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->nClusterCount];
 		for ( ;pCluster < pEndCluster; pCluster++ )
 		{
+			nTEMPClusters++;
 			if ( !(m_nDrawnPartsMask & (1 << pCluster->nPartID)) )
 			{
+				nTEMPPartSkip++;
 				continue;
 			}
 
 			if ( pCluster->nLODID != nLODIndex )
 			{
+				nTEMPLodSkip++;
 				continue;
 			}
 
+			nTEMPDrawn++;
 			// Select the appropriate vertex buffer for this cluster
 			BOOL bUseLightmaps = (FSh_shaderType == SHADERTYPE_DIFFUSE || FSh_shaderType == SHADERTYPE_TRANSLUCENCY);
 
@@ -592,6 +634,9 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 				if ( pSeg != &aSeg[pCluster->nSegmentIdx] )
 				{
 					pSeg = &aSeg[pCluster->nSegmentIdx];
+						if ( pSeg->nBoneMtxCount == 0 ) { nTEMPSeg0++; }
+						else if ( pSeg->nBoneMtxCount == 1 ) { nTEMPSeg1++; }
+						else { nTEMPSegSkin++; }
 
 					if ( pSeg->nBoneMtxCount == 0 )
 					{
@@ -721,6 +766,8 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 	FPerf_nMeshTris += nTrisRendered / nTotalPasses;
 #endif
 
+	_TEMPMDLog( "light", nTEMPDrawn ? 'D' : 'Z', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z );
+
 	return bFastPass;
 }
 
@@ -735,6 +782,8 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 
 	CFMtx43A Mtx43A, *pMtx43A;
 	u32 nBoneMtxNum, nStrip;
+	u32 nTEMPClusters = 0, nTEMPPartSkip = 0, nTEMPLodSkip = 0, nTEMPDrawn = 0;
+	u32 nTEMPSeg0 = 0, nTEMPSeg1 = 0, nTEMPSegSkin = 0;
 
 	#if FPERF_ENABLE
 		u32 nPreStripCount = FPerf_nRawStripTriCount;
@@ -770,6 +819,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 
 	if ( !SetupShaderParameters( pMaterial, FSHADERS_PASS_SURFACE ) )
 	{
+		_TEMPMDLog( "surface", 'F', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z );
 		return;
 	}
 
@@ -821,15 +871,19 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 
 	for ( ;pCluster < pEndCluster; pCluster++ )
 	{
+		nTEMPClusters++;
 		if ( !(m_nDrawnPartsMask & (1 << pCluster->nPartID)) )
 		{
+			nTEMPPartSkip++;
 			continue;
 		}
 
 		if ( pCluster->nLODID != nLODIndex )
 		{
+			nTEMPLodSkip++;
 			continue;
 		}
+		nTEMPDrawn++;
 
 		// Select the appropriate vertex buffer for this cluster
 		fdx8vb_Select( &pMeshIS->aVB[ pCluster->nVBIndex ], FALSE, FALSE, TRUE );
@@ -851,6 +905,9 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			if ( pSeg != &aSeg[pCluster->nSegmentIdx] )
 			{
 				pSeg = &aSeg[pCluster->nSegmentIdx];
+					if ( pSeg->nBoneMtxCount == 0 ) { nTEMPSeg0++; }
+					else if ( pSeg->nBoneMtxCount == 1 ) { nTEMPSeg1++; }
+					else { nTEMPSegSkin++; }
 
 				if ( pSeg->nBoneMtxCount == 0 )
 				{
@@ -973,6 +1030,8 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		fsh_TexCoordMtx_ResetList();
 		fsh_TexOverride_ResetList();
 	}
+
+	_TEMPMDLog( "surface", nTEMPDrawn ? 'D' : 'Z', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z );
 
 	#if FPERF_ENABLE
 		FPerf_nTotalTrisSurface += (FPerf_nRawStripTriCount - nPreStripCount) + (FPerf_nRawListTriCount - nPreListCount);
