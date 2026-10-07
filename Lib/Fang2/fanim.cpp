@@ -2567,12 +2567,12 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
 				);
 				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-				nAnimFrameSrcStackNextFree--;
 				{
 					static u32 s_nTEMPpo = 0;
 					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
 					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=LINEAR depth=%u bone=%u mesh=%s d0=%g d1=%g ctrl=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPc, fTEMPpo ); }
 				}
+				nAnimFrameSrcStackNextFree--;
 			}
 
 			break;
@@ -2601,12 +2601,12 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
 				);
 				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-				nAnimFrameSrcStackNextFree--;
 				{
 					static u32 s_nTEMPpo = 0;
 					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
 					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=SMOOTH depth=%u bone=%u mesh=%s d0=%g d1=%g ctrl=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPc, fTEMPpo ); }
 				}
+				nAnimFrameSrcStackNextFree--;
 			}
 
 			break;
@@ -2627,12 +2627,12 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 					_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1]
 				);
 				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-				nAnimFrameSrcStackNextFree--;
 				{
 					static u32 s_nTEMPpo = 0;
 					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
 					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=SUM depth=%u bone=%u mesh=%s d0=%g d1=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPpo ); }
 				}
+				nAnimFrameSrcStackNextFree--;
 			}
 
 			break;
@@ -2665,12 +2665,12 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 					AnimFrame2
 				);
 				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-				nAnimFrameSrcStackNextFree--;
 				{
 					static u32 s_nTEMPpo = 0;
 					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
 					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=SUM_BLEND depth=%u bone=%u mesh=%s d0=%g d1=%g ctrl=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPc, fTEMPpo ); }
 				}
+				nAnimFrameSrcStackNextFree--;
 			}
 
 			break;
@@ -2703,12 +2703,12 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 					AnimFrame2
 				);
 				_pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2] = AnimFrame;
-				nAnimFrameSrcStackNextFree--;
 				{
 					static u32 s_nTEMPpo = 0;
 					f32 fTEMPpo = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-2].v.MagSq();
 					if( ( !(fTEMPpo > 1e-10f) || fTEMPpo > 1e10f ) && s_nTEMPpo < 100 ) { s_nTEMPpo++; DEVPRINTF( "[ma] TEMP exec poison: op=SUM_BLEND_SMOOTH depth=%u bone=%u mesh=%s d0=%g d1=%g ctrl=%g res=%g\n", nAnimFrameSrcStackNextFree, nBoneIndex, m_pMeshInst->m_pMesh->szName, fTEMPi0, fTEMPi1, fTEMPc, fTEMPpo ); }
 				}
+				nAnimFrameSrcStackNextFree--;
 			}
 
 			break;

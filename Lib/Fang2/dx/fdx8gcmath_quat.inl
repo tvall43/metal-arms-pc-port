@@ -107,8 +107,14 @@ FINLINE CFQuatA &CFQuatA::ReceiveNegative( const CFQuatA &rQ ) { v.Mul( rQ.v, FD
 FINLINE CFQuatA &CFQuatA::Negate( void ) { v.Mul( FDX8Math_NegOnesW1 ); return *this; }
 
 FINLINE CFQuatA &CFQuatA::Mul( const CFQuatA &rQ1, const CFQuatA &rQ2 ) {
-	a[3] = rQ1.a[3]*rQ2.a[3] - rQ1.v.v3.Dot( rQ2.v.v3 );
+	// The original SSE asm (fdx8math_quat.inl) reads both operands before
+	// storing the result, so it is safe when this aliases rQ1/rQ2 - MulPoint
+	// depends on that (qResult.Mul(qResult, qConj)). The plain-C rewrite
+	// assigned a[3] first and then read rQ1.a[3] in the vector line, so any
+	// aliased call squared/mixed the w scalars wrongly.
+	f32 fW = rQ1.a[3]*rQ2.a[3] - rQ1.v.v3.Dot( rQ2.v.v3 );
 	v.v3 = rQ1.v.v3.Cross( rQ2.v.v3 ) + rQ2.v.v3*rQ1.a[3] + rQ1.v.v3*rQ2.a[3];
+	a[3] = fW;
 
 	return *this;
 }
@@ -506,31 +512,38 @@ FINLINE CFTQuatA &CFTQuatA::BuildQuat( const CFVec4A &rUnitVecToRotateAbout, con
 }
 
 FINLINE CFTQuatA &CFTQuatA::Mul( const CFTQuatA &rQ1, const CFTQuatA &rQ2 ) {
-	// Was hand-written SSE assembly. Re-expressed with the plain-C
-	// CFQuatA::Mul already in this file for the rotation part; the asm's
-	// 's1*...*Q1'' + p1' tail is the scale-and-translate composition.
-	CFQuatA::Mul( *((const CFQuatA *)this), *((const CFQuatA *)&rQ1) );
-	CFQuatA::Mul( *((const CFQuatA *)this), *((const CFQuatA *)&rQ2) );
+	// Original SSE asm (fdx8math_quat.inl): Q3 = Q1*Q2, p3 = s1*Q1*p2*Q1' + p1,
+	// s3 = s1*s2 - a straight transform composition of rQ1 then rQ2. The
+	// plain-C rewrite used stale *this as the left quaternion operand (a fresh
+	// local collapses to a zero quat, poisoning combiner SUM) and stale *this
+	// pos/scale for the translation.
+	CFQuatA tQ;
+	tQ.Mul( *((const CFQuatA *)&rQ1), *((const CFQuatA *)&rQ2) );
 
-	CFVec3 tScaled = m_Pos * m_fScale;
-	m_Pos = tScaled + (rQ1.m_Pos * rQ2.m_fScale);
-	m_fScale = m_fScale * rQ2.m_fScale;
-
+	CFVec3A tPos, tP2;
+	tP2.v3 = rQ2.m_Pos;
+	rQ1.MulPoint( tPos, tP2 );
+	m_Pos = tPos.v3;
+	m_fScale = rQ1.m_fScale * rQ2.m_fScale;
+	v = tQ.v;
 
 	return *this;
 }
 
 
 FINLINE CFTQuatA &CFTQuatA::Mul( const CFTQuatA &rQ ) {
-	// Was hand-written SSE assembly. Re-expressed with the plain-C
-	// CFQuatA::Mul already in this file for the rotation part; the asm's
-	// 's1*...*Q1'' + p1' tail is the scale-and-translate composition.
-	CFQuatA::Mul( *((const CFQuatA *)this), *((const CFQuatA *)&rQ) );
-
-	CFVec3 tScaled = m_Pos * m_fScale;
-	m_Pos = tScaled + rQ.m_Pos;
+	// Original SSE asm: p1 = s1*Q1*p2*Q1' + p1, s1 = s1*s2, Q1 = Q1*Q2 with
+	// (Q1,p1,s1) = *this. Apply the old quat/scale to rQ's position first,
+	// then update scale and quat.
+	CFVec3A tPos, tP2;
+	tP2.v3 = rQ.m_Pos;
+	MulPoint( tPos, tP2 );
+	m_Pos = tPos.v3;
 	m_fScale = m_fScale * rQ.m_fScale;
 
+	CFQuatA tQ;
+	tQ.Mul( *((const CFQuatA *)this), *((const CFQuatA *)&rQ) );
+	v = tQ.v;
 
 	return *this;
 }
