@@ -1014,6 +1014,14 @@ void fres_Debug_ReleaseFrame( cchar *pszFileName, u32 nLineNum, FResFrame_t Fram
 		return;
 	}
 
+	{
+		static u32 s_nTEMPFresRelease = 0;
+		if( s_nTEMPFresRelease < 4000 ) {
+			s_nTEMPFresRelease++;
+			DEVPRINTF( "[ma] TEMP fres release: frame=%p file=%s line=%u\n", Frame, fclib_FindFileNameInPath( pszFileName ), nLineNum );
+		}
+	}
+
 	nFrameMemAddress = (u32)Frame;
 
 	CFStringTable::ResFrameReleased( (void *)nFrameMemAddress );

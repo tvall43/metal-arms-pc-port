@@ -3062,7 +3062,7 @@ void CEntity::_Compute_ChildMtxAndScale( void ) {
 		}
 	}
 	if( ( 0.0f == m_fScaleToWorld ) || ( m_fScaleToWorld != m_fScaleToWorld ) ) {
-		DEVPRINTF( "[ma] TEMP scale0 childCompute: name=%s parent=%s flags=%08X scaleToParent=%g pMtx=%p pRight=(%g,%g,%g)\n", m_pszName ? m_pszName : "(null)", ( m_pParentEntity && m_pParentEntity->m_pszName ) ? m_pParentEntity->m_pszName : "(null)", m_nEntityFlags, m_fScaleToParent, m_pParentMtxToWorld, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.x : -999.0f, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.y : -999.0f, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.z : -999.0f );
+		DEVPRINTF( "[ma] TEMP scale0 childCompute: name=%s parent=%s flags=%08X scaleToParent=%g pMtx=%p pRight=(%g,%g,%g) parRight=(%g,%g,%g) parScale=%g pRaw=%08X %08X %08X %08X\n", m_pszName ? m_pszName : "(null)", ( m_pParentEntity && m_pParentEntity->m_pszName ) ? m_pParentEntity->m_pszName : "(null)", m_nEntityFlags, m_fScaleToParent, m_pParentMtxToWorld, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.x : -999.0f, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.y : -999.0f, m_pParentMtxToWorld ? m_pParentMtxToWorld->m_vRight.z : -999.0f, m_pParentEntity ? m_pParentEntity->m_MtxToWorld.m_vRight.x : -999.0f, m_pParentEntity ? m_pParentEntity->m_MtxToWorld.m_vRight.y : -999.0f, m_pParentEntity ? m_pParentEntity->m_MtxToWorld.m_vRight.z : -999.0f, m_pParentEntity ? m_pParentEntity->m_fScaleToWorld : -999.0f, m_pParentMtxToWorld ? ( (const u32 *)m_pParentMtxToWorld )[0] : 0, m_pParentMtxToWorld ? ( (const u32 *)m_pParentMtxToWorld )[1] : 0, m_pParentMtxToWorld ? ( (const u32 *)m_pParentMtxToWorld )[2] : 0, m_pParentMtxToWorld ? ( (const u32 *)m_pParentMtxToWorld )[3] : 0 );
 	}
 }
 

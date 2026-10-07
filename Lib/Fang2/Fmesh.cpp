@@ -672,6 +672,8 @@ BOOL CFMeshInst::AllocInstArrays( BOOL bNoMemAlloc )
 			
 			// Make sure that we assigned the same number of matrices as were created
 			FASSERT( nMatrixIdx == m_nCreatedBonesCount );
+
+				DEVPRINTF( "[ma] TEMP palette alloc: inst=%p frame=%p bones=%u created=%u\n", this, (void *)ResFrame, m_pMesh->nBoneCount, m_nCreatedBonesCount );
 		}
 
 		m_nFrameOfLastAnimateLayer = FVid_nFrameCounter - 1;
@@ -1584,6 +1586,15 @@ s32 CFMeshInst::FindBone( cchar *pszBoneName ) const
 void CFMeshInst::AtRestMtxPalette( void )
 {
 	FASSERT( m_pMesh != NULL );
+
+	{
+		f32 fSq = (f32)( m_Xfm.m_MtxF.m_vRight.x * m_Xfm.m_MtxF.m_vRight.x + m_Xfm.m_MtxF.m_vRight.y * m_Xfm.m_MtxF.m_vRight.y + m_Xfm.m_MtxF.m_vRight.z * m_Xfm.m_MtxF.m_vRight.z );
+		static u32 s_nTEMPBadAtRest = 0;
+		if( !( fSq > 1e-20f ) && s_nTEMPBadAtRest < 200 ) {
+			s_nTEMPBadAtRest++;
+			DEVPRINTF( "[ma] TEMP bad atrest input: inst=%p mesh=%s ra=%p magsq=%g\n", this, m_pMesh->szName, __builtin_return_address( 0 ), fSq );
+		}
+	}
 
 	u32 i;
 
