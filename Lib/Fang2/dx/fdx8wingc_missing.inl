@@ -175,9 +175,13 @@ FINLINE CFMtx43A &CFMtx43A::RevMul( const CFMtx43A &rM )
 	const CFMtx43A a = *this;
 	for ( int i = 0; i < 4; i++ ) {
 		for ( int j = 0; j < 4; j++ ) {
-			aa[i][j] = a.aa[i][0]*rM.aa[0][j] + a.aa[i][1]*rM.aa[1][j]
-			        + a.aa[i][2]*rM.aa[2][j] + a.aa[i][3]*rM.aa[3][j];
+			aa[i][j] = a.aa[i][0]*rM.aa[0][j] + a.aa[i][1]*rM.aa[1][j] + a.aa[i][2]*rM.aa[2][j];
 		}
+	}
+	// retail RevMul adds rM's row3 unconditionally (affine); scaling it by
+	// a.aa[3][3]==0 like a full 4x4 product would drop the translation.
+	for ( int j = 0; j < 4; j++ ) {
+		aa[3][j] += rM.aa[3][j];
 	}
 	return *this;
 }

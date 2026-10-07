@@ -399,11 +399,71 @@ FINLINE CFMtx43A &CFMtx43A::Set( const f32 &ff00, const f32 &ff01, const f32 &ff
 	return *this;
 }
 
-FINLINE CFMtx43A &CFMtx43A::Mul( const CFMtx43A &rM1, const CFMtx43A &rM2 ) { m44a.Mul( rM1.m44a, rM2.m44a ); return *this; }
-FINLINE CFMtx43A &CFMtx43A::Mul( const CFMtx43A &rM ) { m44a.m44 *= rM.m44a.m44; return *this; }
+// WINGC builds must reproduce the retail fdx8math_mtx.inl asm: CFMtx43A keeps its
+// 4th column (aa[i][3], aa[3][3]) zero, so a full 4x4 product through
+// CFMtx44::operator* scales the affine +rM1 row3 term by aa[3][3]==0 and silently
+// drops every translation -- bone palettes and world matrices composed to zero.
+FINLINE CFMtx43A &CFMtx43A::Mul( const CFMtx43A &rM1, const CFMtx43A &rM2 ) {
+	f32 t[4][4];
+	int i, j;
+	for ( i = 0; i < 4; i++ ) {
+		for ( j = 0; j < 4; j++ ) {
+			t[i][j] = rM2.aa[i][0]*rM1.aa[0][j] + rM2.aa[i][1]*rM1.aa[1][j] + rM2.aa[i][2]*rM1.aa[2][j];
+		}
+	}
+	for ( j = 0; j < 4; j++ ) { t[3][j] += rM1.aa[3][j]; }
+	for ( i = 0; i < 4; i++ ) { for ( j = 0; j < 4; j++ ) { aa[i][j] = t[i][j]; } }
+	return *this;
+}
 
-FINLINE CFMtx43A &CFMtx43A::Mul33( const CFMtx43A &rM1, const CFMtx43A &rM2 ) { FASSERT_NOW; return *this; }	// TBD
-FINLINE CFMtx43A &CFMtx43A::Mul33( const CFMtx43A &rM ) { FASSERT_NOW; return *this; }	// TBD
+FINLINE CFMtx43A &CFMtx43A::Mul( const CFMtx43A &rM ) {
+	f32 t[4][4];
+	int i, j;
+	for ( i = 0; i < 4; i++ ) {
+		for ( j = 0; j < 4; j++ ) {
+			t[i][j] = rM.aa[i][0]*aa[0][j] + rM.aa[i][1]*aa[1][j] + rM.aa[i][2]*aa[2][j];
+		}
+	}
+	for ( j = 0; j < 4; j++ ) { t[3][j] += aa[3][j]; }
+	for ( i = 0; i < 4; i++ ) { for ( j = 0; j < 4; j++ ) { aa[i][j] = t[i][j]; } }
+	return *this;
+}
+
+FINLINE CFMtx43A &CFMtx43A::Mul33( const CFMtx43A &rM1, const CFMtx43A &rM2 ) {
+	f32 t[3][4];
+	int i, j;
+	for ( i = 0; i < 3; i++ ) {
+		for ( j = 0; j < 4; j++ ) {
+			t[i][j] = rM2.aa[i][0]*rM1.aa[0][j] + rM2.aa[i][1]*rM1.aa[1][j] + rM2.aa[i][2]*rM1.aa[2][j];
+		}
+	}
+	for ( i = 0; i < 3; i++ ) { for ( j = 0; j < 4; j++ ) { aa[i][j] = t[i][j]; } }
+	return *this;
+}
+
+FINLINE CFMtx43A &CFMtx43A::Mul33( const CFMtx43A &rM ) {
+	f32 t[3][4];
+	int i, j;
+	for ( i = 0; i < 3; i++ ) {
+		for ( j = 0; j < 4; j++ ) {
+			t[i][j] = rM.aa[i][0]*aa[0][j] + rM.aa[i][1]*aa[1][j] + rM.aa[i][2]*aa[2][j];
+		}
+	}
+	for ( i = 0; i < 3; i++ ) { for ( j = 0; j < 4; j++ ) { aa[i][j] = t[i][j]; } }
+	return *this;
+}
+
+FINLINE CFMtx43A &CFMtx43A::RevMul33( const CFMtx43A &rM ) {
+	f32 t[3][4];
+	int i, j;
+	for ( i = 0; i < 3; i++ ) {
+		for ( j = 0; j < 4; j++ ) {
+			t[i][j] = aa[i][0]*rM.aa[0][j] + aa[i][1]*rM.aa[1][j] + aa[i][2]*rM.aa[2][j];
+		}
+	}
+	for ( i = 0; i < 3; i++ ) { for ( j = 0; j < 4; j++ ) { aa[i][j] = t[i][j]; } }
+	return *this;
+}
 
 //
 //
@@ -412,7 +472,6 @@ FINLINE CFMtx43A &CFMtx43A::Mul33( const CFMtx43A &rM1, const f32 &fVal )
 	m_vRight.Mul( rM1.m_vRight, fVal );
 	m_vUp.Mul( rM1.m_vUp, fVal );
 	m_vFront.Mul( rM1.m_vFront, fVal );
-	m_vPos.Set( rM1.m_vPos );
 
 	return *this;
 }
