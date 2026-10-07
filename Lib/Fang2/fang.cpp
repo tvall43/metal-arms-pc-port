@@ -743,7 +743,37 @@ void fang_Assert( cchar *pszFile, int nLine, cchar *pszExpr ) {
 	// Also write it to the engine log. The dialog demands a click and cannot be
 	// copied out of a screenshot legibly, whereas the log already carries every
 	// DEVPRINTF through Fang_ConfigDefs.pFang_FcnPrintf.
-	DEVPRINTF( "*** FANG ASSERTION FAILURE ***  %s(%i): %s\n", pszFile, nLine, pszExpr );
+	//
+	// Repeats are throttled: per-frame sites otherwise print hundreds of
+	// thousands of identical lines and drown the log (log_h: 1.6M copies of
+	// one fmath_RandomChance site). First 6 hits per file:line, then quiet.
+	{
+		static struct { cchar *pszFile; int nLine; u32 nCount; } s_aAssertSites[128];
+		static u32 s_nAssertSiteCount = 0;
+		u32 nSite;
+		for ( nSite = 0; nSite < s_nAssertSiteCount; ++nSite ) {
+			if ( s_aAssertSites[nSite].pszFile == pszFile && s_aAssertSites[nSite].nLine == nLine ) {
+				break;
+			}
+		}
+		if ( nSite == s_nAssertSiteCount ) {
+			if ( s_nAssertSiteCount < 128 ) {
+				s_aAssertSites[nSite].pszFile = pszFile;
+				s_aAssertSites[nSite].nLine = nLine;
+				s_aAssertSites[nSite].nCount = 0;
+				++s_nAssertSiteCount;
+			} else {
+				nSite = 0;
+			}
+		}
+		if ( s_aAssertSites[nSite].nCount < 6 ) {
+			DEVPRINTF( "*** FANG ASSERTION FAILURE ***  %s(%i): %s\n", pszFile, nLine, pszExpr );
+			if ( s_aAssertSites[nSite].nCount == 5 ) {
+				DEVPRINTF( "*** further assertions at this site are suppressed ***\n" );
+			}
+		}
+		++s_aAssertSites[nSite].nCount;
+	}
 
 	//
 	// Do not put a modal dialog on screen for every assertion. Assertions are

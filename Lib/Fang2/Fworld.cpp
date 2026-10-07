@@ -1587,11 +1587,24 @@ void CFWorldMesh::UpdateTracker( BOOL bCalcNewVolume/*=TRUE*/ )
 	MoveTracker( BoundSphere_WS, bCalcNewVolume );
 
 	{
-		static u32 s_nTEMPReg = 0;
-		if ( s_nTEMPReg < 200 && ( GetIntersectCount() == 0 || GetCenterpointVolume() == NULL ) )
+		static struct { const void *pKey; u32 nCount; } s_aTEMPRegSeen[128];
+		static u32 s_nTEMPRegSeen = 0;
+		if ( GetIntersectCount() == 0 || GetCenterpointVolume() == NULL )
 		{
-			s_nTEMPReg++;
-			DEVPRINTF( "[ma] TEMP reg %s pos=(%g,%g,%g) inter=%u added=%d\n", m_pMesh ? m_pMesh->szName : "?", BoundSphere_WS.m_Pos.x, BoundSphere_WS.m_Pos.y, BoundSphere_WS.m_Pos.z, GetIntersectCount(), (int)IsAddedToWorld() );
+			const void *pKey = m_pMesh;
+			u32 nIdx;
+			for ( nIdx = 0; nIdx < s_nTEMPRegSeen; ++nIdx ) { if ( s_aTEMPRegSeen[nIdx].pKey == pKey ) { break; } }
+			if ( nIdx == s_nTEMPRegSeen && s_nTEMPRegSeen < 128 )
+			{
+				s_aTEMPRegSeen[nIdx].pKey = pKey;
+				s_aTEMPRegSeen[nIdx].nCount = 0;
+				++s_nTEMPRegSeen;
+			}
+			if ( nIdx < s_nTEMPRegSeen && s_aTEMPRegSeen[nIdx].nCount < 3 )
+			{
+				++s_aTEMPRegSeen[nIdx].nCount;
+				DEVPRINTF( "[ma] TEMP reg %s pos=(%g,%g,%g) inter=%u added=%d\n", m_pMesh ? m_pMesh->szName : "?", BoundSphere_WS.m_Pos.x, BoundSphere_WS.m_Pos.y, BoundSphere_WS.m_Pos.z, GetIntersectCount(), (int)IsAddedToWorld() );
+			}
 		}
 	}
 

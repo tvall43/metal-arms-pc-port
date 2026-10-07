@@ -803,9 +803,6 @@ BOOL fdx8draw_IsStencilModeSupported( FDrawStencilTest_e nStencilTest, FDrawSten
 		u32 i;
 
 		_nDiag++;
-		if( _nDiag > 24 ) {
-			return FALSE;
-		}
 
 		szLine[0] = '\0';
 		nLen = sprintf( szLine, "[ma] draw #%u type=%d start=%u prims=%u srcVtx=%u",
@@ -814,6 +811,28 @@ BOOL fdx8draw_IsStencilModeSupported( FDrawStencilTest_e nStencilTest, FDrawSten
 		if( FAILED( FDX8_pDev->GetVertexShader( &dwFVF ) ) ) {
 			dwFVF = 0xFFFFFFFF;
 		}
+
+		// First 3 draws per vertex format: boot/HUD formats must not starve the
+		// in-game formats (world geometry, skinned models) we need to inspect.
+		{
+			static struct { DWORD dwFVF; u32 nCount; } _aSeenFVF[64];
+			static u32 _nSeenFVF = 0;
+			u32 nIdx;
+			for( nIdx = 0; nIdx < _nSeenFVF; nIdx++ ) {
+				if( _aSeenFVF[nIdx].dwFVF == dwFVF ) break;
+			}
+			if( nIdx == _nSeenFVF ) {
+				if( _nSeenFVF >= 64 ) { return FALSE; }
+				_aSeenFVF[nIdx].dwFVF = dwFVF;
+				_aSeenFVF[nIdx].nCount = 0;
+				_nSeenFVF++;
+			}
+			if( _aSeenFVF[nIdx].nCount >= 3 ) {
+				return FALSE;
+			}
+			_aSeenFVF[nIdx].nCount++;
+		}
+
 		nLen += sprintf( szLine + nLen, " FVF=0x%08X", dwFVF );
 
 		//

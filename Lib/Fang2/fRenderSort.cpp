@@ -1092,10 +1092,29 @@ BOOL _AddDLEntry( _RL_Entry_t *pNewEntry, u32 nLightShaderIdx, u32 nSurfaceShade
 // This function adds a mesh into the display list linklists.  It will
 // divide the object up by materials.
 //
+static void *s_apTEMPSeenKey[128];
+static char s_acTEMPSeenBranch[128];
+static BOOL _TEMPSeen( void *pKey, char cBranch )
+{
+	u32 i;
+	for ( i = 0; i < 128; ++i )
+	{
+		if ( s_apTEMPSeenKey[i] == pKey && s_acTEMPSeenBranch[i] == cBranch ) { return TRUE; }
+	}
+	for ( i = 0; i < 128; ++i )
+	{
+		if ( s_apTEMPSeenKey[i] == NULL ) { s_apTEMPSeenKey[i] = pKey; s_acTEMPSeenBranch[i] = cBranch; return FALSE; }
+	}
+	return TRUE;
+}
+
 BOOL frs_AddMeshInst( CFMeshInst *pMeshInst, FViewportPlanesMask_t nPlanesMask, f32 fDistToCam, f32 fVPtoScreenPixelRatio )
 {
 	FASSERT( _bModuleInitialized );
 	FASSERT( pMeshInst && pMeshInst->m_pMesh );
+
+	u32 nTEMPMats = 0, nTEMPAdded = 0, nTEMPLODSkip = 0, nTEMPAddFail = 0;
+	u32 nTEMPFailMat = 0, nTEMPFailSurf = 0, nTEMPFailLight = 0, nTEMPFailSpec = 0;
 	
 #if !FANG_PRODUCTION_BUILD
 	if ( FMesh_nDrawCollisionGeoFlags != FMESH_DRAW_COLL_GEO_DISABLED )
@@ -1184,8 +1203,10 @@ BOOL frs_AddMeshInst( CFMeshInst *pMeshInst, FViewportPlanesMask_t nPlanesMask, 
 	u16 nSurfaceShaderIdx;
 	for ( ; pMat != pLastMat; pMat++ )
 	{
+		nTEMPMats++;
 		if ( !(pMat->nLODMask & nLODMask) )
 		{
+			nTEMPLODSkip++;
 			continue;
 		}
 
@@ -1193,6 +1214,7 @@ BOOL frs_AddMeshInst( CFMeshInst *pMeshInst, FViewportPlanesMask_t nPlanesMask, 
 		pNewEntry = _GetDLEntry();
 		if ( !pNewEntry )
 		{
+			if ( !_TEMPSeen( pMeshInst, 'L' ) ) { DEVPRINTF( "[ma] TEMP frs pool empty %s\n", pMeshInst->m_pMesh->szName ); }
 			return FALSE;
 		}
 
@@ -1234,9 +1256,36 @@ BOOL frs_AddMeshInst( CFMeshInst *pMeshInst, FViewportPlanesMask_t nPlanesMask, 
 		#endif
 		{
 			_ReleaseDLEntry( pNewEntry );
+			nTEMPAddFail++;
+			if ( nTEMPAddFail == 1 )
+			{
+				nTEMPFailMat = (u32)( pMat - pMeshInst->m_pMesh->aMtl );
+				nTEMPFailSurf = pMat->nSurfaceShaderIdx;
+				nTEMPFailLight = pMat->nLightShaderIdx;
+				nTEMPFailSpec = pMat->nSpecularShaderIdx;
+			}
+		}
+		else
+		{
+			nTEMPAdded++;
 		}
 	}
-	
+
+	{
+		f32 fTEMPx = pMeshInst->m_Xfm.m_MtxF.m_vP.x;
+		f32 fTEMPy = pMeshInst->m_Xfm.m_MtxF.m_vP.y;
+		f32 fTEMPz = pMeshInst->m_Xfm.m_MtxF.m_vP.z;
+		int nTEMPnan = ( fTEMPx != fTEMPx || fTEMPy != fTEMPy || fTEMPz != fTEMPz || fDistToCam != fDistToCam ) ? 1 : 0;
+		if ( nTEMPnan || !_TEMPSeen( pMeshInst, 'F' ) )
+		{
+			DEVPRINTF( "[ma] TEMP frs %s mats=%u add=%u lodskip=%u addfail=%u failmat=%u surf=%u light=%u spec=%u lod=%u/%u mask=%u pos=(%g,%g,%g) dist=%g nan=%d\n",
+				pMeshInst->m_pMesh->szName, nTEMPMats, nTEMPAdded, nTEMPLODSkip, nTEMPAddFail,
+				nTEMPFailMat, nTEMPFailSurf, nTEMPFailLight, nTEMPFailSpec,
+				(u32)nLODIndex, (u32)pMeshInst->m_pMesh->nLODCount, (u32)nLODMask,
+				fTEMPx, fTEMPy, fTEMPz, fDistToCam, nTEMPnan );
+		}
+	}
+
 	return TRUE;
 }
 
