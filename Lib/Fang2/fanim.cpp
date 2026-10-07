@@ -2324,18 +2324,62 @@ void CFAnimCombiner::DisableAllBoneCallbacks( void ) {
 }
 
 
+// TEMP round-14: per-instance throttle (first + every 120th call) watching the
+// seed matrix (m_Xfm) vs the root palette entry the recursion writes from it.
+static void _TEMPCmpalLog( CFMeshInst *pMI, char cBranch, BOOL bAllow )
+{
+	static void *s_apTEMPInst[192];
+	static u32 s_anTEMPCnt[192];
+	u32 nSlot = 0xFFFFFFFF;
+	u32 nT;
+	if ( pMI == NULL ) { return; }
+	for ( nT = 0; nT < 192; nT++ ) {
+		if ( s_apTEMPInst[nT] == pMI ) { nSlot = nT; break; }
+	}
+	if ( nSlot == 0xFFFFFFFF ) {
+		for ( nT = 0; nT < 192; nT++ ) {
+			if ( s_apTEMPInst[nT] == NULL ) { s_apTEMPInst[nT] = pMI; s_anTEMPCnt[nT] = 0; nSlot = nT; break; }
+		}
+	}
+	if ( nSlot == 0xFFFFFFFF ) { return; }
+	if ( s_anTEMPCnt[nSlot] != 0 && ( s_anTEMPCnt[nSlot] % 120 ) != 0 ) { return; }
+	s_anTEMPCnt[nSlot]++;
+	const CFMtx43A *pTRoot = NULL;
+	cchar *pszName = "?";
+	u32 nFlags = 0;
+	f32 fX = 0.f, fY = 0.f, fZ = 0.f;
+	if ( pMI->m_pMesh ) {
+		pszName = pMI->m_pMesh->szName;
+		nFlags = pMI->m_nFlags;
+		fX = (float)pMI->m_Xfm.m_MtxF.m_vPos.x;
+		fY = (float)pMI->m_Xfm.m_MtxF.m_vPos.y;
+		fZ = (float)pMI->m_Xfm.m_MtxF.m_vPos.z;
+		if ( pMI->GetBoneMtxPalette() && pMI->m_pMesh->nBoneCount > 0 ) {
+			pTRoot = pMI->GetBoneMtxPalette()[ pMI->m_pMesh->nRootBoneIndex ];
+		}
+	}
+	DEVPRINTF( "[ma] TEMP cmpal %c %s f=%u cnt=%u xfm=(%g,%g,%g) pal0=(%g,%g,%g)%s allow=%d flags=%x\r\n",
+		cBranch, pszName, (unsigned)FVid_nFrameCounter, s_anTEMPCnt[nSlot], fX, fY, fZ,
+		pTRoot ? (float)pTRoot->m_vP.x : 0.f, pTRoot ? (float)pTRoot->m_vP.y : 0.f, pTRoot ? (float)pTRoot->m_vP.z : 0.f,
+		pTRoot ? "" : "(none)", (int)bAllow, nFlags );
+}
+
 void CFAnimCombiner::ComputeMtxPalette( BOOL bAllowOffscreenOptimizations/*=FALSE*/, u32 nTranslatorBoneIndexToSkip/*0xffffffff*/, CFMtx43A *pDestTranslatorBoneIndex/*=NULL*/ ) {
 	FASSERT( m_pCombinerConfig );
 
 	if( m_pMeshInst->m_pMesh->nBoneCount == 0 ) {
 		// This mesh has no bones...
+		_TEMPCmpalLog( m_pMeshInst, '0', bAllowOffscreenOptimizations );
 		return;
 	}
 
 	if( m_pMeshInst->GetBoneMtxPalette() == NULL ) {
 		// This mesh has no bone matrix palette...
+		_TEMPCmpalLog( m_pMeshInst, '1', bAllowOffscreenOptimizations );
 		return;
 	}
+
+	_TEMPCmpalLog( m_pMeshInst, 'C', bAllowOffscreenOptimizations );
 
 #if FANG_DEBUG_BUILD || FANG_TEST_BUILD
 	if( m_nMaskBatchTapID >= 0 ) {

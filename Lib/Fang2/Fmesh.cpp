@@ -1609,6 +1609,31 @@ void CFMeshInst::AtRestMtxPalette( void )
 			m_apBoneMtxPalette[i]->Mul( m_Xfm.m_MtxF, m_pMesh->pBoneArray[i].AtRestBoneToModelMtx );
 		}
 	}
+
+	{
+		// TEMP round-14: first + every 120th call per instance: seed vs composed root
+		static void *s_apTEMPInst[192];
+		static u32 s_anTEMPCnt[192];
+		u32 nSlot = 0xFFFFFFFF;
+		u32 nT;
+		for ( nT = 0; nT < 192; nT++ ) {
+			if ( s_apTEMPInst[nT] == this ) { nSlot = nT; break; }
+		}
+		if ( nSlot == 0xFFFFFFFF ) {
+			for ( nT = 0; nT < 192; nT++ ) {
+				if ( s_apTEMPInst[nT] == NULL ) { s_apTEMPInst[nT] = this; s_anTEMPCnt[nT] = 0; nSlot = nT; break; }
+			}
+		}
+		if ( nSlot != 0xFFFFFFFF && ( s_anTEMPCnt[nSlot] == 0 || ( s_anTEMPCnt[nSlot] % 120 ) == 0 ) ) {
+			s_anTEMPCnt[nSlot]++;
+			const CFMtx43A *pTRoot = m_apBoneMtxPalette ? m_apBoneMtxPalette[ m_pMesh->nRootBoneIndex ] : NULL;
+			DEVPRINTF( "[ma] TEMP atrest %s f=%u cnt=%u xfm=(%g,%g,%g) pal0=(%g,%g,%g)%s flags=%x\r\n",
+				m_pMesh->szName, (unsigned)FVid_nFrameCounter, s_anTEMPCnt[nSlot],
+				(float)m_Xfm.m_MtxF.m_vPos.x, (float)m_Xfm.m_MtxF.m_vPos.y, (float)m_Xfm.m_MtxF.m_vPos.z,
+				pTRoot ? (float)pTRoot->m_vP.x : 0.f, pTRoot ? (float)pTRoot->m_vP.y : 0.f, pTRoot ? (float)pTRoot->m_vP.z : 0.f,
+				pTRoot ? "" : "(none)", m_nFlags );
+		}
+	}
 }
 
 

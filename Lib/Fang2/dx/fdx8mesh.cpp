@@ -455,16 +455,23 @@ BOOL CFMeshInst::DrawPrep_P( BOOL bFlushImmediate )
 //
 static void *_s_apTEMPMDKey[192];
 static char _s_acTEMPMDBranch[192];
+static u32 _s_anTEMPMDFrame[192];
 static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
 {
 	u32 i;
 	for ( i = 0; i < 192; i++ )
 	{
-		if ( _s_apTEMPMDKey[i] == pKey && _s_acTEMPMDBranch[i] == cBranch ) { return TRUE; }
+		if ( _s_apTEMPMDKey[i] == pKey && _s_acTEMPMDBranch[i] == cBranch )
+		{
+			// TEMP round-14: expire so we get a time-series, not just first frame ever
+			if ( FVid_nFrameCounter - _s_anTEMPMDFrame[i] < 600 ) { return TRUE; }
+			_s_anTEMPMDFrame[i] = FVid_nFrameCounter;
+			return FALSE;
+		}
 	}
 	for ( i = 0; i < 192; i++ )
 	{
-		if ( _s_apTEMPMDKey[i] == NULL ) { _s_apTEMPMDKey[i] = pKey; _s_acTEMPMDBranch[i] = cBranch; return FALSE; }
+		if ( _s_apTEMPMDKey[i] == NULL ) { _s_apTEMPMDKey[i] = pKey; _s_acTEMPMDBranch[i] = cBranch; _s_anTEMPMDFrame[i] = FVid_nFrameCounter; return FALSE; }
 	}
 	return TRUE;
 }
@@ -498,8 +505,8 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	if ( pPal ) { fP0 = pPal->m_vP.x; fP1 = pPal->m_vP.y; fP2 = pPal->m_vP.z; }
 	int nNan = ( fM0 != fM0 || fM1 != fM1 || fM2 != fM2 || Wm._41 != Wm._41 || Wm._44 != Wm._44
 		|| fP0 != fP0 || fP1 != fP1 || aCvw[3] != aCvw[3] ) ? 1 : 0;
-	DEVPRINTF( "[ma] TEMP mdraw %s%c %s clu=%u partskip=%u lodskip=%u drawn=%u seg01sk=%u/%u/%u bone=%u parts=%08x lod=%u scale=%g pos=(%g,%g,%g) pal=(%g,%g,%g)%s cvw=(%g,%g,%g,%g) vw=(%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g) pj=(%g,%g,%g,%g,%g,%g) sh=0x%08X blend=%u wm=(%g,%g,%g,%g) vol=%d iflags=%x nan=%d\r\n",
-		pPass, cBranch, pName, nClusters, nPartSkip, nLodSkip, nDrawn, nSeg0, nSeg1, nSegSkin,
+	DEVPRINTF( "[ma] TEMP mdraw f%u %s%c %s clu=%u partskip=%u lodskip=%u drawn=%u seg01sk=%u/%u/%u bone=%u parts=%08x lod=%u scale=%g pos=(%g,%g,%g) pal=(%g,%g,%g)%s cvw=(%g,%g,%g,%g) vw=(%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g) pj=(%g,%g,%g,%g,%g,%g) sh=0x%08X blend=%u wm=(%g,%g,%g,%g) vol=%d iflags=%x nan=%d\r\n",
+		(unsigned)FVid_nFrameCounter, pPass, cBranch, pName, nClusters, nPartSkip, nLodSkip, nDrawn, nSeg0, nSeg1, nSegSkin,
 		nBoneCount, nPartsMask, nLODIndex, fScale, fM0, fM1, fM2,
 		fP0, fP1, fP2, pPal ? "" : "(none)",
 		(float)aCvw[0], (float)aCvw[1], (float)aCvw[2], (float)aCvw[3],
