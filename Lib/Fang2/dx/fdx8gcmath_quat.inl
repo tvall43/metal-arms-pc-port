@@ -79,6 +79,8 @@ FINLINE CFQuatA &CFQuatA::BuildQuat( const CFVec3A &rUnitVecToRotateFrom, const 
 
 	fCosAngleBetweenVecs = rUnitVecToRotateFrom.Dot( rUnitVecToRotateTo );
 
+	if( !( fCosAngleBetweenVecs == fCosAngleBetweenVecs ) ) { static u32 s_nTEMPBQ = 0; if( s_nTEMPBQ++ < 16 ) { DEVPRINTF( "[ma] TEMP BuildQuat ra=%p from=(%g,%g,%g) to=(%g,%g,%g)\n", __builtin_return_address( 0 ), rUnitVecToRotateFrom.v3.x, rUnitVecToRotateFrom.v3.y, rUnitVecToRotateFrom.v3.z, rUnitVecToRotateTo.v3.x, rUnitVecToRotateTo.v3.y, rUnitVecToRotateTo.v3.z ); } }
+
 	w = fmath_Sqrt( (1.0f + fCosAngleBetweenVecs) * 0.5f );
 
 	fCosAngleBetweenVecs = 1.0f - fCosAngleBetweenVecs;

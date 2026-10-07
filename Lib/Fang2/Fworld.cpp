@@ -1586,6 +1586,15 @@ void CFWorldMesh::UpdateTracker( BOOL bCalcNewVolume/*=TRUE*/ )
 	m_Xfm.TransformSphereF( BoundSphere_WS, m_BoundSphere_MS );
 	MoveTracker( BoundSphere_WS, bCalcNewVolume );
 
+	{
+		static u32 s_nTEMPReg = 0;
+		if ( s_nTEMPReg < 200 && ( GetIntersectCount() == 0 || GetCenterpointVolume() == NULL ) )
+		{
+			s_nTEMPReg++;
+			DEVPRINTF( "[ma] TEMP reg %s pos=(%g,%g,%g) inter=%u added=%d\n", m_pMesh ? m_pMesh->szName : "?", BoundSphere_WS.m_Pos.x, BoundSphere_WS.m_Pos.y, BoundSphere_WS.m_Pos.z, GetIntersectCount(), (int)IsAddedToWorld() );
+		}
+	}
+
 	// If the object has any attached lights, move them, too...
 	for( (pWorldAttachedLight = GetFirstAttachedLight()); pWorldAttachedLight; pWorldAttachedLight = GetNextAttachedLight(pWorldAttachedLight) ) 
 	{

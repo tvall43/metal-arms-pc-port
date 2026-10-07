@@ -675,6 +675,7 @@ FINLINE s32 fmath_RandomRange( s32 nMin, s32 nMax ) {
 //   If fChanceOfSuccess is 1.0f, TRUE is always returned.
 //   If fChanceOfSuccess is between 0.0f and 1.0f, a probability of TRUE/FALSE is returned.
 FINLINE BOOL fmath_RandomChance( f32 fChanceOfSuccess ) {
+	if( !( fChanceOfSuccess>=0.0f && fChanceOfSuccess<=1.0f ) ) { static u32 s_nTEMPChance = 0; if( s_nTEMPChance++ < 64 ) { DEVPRINTF( "[ma] TEMP chance ra=%p v=%g\n", __builtin_return_address( 0 ), fChanceOfSuccess ); } }
 	FASSERT( fChanceOfSuccess>=0.0f && fChanceOfSuccess<=1.0f );
 	return fmath_RandomFloat() < fChanceOfSuccess;
 }

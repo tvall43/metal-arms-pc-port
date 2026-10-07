@@ -1883,6 +1883,22 @@ static FViewportPlanesMask_t _VolumeCrossPlanes;
 //
 //
 //
+static void *s_apTEMPSeenKey[128];
+static char s_acTEMPSeenBranch[128];
+static BOOL _TEMPSeen( void *pKey, char cBranch )
+{
+	u32 i;
+	for ( i = 0; i < 128; ++i )
+	{
+		if ( s_apTEMPSeenKey[i] == pKey && s_acTEMPSeenBranch[i] == cBranch ) { return TRUE; }
+	}
+	for ( i = 0; i < 128; ++i )
+	{
+		if ( s_apTEMPSeenKey[i] == NULL ) { s_apTEMPSeenKey[i] = pKey; s_acTEMPSeenBranch[i] = cBranch; return FALSE; }
+	}
+	return TRUE;
+}
+
 static BOOL _DL_AddVolume( FVisVolume_t *pVolume )
 {
 	// Ensure that the volume is visible
@@ -1919,6 +1935,8 @@ static BOOL _DL_AddVolume( FVisVolume_t *pVolume )
 			// Check to see if this is flagged not to be drawn
 			if ( ((CFWorldMesh *)pTracker)->m_nFlags & FMESHINST_FLAG_DONT_DRAW )
 			{
+				CFWorldMesh *pTEMPDontDraw = (CFWorldMesh *)pTracker;
+				if ( !_TEMPSeen( pTracker, 'D' ) ) { DEVPRINTF( "[ma] TEMP fvis DONTDRAW %s\n", pTEMPDontDraw->m_pMesh ? pTEMPDontDraw->m_pMesh->szName : "?" ); }
 				// Flag this as drawn so we don't check it again
 				pTracker->m_VisitedKey.FlagAsVisited( _nDrawKey );
 				continue;
@@ -2080,6 +2098,8 @@ static void _DL_AddMesh( CFWorldTracker *pTracker )
 
 	CFWorldMesh *pMesh = (CFWorldMesh *)pTracker;
 
+	if ( !_TEMPSeen( pTracker, 'E' ) ) { DEVPRINTF( "[ma] TEMP fvis DL_enter %s\n", pMesh->m_pMesh ? pMesh->m_pMesh->szName : "?" ); }
+
 	CFSphere spTracker( pTracker->GetBoundingSphere() );
 
 	#if _PORTAL_MIRRORS_ENABLED
@@ -2105,11 +2125,13 @@ static void _DL_AddMesh( CFWorldTracker *pTracker )
 	CFVisNormalStack::FrustumCheckResults_e nObjectFrustumResults = FVis_VPNormalStack.PointIsVisible( &spTracker.m_Pos, spTracker.m_fRadius, &fDistFromCam );
 	if ( nObjectFrustumResults == CFVisNormalStack::OUTSIDE_FRUSTUM_BOUNDS || fDistFromCam  > _fFarPlaneDist || fDistFromCam > pMesh->m_fCullDist )
 	{
+		if ( !_TEMPSeen( pTracker, 'F' ) ) { DEVPRINTF( "[ma] TEMP fvis out F %s frustum=%d dist=%g far=%g cull=%g\n", pMesh->m_pMesh ? pMesh->m_pMesh->szName : "?", (int)nObjectFrustumResults, fDistFromCam, _fFarPlaneDist, pMesh->m_fCullDist ); }
 		pMesh->CacheMeshData( 1 );
 		return;
 	}
 	if ( fDistFromCam < FVis_fMinRenderDist )
 	{
+		if ( !_TEMPSeen( pTracker, 'M' ) ) { DEVPRINTF( "[ma] TEMP fvis out M %s dist=%g min=%g\n", pMesh->m_pMesh ? pMesh->m_pMesh->szName : "?", fDistFromCam, FVis_fMinRenderDist ); }
 		return;
 	}
 
@@ -2118,6 +2140,7 @@ static void _DL_AddMesh( CFWorldTracker *pTracker )
 
 	if ( _ActiveOccluderCount && _Occlusion_SphereIsOccluded( &spTracker ) )
 	{
+		if ( !_TEMPSeen( pTracker, 'O' ) ) { DEVPRINTF( "[ma] TEMP fvis out O %s occluded\n", pMesh->m_pMesh ? pMesh->m_pMesh->szName : "?" ); }
 		pMesh->CacheMeshData( 1 );
 		return;
 	}
@@ -2138,6 +2161,7 @@ static void _DL_AddMesh( CFWorldTracker *pTracker )
 			ObjectCrossPlanes = fviewport_TestSphere_WS( FVis_pCurrentViewport, &spTracker, FVIEWPORT_PLANESMASK_ALL );
 			if ( ObjectCrossPlanes == -1 )
 			{
+				if ( !_TEMPSeen( pTracker, 'C' ) ) { DEVPRINTF( "[ma] TEMP fvis out C %s clip\n", pMesh->m_pMesh ? pMesh->m_pMesh->szName : "?" ); }
 				return;
 			}
 		}
@@ -2161,6 +2185,7 @@ static void _DL_AddMesh( CFWorldTracker *pTracker )
 	// Make sure we can successfully prep the mesh for drawing
 	if ( pMesh->DrawPrep( ObjectCrossPlanes, TRUE, FALSE ) == -1 )
 	{
+		if ( !_TEMPSeen( pTracker, 'P' ) ) { DEVPRINTF( "[ma] TEMP fvis out P %s drawprep\n", pMesh->m_pMesh ? pMesh->m_pMesh->szName : "?" ); }
 		return;
 	}
 
