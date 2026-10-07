@@ -815,6 +815,11 @@ BOOL CWeaponRocket::ClassHierarchyBuild( void ) {
 			uMeshEUK = i;
 		}
 
+		// Retail csv ships no props row for this EUK level (zeroed); skip building it.
+		if( m_aUserProps[uMeshEUK].apszMeshName[_MESH_WEAPON] == NULL ) {
+			continue;
+		}
+
 		pInfo = &m_aaInfo[WEAPON_TYPE_ROCKET_LAUNCHER][i];
 
 		// Load the mesh resource...
@@ -1106,7 +1111,9 @@ void CWeaponRocket::ClassHierarchyDrawEnable( BOOL bDrawingHasBeenEnabled ) {
 		// Enable drawing of this weapon...
 
 		for( i=0; i<EUK_COUNT_ROCKET_LAUNCHER; ++i ) {
-			FMATH_CLEARBITMASK( m_aResourceData[i].m_pWorldMesh->m_nFlags, FMESHINST_FLAG_DONT_DRAW );
+			if( m_aResourceData[i].m_pWorldMesh ) {
+				FMATH_CLEARBITMASK( m_aResourceData[i].m_pWorldMesh->m_nFlags, FMESHINST_FLAG_DONT_DRAW );
+			}
 		}
 
 		// Enable drawing of rockets...
@@ -1119,7 +1126,9 @@ void CWeaponRocket::ClassHierarchyDrawEnable( BOOL bDrawingHasBeenEnabled ) {
 	} else {
 		// Disable drawing of this weapon...
 		for( i=0; i<EUK_COUNT_ROCKET_LAUNCHER; ++i ) {
-			FMATH_SETBITMASK( m_aResourceData[i].m_pWorldMesh->m_nFlags, FMESHINST_FLAG_DONT_DRAW );
+			if( m_aResourceData[i].m_pWorldMesh ) {
+				FMATH_SETBITMASK( m_aResourceData[i].m_pWorldMesh->m_nFlags, FMESHINST_FLAG_DONT_DRAW );
+			}
 		}
 
 		// Disable drawing of rockets...

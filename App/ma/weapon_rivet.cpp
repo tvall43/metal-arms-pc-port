@@ -547,6 +547,11 @@ BOOL CWeaponRivet::ClassHierarchyBuild( void ) {
 			uMeshEUK = i;
 		}
 
+		// Retail csv ships no props row for this EUK level (zeroed); skip building it.
+		if( m_aUserProps[uMeshEUK].apszMeshName[_MESH_WEAPON] == NULL ) {
+			continue;
+		}
+
 		// Load the mesh resource...
 		pMesh = (FMesh_t *)fresload_Load( FMESH_RESTYPE, m_aUserProps[uMeshEUK].apszMeshName[_MESH_WEAPON] );
 		if( pMesh == NULL ) {
@@ -772,14 +777,18 @@ void CWeaponRivet::ClassHierarchyDrawEnable( BOOL bDrawingHasBeenEnabled ) {
 		// Enable drawing of this weapon...
 
 		for( i=0; i<EUK_COUNT_RIVET; ++i ) {
-			FMATH_CLEARBITMASK( m_aResourceData[i].m_pWorldMesh->m_nFlags, FMESHINST_FLAG_DONT_DRAW );
+			if( m_aResourceData[i].m_pWorldMesh ) {
+				FMATH_CLEARBITMASK( m_aResourceData[i].m_pWorldMesh->m_nFlags, FMESHINST_FLAG_DONT_DRAW );
+			}
 		}
 
 		m_pClipMeshEntity->DrawEnable( bDrawingHasBeenEnabled );
 	} else {
 		// Disable drawing of this weapon...
 		for( i=0; i<EUK_COUNT_RIVET; ++i ) {
-			FMATH_SETBITMASK( m_aResourceData[i].m_pWorldMesh->m_nFlags, FMESHINST_FLAG_DONT_DRAW );
+			if( m_aResourceData[i].m_pWorldMesh ) {
+				FMATH_SETBITMASK( m_aResourceData[i].m_pWorldMesh->m_nFlags, FMESHINST_FLAG_DONT_DRAW );
+			}
 		}
 
 		m_pClipMeshEntity->DrawEnable( bDrawingHasBeenEnabled );
