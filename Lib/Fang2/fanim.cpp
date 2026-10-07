@@ -2641,6 +2641,26 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 			nAnimBoneIndex = m_pCombinerTapArray[ *pnExecPointer ].m_pBoneIndexMeshToAnimTable[nBoneIndex];
 			m_pCombinerTapArray[ *pnExecPointer ].m_pAnimSource->ComputeFrame( _pAnimFrameResultStack[nAnimFrameSrcStackNextFree++], nAnimBoneIndex, m_nKeyInterpolationMode );
 
+			// TEMP: gate pushed tap frames (palette-junk source discrimination)
+			{
+				const CFAnimFrame &rTEMPFrame = _pAnimFrameResultStack[nAnimFrameSrcStackNextFree-1];
+				f32 fTEMPq = rTEMPFrame.v.MagSq();
+				BOOL bTEMPbad = ( !(fTEMPq > 1e-10f) || fTEMPq > 1e10f ||
+					rTEMPFrame.m_Pos.x != rTEMPFrame.m_Pos.x || rTEMPFrame.m_Pos.y != rTEMPFrame.m_Pos.y || rTEMPFrame.m_Pos.z != rTEMPFrame.m_Pos.z ||
+					rTEMPFrame.m_Pos.x > 1e30f || rTEMPFrame.m_Pos.x < -1e30f ||
+					rTEMPFrame.m_Pos.y > 1e30f || rTEMPFrame.m_Pos.y < -1e30f ||
+					rTEMPFrame.m_Pos.z > 1e30f || rTEMPFrame.m_Pos.z < -1e30f );
+				static u32 s_nTEMPBadTap = 0;
+				if( bTEMPbad && s_nTEMPBadTap < 200 ) {
+					s_nTEMPBadTap++;
+					DEVPRINTF( "[ma] TEMP bad tap frame: mesh=%s bone=%u tap=%u animbone=%u src=%p type=%d qmag=%g pos=(%g,%g,%g) depth=%u\n",
+						m_pMeshInst->m_pMesh->szName, nBoneIndex, *pnExecPointer, nAnimBoneIndex,
+						(void *)m_pCombinerTapArray[ *pnExecPointer ].m_pAnimSource,
+						(int)m_pCombinerTapArray[ *pnExecPointer ].m_pAnimSource->GetAnimSourceType(),
+						fTEMPq, rTEMPFrame.m_Pos.x, rTEMPFrame.m_Pos.y, rTEMPFrame.m_Pos.z, nAnimFrameSrcStackNextFree );
+				}
+			}
+
 			#if FPERF_ENABLE
 				if ( m_nKeyInterpolationMode == CFAnimSource::LERP_KEYS )
 				{
@@ -2699,6 +2719,16 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 		f32 fMagSecond = (*_pAnimFrameResultStack).v.MagSq();
 		(*_pAnimFrameResultStack).BuildMtx( rDestFrameMtx43A );
 */
+	}
+
+	// TEMP: gate final combiner frame output (palette-junk source discrimination)
+	{
+		f32 fTEMPsq = rDestFrameMtx43A.m_vRight.x*rDestFrameMtx43A.m_vRight.x + rDestFrameMtx43A.m_vRight.y*rDestFrameMtx43A.m_vRight.y + rDestFrameMtx43A.m_vRight.z*rDestFrameMtx43A.m_vRight.z;
+		static u32 s_nTEMPBadDest = 0;
+		if( ( !(fTEMPsq > 1e-20f) || fTEMPsq > 1e20f ) && s_nTEMPBadDest < 200 ) {
+			s_nTEMPBadDest++;
+			DEVPRINTF( "[ma] TEMP bad combiner dest: mesh=%s bone=%u depth=%u sq=%g ra=%p\n", m_pMeshInst->m_pMesh->szName, nBoneIndex, nAnimFrameSrcStackNextFree, fTEMPsq, __builtin_return_address( 0 ) );
+		}
 	}
 }
 
