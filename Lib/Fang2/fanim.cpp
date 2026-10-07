@@ -2342,25 +2342,40 @@ static void _TEMPCmpalLog( CFMeshInst *pMI, char cBranch, BOOL bAllow )
 		}
 	}
 	if ( nSlot == 0xFFFFFFFF ) { return; }
-	if ( s_anTEMPCnt[nSlot] != 0 && ( s_anTEMPCnt[nSlot] % 120 ) != 0 ) { return; }
 	s_anTEMPCnt[nSlot]++;
+	if ( s_anTEMPCnt[nSlot] > 16 && ( s_anTEMPCnt[nSlot] % 120 ) != 1 ) { return; }
 	const CFMtx43A *pTRoot = NULL;
 	cchar *pszName = "?";
 	u32 nFlags = 0;
+	u32 nRoot = 0, nBones = 0;
 	f32 fX = 0.f, fY = 0.f, fZ = 0.f;
+	f32 fRestX = 0.f, fRestY = 0.f, fRestZ = 0.f;
+	f32 fRotX = 1.f, fRotY = 0.f, fRotZ = 0.f;
 	if ( pMI->m_pMesh ) {
 		pszName = pMI->m_pMesh->szName;
 		nFlags = pMI->m_nFlags;
+		nBones = pMI->m_pMesh->nBoneCount;
+		nRoot = pMI->m_pMesh->nRootBoneIndex;
 		fX = (float)pMI->m_Xfm.m_MtxF.m_vPos.x;
 		fY = (float)pMI->m_Xfm.m_MtxF.m_vPos.y;
 		fZ = (float)pMI->m_Xfm.m_MtxF.m_vPos.z;
-		if ( pMI->GetBoneMtxPalette() && pMI->m_pMesh->nBoneCount > 0 ) {
-			pTRoot = pMI->GetBoneMtxPalette()[ pMI->m_pMesh->nRootBoneIndex ];
+		if ( pMI->GetBoneMtxPalette() && nBones > 0 && pMI->m_pMesh->pBoneArray && nRoot < nBones ) {
+			pTRoot = pMI->GetBoneMtxPalette()[ nRoot ];
+			fRestX = (float)pMI->m_pMesh->pBoneArray[nRoot].AtRestBoneToModelMtx.m_vP.x;
+			fRestY = (float)pMI->m_pMesh->pBoneArray[nRoot].AtRestBoneToModelMtx.m_vP.y;
+			fRestZ = (float)pMI->m_pMesh->pBoneArray[nRoot].AtRestBoneToModelMtx.m_vP.z;
+		}
+		if ( pTRoot ) {
+			fRotX = (float)pTRoot->m_vRows[0].x;
+			fRotY = (float)pTRoot->m_vRows[0].y;
+			fRotZ = (float)pTRoot->m_vRows[0].z;
 		}
 	}
-	DEVPRINTF( "[ma] TEMP cmpal %c %s f=%u cnt=%u xfm=(%g,%g,%g) pal0=(%g,%g,%g)%s allow=%d flags=%x\r\n",
-		cBranch, pszName, (unsigned)FVid_nFrameCounter, s_anTEMPCnt[nSlot], fX, fY, fZ,
+	DEVPRINTF( "[ma] TEMP cmpal %c %s f=%u cnt=%u inst=%p root=%u/%u xfm=(%g,%g,%g) rest=(%g,%g,%g) pal0=(%g,%g,%g) pal0r=(%g,%g,%g)%s allow=%d flags=%x\r\n",
+		cBranch, pszName, (unsigned)FVid_nFrameCounter, s_anTEMPCnt[nSlot], (const void *)pMI, nRoot, nBones, fX, fY, fZ,
+		fRestX, fRestY, fRestZ,
 		pTRoot ? (float)pTRoot->m_vP.x : 0.f, pTRoot ? (float)pTRoot->m_vP.y : 0.f, pTRoot ? (float)pTRoot->m_vP.z : 0.f,
+		fRotX, fRotY, fRotZ,
 		pTRoot ? "" : "(none)", (int)bAllow, nFlags );
 }
 
