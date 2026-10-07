@@ -469,9 +469,20 @@ static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
 	return TRUE;
 }
 
+static const CFMtx43A *_TEMPGetPal( u32 nBoneCount, u32 nInstFlags, const CFMtx43A &PosMtx, CFMtx43A *const *ppPalette, const FMeshSeg_t *pSeg )
+{
+	if ( nBoneCount == 0 ) { return &PosMtx; }
+	if ( pSeg == NULL ) { return NULL; }
+	if ( pSeg->nBoneMtxCount == 0 ) { return &PosMtx; }
+	if ( ppPalette == NULL ) { return NULL; }
+	if ( nInstFlags & FMESHINST_FLAG_NOBONES ) { return NULL; }
+	return ppPalette[ pSeg->anBoneMtxIndex[0] ];
+}
+
 static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const char *pName,
 	u32 nClusters, u32 nPartSkip, u32 nLodSkip, u32 nDrawn, u32 nSeg0, u32 nSeg1, u32 nSegSkin,
-	u32 nBoneCount, u32 nPartsMask, u32 nLODIndex, f32 fScale, f32 fM0, f32 fM1, f32 fM2 )
+	u32 nBoneCount, u32 nPartsMask, u32 nLODIndex, f32 fScale, f32 fM0, f32 fM1, f32 fM2,
+	int nVol, u32 nInstFlags, const CFMtx43A *pPal )
 {
 	DWORD dwShader = 0xFFFFFFFF;
 	DWORD dwBlend = 0xFFFFFFFF;
@@ -481,11 +492,25 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	FDX8_pDev->GetRenderState( D3DRS_VERTEXBLEND, &dwBlend );
 	memset( &Wm, 0, sizeof(Wm) );
 	FDX8_pDev->GetTransform( D3DTS_WORLDMATRIX(0), &Wm );
-	int nNan = ( fM0 != fM0 || fM1 != fM1 || fM2 != fM2 || Wm._41 != Wm._41 || Wm._44 != Wm._44 ) ? 1 : 0;
-	DEVPRINTF( "[ma] TEMP mdraw %s%c %s clu=%u partskip=%u lodskip=%u drawn=%u seg01sk=%u/%u/%u bone=%u parts=%08x lod=%u scale=%g pos=(%g,%g,%g) sh=0x%08X blend=%u wm=(%g,%g,%g,%g) nan=%d\r\n",
+	float aCvw[4] = { 0.f, 0.f, 0.f, 0.f };
+	FDX8_pDev->GetVertexShaderConstant( CV_WORLD_0, aCvw, 4 );
+	f32 fP0 = 0.f, fP1 = 0.f, fP2 = 0.f;
+	if ( pPal ) { fP0 = pPal->m_vP.x; fP1 = pPal->m_vP.y; fP2 = pPal->m_vP.z; }
+	int nNan = ( fM0 != fM0 || fM1 != fM1 || fM2 != fM2 || Wm._41 != Wm._41 || Wm._44 != Wm._44
+		|| fP0 != fP0 || fP1 != fP1 || aCvw[3] != aCvw[3] ) ? 1 : 0;
+	DEVPRINTF( "[ma] TEMP mdraw %s%c %s clu=%u partskip=%u lodskip=%u drawn=%u seg01sk=%u/%u/%u bone=%u parts=%08x lod=%u scale=%g pos=(%g,%g,%g) pal=(%g,%g,%g)%s cvw=(%g,%g,%g,%g) vw=(%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g) pj=(%g,%g,%g,%g,%g,%g) sh=0x%08X blend=%u wm=(%g,%g,%g,%g) vol=%d iflags=%x nan=%d\r\n",
 		pPass, cBranch, pName, nClusters, nPartSkip, nLodSkip, nDrawn, nSeg0, nSeg1, nSegSkin,
 		nBoneCount, nPartsMask, nLODIndex, fScale, fM0, fM1, fM2,
-		(unsigned)dwShader, (unsigned)dwBlend, (float)Wm._41, (float)Wm._42, (float)Wm._43, (float)Wm._44, nNan );
+		fP0, fP1, fP2, pPal ? "" : "(none)",
+		(float)aCvw[0], (float)aCvw[1], (float)aCvw[2], (float)aCvw[3],
+		(float)FDX8_CurrentViewMtx._11, (float)FDX8_CurrentViewMtx._12, (float)FDX8_CurrentViewMtx._13,
+		(float)FDX8_CurrentViewMtx._21, (float)FDX8_CurrentViewMtx._22, (float)FDX8_CurrentViewMtx._23,
+		(float)FDX8_CurrentViewMtx._31, (float)FDX8_CurrentViewMtx._32, (float)FDX8_CurrentViewMtx._33,
+		(float)FDX8_CurrentViewMtx._41, (float)FDX8_CurrentViewMtx._42, (float)FDX8_CurrentViewMtx._43,
+		(float)FDX8_CurrentProjMtx._11, (float)FDX8_CurrentProjMtx._22, (float)FDX8_CurrentProjMtx._33,
+		(float)FDX8_CurrentProjMtx._14, (float)FDX8_CurrentProjMtx._34, (float)FDX8_CurrentProjMtx._44,
+		(unsigned)dwShader, (unsigned)dwBlend, (float)Wm._41, (float)Wm._42, (float)Wm._43, (float)Wm._44,
+		nVol, nInstFlags, nNan );
 }
 
 BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMaterial_t *pMaterial, u32 nLODIndex )
@@ -554,7 +579,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 
 	if ( !SetupShaderParameters( pMaterial, FSHADERS_PASS_LIGHTING ) )
 	{
-		_TEMPMDLog( "light", 'F', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z );
+		_TEMPMDLog( "light", 'F', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, NULL ));
 		return FALSE;
 	}
 
@@ -766,7 +791,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 	FPerf_nMeshTris += nTrisRendered / nTotalPasses;
 #endif
 
-	_TEMPMDLog( "light", nTEMPDrawn ? 'D' : 'Z', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z );
+	_TEMPMDLog( "light", nTEMPDrawn ? 'D' : 'Z', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, pSeg ));
 
 	return bFastPass;
 }
@@ -819,7 +844,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 
 	if ( !SetupShaderParameters( pMaterial, FSHADERS_PASS_SURFACE ) )
 	{
-		_TEMPMDLog( "surface", 'F', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z );
+		_TEMPMDLog( "surface", 'f', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, NULL ));
 		return;
 	}
 
@@ -1031,7 +1056,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		fsh_TexOverride_ResetList();
 	}
 
-	_TEMPMDLog( "surface", nTEMPDrawn ? 'D' : 'Z', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z );
+	_TEMPMDLog( "surface", nTEMPDrawn ? 'd' : 'z', m_pMesh, m_pMesh->szName, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, pSeg ));
 
 	#if FPERF_ENABLE
 		FPerf_nTotalTrisSurface += (FPerf_nRawStripTriCount - nPreStripCount) + (FPerf_nRawListTriCount - nPreListCount);
