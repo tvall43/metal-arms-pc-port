@@ -2728,6 +2728,27 @@ void CFAnimCombiner::_ComputeFrame( CFMtx43A &rDestFrameMtx43A, u32 nBoneIndex )
 		if( ( !(fTEMPsq > 1e-20f) || fTEMPsq > 1e20f ) && s_nTEMPBadDest < 200 ) {
 			s_nTEMPBadDest++;
 			DEVPRINTF( "[ma] TEMP bad combiner dest: mesh=%s bone=%u depth=%u sq=%g ra=%p\n", m_pMeshInst->m_pMesh->szName, nBoneIndex, nAnimFrameSrcStackNextFree, fTEMPsq, __builtin_return_address( 0 ) );
+			{
+				const CFAnimFrame &rTEMPFr = _pAnimFrameResultStack[0];
+				u8 *pnTEMPbuf = m_ppnBoneMixExecBuf[nBoneIndex];
+				u32 nTEMPi;
+				DEVPRINTF( "[ma] TEMP bad dest frame: lerp=%u q=(%g,%g,%g,%g) pos=(%g,%g,%g) scale=%g buf=", (u32)m_nKeyInterpolationMode, rTEMPFr.x, rTEMPFr.y, rTEMPFr.z, rTEMPFr.w, rTEMPFr.m_Pos.x, rTEMPFr.m_Pos.y, rTEMPFr.m_Pos.z, rTEMPFr.m_fScale );
+				for( nTEMPi=0; nTEMPi<16 && pnTEMPbuf[nTEMPi]!=EXECCMD_END; nTEMPi++ ) {
+					DEVPRINTF( "%02X ", pnTEMPbuf[nTEMPi] );
+				}
+				DEVPRINTF( "\n" );
+				for( nTEMPi=0; nTEMPi<m_nCombinerTapCount; nTEMPi++ ) {
+					CFAnimSource *pTEMPsrc = m_pCombinerTapArray[nTEMPi].m_pAnimSource;
+					u32 nTEMPab = m_pCombinerTapArray[nTEMPi].m_pBoneIndexMeshToAnimTable[nBoneIndex];
+					if( pTEMPsrc && pTEMPsrc->GetAnimSourceType() == CFAnimSource::TYPE_INST ) {
+						CFAnimInst *pTEMPinst = (CFAnimInst *)pTEMPsrc;
+						const FAnim_t *pTEMPa = pTEMPinst->GetAnim();
+						DEVPRINTF( "[ma] TEMP bad dest tap: i=%u src=%p ab=%u anim=%s time=%g flags=%04X okeys=%u\n", nTEMPi, (void *)pTEMPsrc, nTEMPab, ( pTEMPa ? pTEMPa->szName : "(null)" ), ( pTEMPa ? pTEMPinst->GetTime() : -1.0f ), pTEMPa ? pTEMPa->nFlags : 0, ( pTEMPa && nTEMPab < pTEMPa->nBoneCount ) ? pTEMPa->pBoneArray[nTEMPab].nOKeyCount : 0 );
+					} else {
+						DEVPRINTF( "[ma] TEMP bad dest tap: i=%u src=%p ab=%u type=%d\n", nTEMPi, (void *)pTEMPsrc, nTEMPab, pTEMPsrc ? (int)pTEMPsrc->GetAnimSourceType() : -1 );
+					}
+				}
+			}
 		}
 	}
 }
