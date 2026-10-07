@@ -99,6 +99,12 @@ private:
 	typedef enum
 	{
 		LIMB_TYPE_HEAD,							// The bot's head
+		LIMB_TYPE_LEFT_LEG,
+		LIMB_TYPE_RIGHT_LEG,
+		LIMB_TYPE_LEFT_ARM,
+		LIMB_TYPE_RIGHT_ARM,
+		LIMB_TYPE_RIBS_L,
+		LIMB_TYPE_RIBS_R,
 		LIMB_TYPE_COUNT
 	} LimbType_e;
 
