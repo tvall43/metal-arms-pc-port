@@ -293,6 +293,20 @@ const FGameDataMap_t CWeaponLaser::m_aUserPropMapTable[] = {
 
 
 
+// [ma] Round-18: laser tracers never skipped the owner, so their muzzle-started rays
+// collided with our own gun/arm mesh (self-damage; beams absorbing at the gun before
+// ever reaching anything). Mirror CWeaponRivet::_BuildTracerSkipListCallback.
+static void _LaserTracerBuildSkipListCallback( void *pUser ) {
+	CWeaponLaser *pLaser = (CWeaponLaser *)pUser;
+	if( pLaser ) {
+		if( pLaser->GetOwner() ) {
+			pLaser->GetOwner()->AppendTrackerSkipList();
+		} else {
+			pLaser->AppendTrackerSkipList();
+		}
+	}
+}
+
 BOOL CWeaponLaser::InitSystem( void ) {
 	Info_t *pInfo;
 	u32 i;
@@ -321,6 +335,7 @@ BOOL CWeaponLaser::InitSystem( void ) {
 			m_aoTracerDef[i].fMaxTailDist_WS = m_aUserProps[i].fMaxLiveRange;
 			m_aoTracerDef[i].fBeginDeathUnitFade_WS = 0.25f;
 			m_aoTracerDef[i].uFlags = TRACERFLAG_NONE;
+			m_aoTracerDef[i].pFcnBuildSkipList = _LaserTracerBuildSkipListCallback;
 
 			pTexDef = (FTexDef_t *)(fresload_Load(FTEX_RESNAME, m_aUserProps[i].pszL12_TexName));
 			if(pTexDef == NULL)
@@ -329,6 +344,16 @@ BOOL CWeaponLaser::InitSystem( void ) {
 			}
 
 			m_aTracerTexInst[i].SetTexDef( pTexDef );
+
+			// [ma] TEMP r18: tracer texture resolution (grey-beam check).
+			{
+				static u32 s_uTEMPTexMask = 0;
+				if( ( s_uTEMPTexMask & ( 1u << i ) ) == 0 ) {
+					s_uTEMPTexMask |= ( 1u << i );
+					DEVPRINTF( "[ma] TEMP r18 laser tex u=%u name=%s tex=%p\n",
+						i, m_aUserProps[i].pszL12_TexName ? m_aUserProps[i].pszL12_TexName : "(null)", pTexDef );
+				}
+			}
 		}
 
 		// Fill out our global info data...
@@ -640,8 +665,10 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 			if( pImpact->pTag == NULL ) { s_nTEMPNoTag++; }
 			else if( ((CFWorldMesh *)(pImpact->pTag))->m_nUser != MESHTYPES_ENTITY ) { s_nTEMPTagOther++; }
 			if( s_nTEMPGeo <= 16 || ( s_nTEMPGeo % 120 ) == 0 ) {
-				DEVPRINTF( "[ma] TEMP r17 laser geo f=%u cnt=%u noTag=%u tagOther=%u\n",
-					(unsigned)FVid_nFrameCounter, s_nTEMPGeo, s_nTEMPNoTag, s_nTEMPTagOther );
+				CFVec3A vTEMPd;
+				vTEMPd.Sub( pImpact->ImpactPoint, pTracerDef->TailPos_WS );
+				DEVPRINTF( "[ma] TEMP r17 laser geo f=%u cnt=%u noTag=%u tagOther=%u d2=%g\n",
+					(unsigned)FVid_nFrameCounter, s_nTEMPGeo, s_nTEMPNoTag, s_nTEMPTagOther, vTEMPd.MagSq() );
 			}
 		}
 		CWeaponLaser *pLaser = (CWeaponLaser *)(pTracerDef->pUser);
@@ -700,9 +727,11 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 					static u32 s_nTEMPHitEnt = 0;
 					s_nTEMPHitEnt++;
 					if( s_nTEMPHitEnt <= 16 || ( s_nTEMPHitEnt % 120 ) == 0 ) {
-						DEVPRINTF( "[ma] TEMP r17 laser hitEntity f=%u cnt=%u damagee=%p profile=%p upg=%u\n",
+						DEVPRINTF( "[ma] TEMP r17 laser hitEntity f=%u cnt=%u damagee=%p profile=%p upg=%u owner=%p self=%d\n",
 							(unsigned)FVid_nFrameCounter, s_nTEMPHitEnt, pEDamagee,
-							pLaser->m_apDamageProfile[pLaser->m_nUpgradeLevel], (unsigned)pLaser->m_nUpgradeLevel );
+							pLaser->m_apDamageProfile[pLaser->m_nUpgradeLevel], (unsigned)pLaser->m_nUpgradeLevel,
+							pLaser->GetOwner(),
+							(int)( (void *)pEDamagee == (void *)pLaser->GetOwner() ) );
 					}
 				}
 
@@ -1044,6 +1073,19 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 			case 3:
 			default:
 			{
+				// [ma] TEMP r18: spawn inputs (muzzle/target/dir garbage or NaN check).
+				{
+					static u32 s_nTEMPSpawn = 0;
+					s_nTEMPSpawn++;
+					if( s_nTEMPSpawn <= 16 || ( s_nTEMPSpawn % 120 ) == 0 ) {
+						DEVPRINTF( "[ma] TEMP r18 laser spawn f=%u cnt=%u muzzle=(%g,%g,%g) target=(%g,%g,%g) dir=(%g,%g,%g)\n",
+							(unsigned)FVid_nFrameCounter, s_nTEMPSpawn,
+							vecMuzzlePoint.x, vecMuzzlePoint.y, vecMuzzlePoint.z,
+							m_vTargetPos_WS.x, m_vTargetPos_WS.y, m_vTargetPos_WS.z,
+							vFireUnitDir.x, vFireUnitDir.y, vFireUnitDir.z );
+					}
+				}
+
 				m_aoTracerDef[m_nUpgradeLevel].pUser = this;
 				m_aoTracerDef[m_nUpgradeLevel].ColorRGBA.OpaqueWhite();
 				m_aoTracerDef[m_nUpgradeLevel].UnitDir_WS = vFireUnitDir;

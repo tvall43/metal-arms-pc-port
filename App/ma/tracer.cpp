@@ -738,6 +738,19 @@ static void _GroupWork( _Group_t *pGroup )
 
 			if ( fworld_FindClosestImpactPointToRayStart( &Impact, &pTracer->vCollRayStart_WS, &pTracer->vHeadPos_WS, FWorld_nTrackerSkipListCount, FWorld_apTrackerSkipList, TRUE, NULL, -1, nCollMask ) ) 
 			{
+				// [ma] TEMP r18: collision site - skip count + impact distance from ray start.
+				{
+					static u32 s_nTEMPColl = 0;
+					s_nTEMPColl++;
+					if( s_nTEMPColl <= 16 || ( s_nTEMPColl % 120 ) == 0 ) {
+						CFVec3A vTEMPd;
+						vTEMPd.Sub( Impact.ImpactPoint, pTracer->vCollRayStart_WS );
+						DEVPRINTF( "[ma] TEMP r18 tracer coll f=%u cnt=%u skip=%u d2=%g tag=%p\n",
+							(unsigned)FVid_nFrameCounter, s_nTEMPColl,
+							(unsigned)FWorld_nTrackerSkipListCount, vTEMPd.MagSq(), Impact.pTag );
+					}
+				}
+
 				// Found collision...
 
 				if ( pTracer->TracerDef.pFcnKillCallback ) 

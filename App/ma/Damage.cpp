@@ -1306,6 +1306,19 @@ void CDamageForm::_Work_OneSpecificEntity( void ) {
 		}
 	}
 
+	// [ma] TEMP r18: damager identity (self-damage = pBot == m_pDamageeEntity).
+	{
+		static u32 s_nTEMPDmg18 = 0;
+		s_nTEMPDmg18++;
+		if( s_nTEMPDmg18 <= 16 || ( s_nTEMPDmg18 % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r18 dmg damager f=%u cnt=%u pBot=%p pWeapon=%p player=%d damagee=%p self=%d\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPDmg18,
+				m_Damager.pBot, m_Damager.pWeapon, (int)m_Damager.nDamagerPlayerIndex,
+				m_pDamageeEntity,
+				(int)( (void *)m_Damager.pBot == (void *)m_pDamageeEntity ) );
+		}
+	}
+
 	switch( m_nDamageLocale ) {
 	case DAMAGE_LOCALE_AMBIENT:
 		_InflictDamage_Ambient( m_pDamageeEntity, NULL );
