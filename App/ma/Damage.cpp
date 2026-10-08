@@ -544,6 +544,19 @@ void CDamage::SubmitDamageForm( CDamageForm *pDamageForm, f32 fDuration ) {
 	if( !pDamageForm->_PrepareForSubmission( fDuration ) ) {
 		// Ignore form...
 
+		// [ma] Round-19: submission validation dropped the form (which input was bad?).
+		{
+			static u32 s_nTEMPPrep19 = 0;
+			s_nTEMPPrep19++;
+			if( s_nTEMPPrep19 <= 32 || ( s_nTEMPPrep19 % 120 ) == 0 ) {
+				DEVPRINTF( "[ma] TEMP r19 submit PREPARE-FAIL f=%u cnt=%u form=%p locale=%u deliv=%u norm=%g dur=%g damagee=%p profile=%p\n",
+					(unsigned)FVid_nFrameCounter, s_nTEMPPrep19, pDamageForm,
+					(unsigned)pDamageForm->m_nDamageLocale, (unsigned)pDamageForm->m_nDamageDelivery,
+					pDamageForm->m_fNormIntensity, fDuration, pDamageForm->m_pDamageeEntity,
+					pDamageForm->m_pDamageProfile );
+			}
+		}
+
 		if( pDamageForm->m_nFlags & CDamageForm::DAMAGE_FLAG_FORM_ORIG_FROM_FREE_POOL ) {
 			pDamageForm->m_nListMember = CDamageForm::LIST_MEMBER_FREE_POOL;
 			flinklist_AddTail( &m_RootFreeDamageForm, pDamageForm );
@@ -1235,6 +1248,17 @@ BOOL CDamageForm::_Work( void ) {
 			m_fSecsUntilIssuingNextDamage += m_pDamageProfile->m_fDamagePeriod;
 			FMATH_CLAMPMIN( m_fSecsUntilIssuingNextDamage, 0.0f );
 		}
+	}
+
+	// [ma] Round-19: any form that fails a pre-OSE gate (unconditional - the
+	// throttled work probe's first16 was already exhausted by early None forms).
+	if( !bDealDamage || m_fNormIntensity == 0.0f || ( m_pDamageeEntity && m_pDamageeEntity->IsInvincible() ) ) {
+		DEVPRINTF( "[ma] TEMP r19 dmg gate BLOCK f=%u form=%p deal=%d ret=%g norm=%g deliv=%u damagee=%p name=%s invinc=%d profile=%p\n",
+			(unsigned)FVid_nFrameCounter, this, (int)bDealDamage,
+			m_fSecsUntilFormRetired, m_fNormIntensity, (unsigned)m_nDamageDelivery,
+			m_pDamageeEntity, m_pDamageeEntity ? m_pDamageeEntity->Name() : "-",
+			m_pDamageeEntity ? (int)m_pDamageeEntity->IsInvincible() : -1,
+			m_pDamageProfile );
 	}
 
 	if( bDealDamage ) {

@@ -760,6 +760,15 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 
 					CDamage::SubmitDamageForm( pDamageForm );
 				}
+				else
+				{
+					static u32 s_nTEMPPool19 = 0;
+					s_nTEMPPool19++;
+					if( s_nTEMPPool19 <= 16 || ( s_nTEMPPool19 % 120 ) == 0 ) {
+						DEVPRINTF( "[ma] TEMP r19 laser pool EMPTY f=%u cnt=%u\n",
+							(unsigned)FVid_nFrameCounter, s_nTEMPPool19 );
+					}
+				}
 			}
 		}
 
@@ -1078,11 +1087,16 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 					static u32 s_nTEMPSpawn = 0;
 					s_nTEMPSpawn++;
 					if( s_nTEMPSpawn <= 16 || ( s_nTEMPSpawn % 120 ) == 0 ) {
-						DEVPRINTF( "[ma] TEMP r18 laser spawn f=%u cnt=%u muzzle=(%g,%g,%g) target=(%g,%g,%g) dir=(%g,%g,%g)\n",
+						DEVPRINTF( "[ma] TEMP r18 laser spawn f=%u cnt=%u muzzle=(%g,%g,%g) target=(%g,%g,%g) dir=(%g,%g,%g) orig=(%g,%g,%g) dist=%g eye=(%g,%g,%g)\n",
 							(unsigned)FVid_nFrameCounter, s_nTEMPSpawn,
 							vecMuzzlePoint.x, vecMuzzlePoint.y, vecMuzzlePoint.z,
 							m_vTargetPos_WS.x, m_vTargetPos_WS.y, m_vTargetPos_WS.z,
-							vFireUnitDir.x, vFireUnitDir.y, vFireUnitDir.z );
+							vFireUnitDir.x, vFireUnitDir.y, vFireUnitDir.z,
+							m_MtxToWorld.m_vPos.x, m_MtxToWorld.m_vPos.y, m_MtxToWorld.m_vPos.z,
+							m_aUserProps[m_nUpgradeLevel].fDistFromWeaponOrigToMuzzle,
+							GetOwner() ? GetOwner()->GetApproxEyePoint()->x : 0.0f,
+							GetOwner() ? GetOwner()->GetApproxEyePoint()->y : 0.0f,
+							GetOwner() ? GetOwner()->GetApproxEyePoint()->z : 0.0f );
 					}
 				}
 
@@ -1212,7 +1226,7 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 
 		while(m_fRechargeCntDn <= 0.0f)
 		{
-			m_fRechargeCntDn += m_aUserProps[m_nUpgradeLevel].fOORechargeRate;			// JUSTIN: Get this from a CSV.
+			m_fRechargeCntDn += m_aUserProps[m_nUpgradeLevel].fRechargeRate;			// JUSTIN: Get this from a CSV.
 			SetClipAmmo(GetClipAmmo() + 1);
 		}
 
@@ -1221,9 +1235,10 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 			static u32 s_nTEMPRech = 0;
 			s_nTEMPRech++;
 			if( s_nTEMPRech <= 16 || ( s_nTEMPRech % 120 ) == 0 ) {
-				DEVPRINTF( "[ma] TEMP r17 laser recharge f=%u cnt=%u upg=%u cntDn=%g ooR=%g clip=%u\n",
+				DEVPRINTF( "[ma] TEMP r17 laser recharge f=%u cnt=%u upg=%u cntDn=%g rate=%g ooR=%g clip=%u\n",
 					(unsigned)FVid_nFrameCounter, s_nTEMPRech, (unsigned)m_nUpgradeLevel,
-					m_fRechargeCntDn, m_aUserProps[m_nUpgradeLevel].fOORechargeRate, (unsigned)GetClipAmmo() );
+					m_fRechargeCntDn, m_aUserProps[m_nUpgradeLevel].fRechargeRate,
+					m_aUserProps[m_nUpgradeLevel].fOORechargeRate, (unsigned)GetClipAmmo() );
 			}
 		}
 	}
