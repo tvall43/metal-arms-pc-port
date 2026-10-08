@@ -3610,6 +3610,16 @@ void CBotCorrosive::_PerformHandAttackDamageCheck( const CFVec3A *pPrevSpherePos
 		FASSERT_NOW;
 	}
 
+	// [ma] TEMP r17: is the melee sphere sweep even running (state + window)?
+	{
+		static u32 s_nTEMPChk = 0;
+		s_nTEMPChk++;
+		if( s_nTEMPChk <= 16 || ( s_nTEMPChk % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r17 melee check f=%u cnt=%u state=%u flags=%08X\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPChk, (unsigned)m_eBehaviorState, m_nCorrosiveFlags );
+		}
+	}
+
 	TrackerCollideInfo.pProjSphere = &m_CollInfo.ProjSphere;
 	TrackerCollideInfo.pCallback = _HandAttackHitTrackerCallback;
 	TrackerCollideInfo.nTrackerTypeBits = FWORLD_TRACKERTYPEBIT_MESH;
@@ -3645,6 +3655,16 @@ void CBotCorrosive::_PerformHandAttackDamageCheck( const CFVec3A *pPrevSpherePos
 BOOL CBotCorrosive::_HandAttackHitTrackerCallback( CFWorldTracker *pTracker, FVisVolume_t *pVolume ) {
 	CBotCorrosive *pBotCorrosive = (CBotCorrosive *)m_pCollBot;
 	CFWorldMesh *pWorldMesh = (CFWorldMesh *)pTracker;
+
+	// [ma] TEMP r17: melee tracker-callback invocations + tracker entity type.
+	{
+		static u32 s_nTEMPMelee = 0;
+		s_nTEMPMelee++;
+		if( s_nTEMPMelee <= 16 || ( s_nTEMPMelee % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r17 melee cb f=%u cnt=%u tracker=%p userType=%d\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPMelee, pTracker, (int)pTracker->m_nUser );
+		}
+	}
 
 	if( pTracker->m_nUser != MESHTYPES_ENTITY ) {
 		// Tracker is a non-entity...
@@ -3700,6 +3720,17 @@ BOOL CBotCorrosive::_HandAttackHitTrackerCallback( CFWorldTracker *pTracker, FVi
 	}
 
 	//DEVPRINTF( "Damaged Entity!\n " );
+	// [ma] TEMP r17: melee entity triangle-hit successes.
+	{
+		static u32 s_nTEMPMeleeHit = 0;
+		s_nTEMPMeleeHit++;
+		if( s_nTEMPMeleeHit <= 16 || ( s_nTEMPMeleeHit % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r17 melee hit f=%u cnt=%u entity=%p hits=%u profile=%p\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPMeleeHit, pEntity, pBotCorrosive->m_nHitEntityCount,
+				pBotCorrosive->m_BotInfo_Corrosive.pDamageProfileFistSmash );
+		}
+	}
+
 	pBotCorrosive->_InflictHandAttackDamage( pEntity, pWorldMesh, &FColl_aImpactBuf[0] );
 
 	// Now, add this entity to our hit-entity buffer to remember that we've already damaged it...

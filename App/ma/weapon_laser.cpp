@@ -351,6 +351,26 @@ BOOL CWeaponLaser::InitSystem( void ) {
 		m_apDamageProfile[i] = CDamage::FindDamageProfile( m_aUserProps[i].pszDamageProfile );
 	}
 
+	// [ma] TEMP r17: one-shot dump of resolved laser damage profiles + key props.
+	{
+		static BOOL s_bTEMPLaserPropsDumped = FALSE;
+		if( !s_bTEMPLaserPropsDumped ) {
+			u32 j;
+			s_bTEMPLaserPropsDumped = TRUE;
+			for( j = 0; j < EUK_COUNT_LASER; j++ ) {
+				CDamageProfile *pTEMPProf = m_apDamageProfile[j];
+				DEVPRINTF( "[ma] TEMP r17 laser props u=%u profileName=%s profile=%p cause=%s innerHP=%g ooR=%g clip=%g\n",
+					j,
+					m_aUserProps[j].pszDamageProfile ? m_aUserProps[j].pszDamageProfile : "(null)",
+					pTEMPProf,
+					( pTEMPProf && pTEMPProf->m_pszName ) ? pTEMPProf->m_pszName : "(null)",
+					pTEMPProf ? pTEMPProf->m_HitpointRange.m_fInnerValue : -1.0f,
+					m_aUserProps[j].fOORechargeRate,
+					m_aUserProps[j].fClipAmmoMax );
+			}
+		}
+	}
+
 	// Success...
 
 	return TRUE;
@@ -596,8 +616,34 @@ void CWeaponLaser::_ClearDataMembers( void ) {
 
 
 void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillReason_e nKillReason, const FCollImpact_t *pImpact ) {
+	// [ma] TEMP r17: which kill reasons fire at all (are tracers hitting anything?).
+	{
+		static u32 s_nTEMPKill = 0;
+		static u32 s_nTEMPNoGeo = 0;
+		s_nTEMPKill++;
+		if( nKillReason != TRACER_KILLREASON_HIT_GEO ) { s_nTEMPNoGeo++; }
+		if( s_nTEMPKill <= 16 || ( s_nTEMPKill % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r17 laser kill f=%u cnt=%u reason=%u noGeo=%u\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPKill, (unsigned)nKillReason, s_nTEMPNoGeo );
+		}
+	}
+
 	if( nKillReason == TRACER_KILLREASON_HIT_GEO ) {
 		FASSERT(pTracerDef->pUser != NULL);
+
+		// [ma] TEMP r17: HIT_GEO breakdown: tagless geo vs tag-not-entity vs entity.
+		{
+			static u32 s_nTEMPGeo = 0;
+			static u32 s_nTEMPNoTag = 0;
+			static u32 s_nTEMPTagOther = 0;
+			s_nTEMPGeo++;
+			if( pImpact->pTag == NULL ) { s_nTEMPNoTag++; }
+			else if( ((CFWorldMesh *)(pImpact->pTag))->m_nUser != MESHTYPES_ENTITY ) { s_nTEMPTagOther++; }
+			if( s_nTEMPGeo <= 16 || ( s_nTEMPGeo % 120 ) == 0 ) {
+				DEVPRINTF( "[ma] TEMP r17 laser geo f=%u cnt=%u noTag=%u tagOther=%u\n",
+					(unsigned)FVid_nFrameCounter, s_nTEMPGeo, s_nTEMPNoTag, s_nTEMPTagOther );
+			}
+		}
 		CWeaponLaser *pLaser = (CWeaponLaser *)(pTracerDef->pUser);
 
 		const CGCollMaterial *pCollMaterial = CGColl::GetMaterial( pImpact->nUserType );
@@ -648,6 +694,17 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 			{
 				// It's an Entity!
 				CEntity *pEDamagee = (CEntity *)(pHitWorldMesh->m_pUser);
+
+				// [ma] TEMP r17: entity-branch entries (form submission gate passed).
+				{
+					static u32 s_nTEMPHitEnt = 0;
+					s_nTEMPHitEnt++;
+					if( s_nTEMPHitEnt <= 16 || ( s_nTEMPHitEnt % 120 ) == 0 ) {
+						DEVPRINTF( "[ma] TEMP r17 laser hitEntity f=%u cnt=%u damagee=%p profile=%p upg=%u\n",
+							(unsigned)FVid_nFrameCounter, s_nTEMPHitEnt, pEDamagee,
+							pLaser->m_apDamageProfile[pLaser->m_nUpgradeLevel], (unsigned)pLaser->m_nUpgradeLevel );
+					}
+				}
 
 				//if( pCollMaterial->IsPockMarkEnabled( pImpact ) )
 				//{
@@ -1115,6 +1172,27 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 		{
 			m_fRechargeCntDn += m_aUserProps[m_nUpgradeLevel].fOORechargeRate;			// JUSTIN: Get this from a CSV.
 			SetClipAmmo(GetClipAmmo() + 1);
+		}
+
+		// [ma] TEMP r17: recharge ticking (first 16 then every 120th).
+		{
+			static u32 s_nTEMPRech = 0;
+			s_nTEMPRech++;
+			if( s_nTEMPRech <= 16 || ( s_nTEMPRech % 120 ) == 0 ) {
+				DEVPRINTF( "[ma] TEMP r17 laser recharge f=%u cnt=%u upg=%u cntDn=%g ooR=%g clip=%u\n",
+					(unsigned)FVid_nFrameCounter, s_nTEMPRech, (unsigned)m_nUpgradeLevel,
+					m_fRechargeCntDn, m_aUserProps[m_nUpgradeLevel].fOORechargeRate, (unsigned)GetClipAmmo() );
+			}
+		}
+	}
+	else
+	{
+		// [ma] TEMP r17: idle state every 600 frames (is recharge ever armed?).
+		static u32 s_nTEMPIdle = 0;
+		s_nTEMPIdle++;
+		if( ( s_nTEMPIdle % 600 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r17 laser idle f=%u upg=%u clip=%u cntDn=%g\n",
+				(unsigned)FVid_nFrameCounter, (unsigned)m_nUpgradeLevel, (unsigned)GetClipAmmo(), m_fRechargeCntDn );
 		}
 	}
 

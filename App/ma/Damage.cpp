@@ -1209,6 +1209,17 @@ BOOL CDamageForm::_PrepareForSubmission( f32 fDuration ) {
 BOOL CDamageForm::_Work( void ) {
 	BOOL bDealDamage = TRUE;
 
+	// [ma] TEMP r17: forms reaching Work at all (norm/delivery/retire state).
+	{
+		static u32 s_nTEMPWork = 0;
+		s_nTEMPWork++;
+		if( s_nTEMPWork <= 16 || ( s_nTEMPWork % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r17 dmg work f=%u cnt=%u form=%p locale=%u deliv=%u norm=%g profile=%p damagee=%p ret=%g\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPWork, this, (unsigned)m_nDamageLocale, (unsigned)m_nDamageDelivery,
+				m_fNormIntensity, m_pDamageProfile, m_pDamageeEntity, m_fSecsUntilFormRetired );
+		}
+	}
+
 	if( m_fSecsUntilFormRetired != 0.0f ) {
 		// See if it's time to issue more damage...
 
@@ -1283,6 +1294,18 @@ BOOL CDamageForm::_Work( void ) {
 
 
 void CDamageForm::_Work_OneSpecificEntity( void ) {
+	// [ma] TEMP r17: the invincible-gate site (leak checks IsInvincible before inflict).
+	{
+		static u32 s_nTEMPOSE = 0;
+		s_nTEMPOSE++;
+		if( s_nTEMPOSE <= 16 || ( s_nTEMPOSE % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r17 dmg OSE f=%u cnt=%u damagee=%p invinc=%d locale=%u profile=%p\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPOSE, m_pDamageeEntity,
+				m_pDamageeEntity ? (int)m_pDamageeEntity->IsInvincible() : -1,
+				(unsigned)m_nDamageLocale, m_pDamageProfile );
+		}
+	}
+
 	switch( m_nDamageLocale ) {
 	case DAMAGE_LOCALE_AMBIENT:
 		_InflictDamage_Ambient( m_pDamageeEntity, NULL );
@@ -1542,6 +1565,22 @@ void CDamageForm::_InflictDamage_Impact( CEntity *pEntity ) {
 
 	_DamageData.m_fAIAudibleRadius = m_fNormIntensity * m_pDamageProfile->m_fAIAudibleRadius;
 
+	// [ma] TEMP r17: impact intensity math (norm x InnerValue x unitHP) + the
+	// _DoesDamageDataHaveNonZeroIntensity gate inputs.
+	{
+		static u32 s_nTEMPImp = 0;
+		s_nTEMPImp++;
+		if( s_nTEMPImp <= 16 || ( s_nTEMPImp % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r17 dmg impact f=%u cnt=%u damagee=%p profile=%p name=%s norm=%g innerHP=%g intensity=%g d=(%g,%g,%g) imp=%g rum=%g\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPImp, pEntity,
+				m_pDamageProfile, ( m_pDamageProfile && m_pDamageProfile->m_pszName ) ? m_pDamageProfile->m_pszName : "(null)",
+				m_fNormIntensity, m_pDamageProfile->m_HitpointRange.m_fInnerValue,
+				m_fNormIntensity * m_pDamageProfile->m_HitpointRange.m_fInnerValue,
+				_DamageData.m_afDeltaHitpoints[0], _DamageData.m_afDeltaHitpoints[1], _DamageData.m_afDeltaHitpoints[2],
+				_DamageData.m_fImpulseMag, _DamageData.m_fRumbleUnitIntensity );
+		}
+	}
+
 	if( _DoesDamageDataHaveNonZeroIntensity() ) {
 		BOOL bDoDamage = TRUE;
 
@@ -1550,6 +1589,15 @@ void CDamageForm::_InflictDamage_Impact( CEntity *pEntity ) {
 		}
 
 		if( bDoDamage ) {
+			// [ma] TEMP r17: the actual InflictDamage call (impact path only).
+			{
+				static u32 s_nTEMPDmg = 0;
+				s_nTEMPDmg++;
+				if( s_nTEMPDmg <= 16 || ( s_nTEMPDmg % 120 ) == 0 ) {
+					DEVPRINTF( "[ma] TEMP r17 dmg inflict f=%u cnt=%u damagee=%p\n",
+						(unsigned)FVid_nFrameCounter, s_nTEMPDmg, m_pDamageeEntity );
+				}
+			}
 			m_pDamageeEntity->InflictDamage( &_DamageData );
 
 			//Fill out data for the last entity damaged.
