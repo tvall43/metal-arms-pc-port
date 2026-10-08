@@ -81,7 +81,9 @@ FINLINE CFQuatA &CFQuatA::BuildQuat( const CFVec3A &rUnitVecToRotateFrom, const 
 
 	if( !( fCosAngleBetweenVecs == fCosAngleBetweenVecs ) ) { static u32 s_nTEMPBQ = 0; if( s_nTEMPBQ++ < 16 ) { DEVPRINTF( "[ma] TEMP BuildQuat ra=%p from=(%g,%g,%g) to=(%g,%g,%g)\n", __builtin_return_address( 0 ), rUnitVecToRotateFrom.v3.x, rUnitVecToRotateFrom.v3.y, rUnitVecToRotateFrom.v3.z, rUnitVecToRotateTo.v3.x, rUnitVecToRotateTo.v3.y, rUnitVecToRotateTo.v3.z ); } }
 
-	w = fmath_Sqrt( (1.0f + fCosAngleBetweenVecs) * 0.5f );
+	if( fCosAngleBetweenVecs < -1.0f ) { static u32 s_nTEMPBQ2 = 0; if( s_nTEMPBQ2++ < 16 ) { DEVPRINTF( "[ma] TEMP r21 BuildQuat antipar ra=%p cos=%g from=(%g,%g,%g) to=(%g,%g,%g)\n", __builtin_return_address( 0 ), fCosAngleBetweenVecs, rUnitVecToRotateFrom.v3.x, rUnitVecToRotateFrom.v3.y, rUnitVecToRotateFrom.v3.z, rUnitVecToRotateTo.v3.x, rUnitVecToRotateTo.v3.y, rUnitVecToRotateTo.v3.z ); } }
+
+	w = fmath_Sqrt( (1.00030f + fCosAngleBetweenVecs) * 0.5f );
 
 	fCosAngleBetweenVecs = 1.0f - fCosAngleBetweenVecs;
 	if( fCosAngleBetweenVecs > 0.00001f ) {

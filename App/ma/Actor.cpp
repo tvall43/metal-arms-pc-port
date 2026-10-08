@@ -227,6 +227,7 @@ void CMeshActor::Work()
 		CFQuatA tmpA = m_pQuatObj->GetValue();
 		f32 fMag = tmpA.v.MagSq();
 		FASSERT(fMag > 0.0f);
+		if( !( fMag > 0.0f ) ) { static u32 s_nTEMPAW = 0; if( s_nTEMPAW++ < 16 ) { DEVPRINTF( "[ma] TEMP r21 Actor Work bad quat q=(%g,%g,%g,%g) mag=%g inst=%p mesh=%s\n", tmpA.x, tmpA.y, tmpA.z, tmpA.w, fMag, m_pME, m_pME ? m_pME->Name() : "none" ); } return; }
 		fMag = 1.0f/fmath_AcuSqrt(fMag);
 		tmpA.x *= fMag;
 		tmpA.y *= fMag;
