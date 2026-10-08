@@ -258,7 +258,7 @@ const FGameData_TableEntry_t CWeaponLaser::m_aUserPropVocab[] = {
 
 
 static const u8 _aUserPropFieldMap[] = {
-	0, 7, 23, 8, 43, 56, 13, 44, 15, 26, 10, 11, 12, 24, 46, 14,
+	0, 7, 23, 8, 43, 56, 13, 44, 15, 26, 10, 11, 12, 34, 46, 14,
 	2, 1, 20, 21, 59, 65, 71,
 };
 

@@ -1254,6 +1254,19 @@ void CBot::AddRotationalImpact( f32 fUnitIntensity ) {
 //	   they have either of (BOTDEATHFLAG_PERSISTAFTERDEATH or	BOTDEATHFLAG_AUTOPERSISTAFTERDEATH) flags in	m_uBotDeathFlags.
 //
 void CBot::Die( BOOL bSpawnDeathEffects/*=TRUE*/, BOOL bSpawnGoodies ) {
+	// [ma] TEMP r20: death-path probe (who reaches Die, with which gates).
+	{
+		static u32 s_nTEMPDie = 0;
+		s_nTEMPDie++;
+		if( s_nTEMPDie <= 16 || ( s_nTEMPDie % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r20 CBot::Die f=%u cnt=%u name=%s race=%d possess=%d allow=%d life=%u\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPDie,
+				Name() ? Name() : "-", m_pBotDef ? (int)m_pBotDef->m_nRace : -1,
+				(int)m_nPossessionPlayerIndex, (int)m_bAllowPlayerDeath,
+				(unsigned)m_uLifeCycleState );
+		}
+	}
+
 	if( m_nRecruitID >= 0 ) {
 		CWeaponRecruiter::UnrecruitBot( this, bSpawnDeathEffects );
 	}

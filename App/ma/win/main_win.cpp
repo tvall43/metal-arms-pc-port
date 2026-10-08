@@ -680,7 +680,7 @@ static BOOL _RunGame( void )
 	GameloopParms.nAnimPlaybackRate		= gameloop_GetAnimPlaybackRate();
 	GameloopParms.bDrawScreenSafeArea	= FALSE;
 	GameloopParms.nMaxSoundMgrSounds		= GAMELOOP_DEFAULT_MAX_SOUNDS;
-	GameloopParms.bPlayerDeath			= FALSE;
+	GameloopParms.bPlayerDeath			= TRUE;
 	GameloopParms.bDebugAI				= FALSE;
 	GameloopParms.nPlatform				= GAMELOOP_PLATFORM_GC;
 	GameloopParms.pszInputFilename		= _szLevelFile;
