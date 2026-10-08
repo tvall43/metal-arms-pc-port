@@ -1253,10 +1253,14 @@ BOOL CDamageForm::_Work( void ) {
 	// [ma] Round-19: any form that fails a pre-OSE gate (unconditional - the
 	// throttled work probe's first16 was already exhausted by early None forms).
 	if( !bDealDamage || m_fNormIntensity == 0.0f || ( m_pDamageeEntity && m_pDamageeEntity->IsInvincible() ) ) {
-		DEVPRINTF( "[ma] TEMP r19 dmg gate BLOCK f=%u form=%p deal=%d ret=%g norm=%g deliv=%u damagee=%p name=%s invinc=%d profile=%p\n",
+		cchar *pszEType = "-";
+		CFVec3A posE = CFVec3A::m_Null;
+		if( m_pDamageeEntity ) { u64 nLeaf = m_pDamageeEntity->LeafTypeBit(); u32 nBit = 0; while( nLeaf >>= 1 ) nBit++; pszEType = ( nBit < 61 ) ? CEntity::m_apszEntityType[ nBit ] : "?"; posE = m_pDamageeEntity->MtxToWorld()->m_vPos; }
+		DEVPRINTF( "[ma] TEMP r19 dmg gate BLOCK f=%u form=%p deal=%d ret=%g norm=%g deliv=%u damagee=%p name=%s etype=%s epos=(%g,%g,%g) invinc=%d profile=%p\n",
 			(unsigned)FVid_nFrameCounter, this, (int)bDealDamage,
 			m_fSecsUntilFormRetired, m_fNormIntensity, (unsigned)m_nDamageDelivery,
 			m_pDamageeEntity, m_pDamageeEntity ? m_pDamageeEntity->Name() : "-",
+			pszEType, posE.x, posE.y, posE.z,
 			m_pDamageeEntity ? (int)m_pDamageeEntity->IsInvincible() : -1,
 			m_pDamageProfile );
 	}
@@ -1323,8 +1327,13 @@ void CDamageForm::_Work_OneSpecificEntity( void ) {
 		static u32 s_nTEMPOSE = 0;
 		s_nTEMPOSE++;
 		if( s_nTEMPOSE <= 16 || ( s_nTEMPOSE % 120 ) == 0 ) {
-			DEVPRINTF( "[ma] TEMP r17 dmg OSE f=%u cnt=%u damagee=%p invinc=%d locale=%u profile=%p\n",
+			cchar *pszEType = "-";
+			CFVec3A posE = CFVec3A::m_Null;
+			if( m_pDamageeEntity ) { u64 nLeaf = m_pDamageeEntity->LeafTypeBit(); u32 nBit = 0; while( nLeaf >>= 1 ) nBit++; pszEType = ( nBit < 61 ) ? CEntity::m_apszEntityType[ nBit ] : "?"; posE = m_pDamageeEntity->MtxToWorld()->m_vPos; }
+			DEVPRINTF( "[ma] TEMP r17 dmg OSE f=%u cnt=%u damagee=%p ename=%s etype=%s epos=(%g,%g,%g) invinc=%d locale=%u profile=%p\n",
 				(unsigned)FVid_nFrameCounter, s_nTEMPOSE, m_pDamageeEntity,
+				m_pDamageeEntity ? m_pDamageeEntity->Name() : "-",
+				pszEType, posE.x, posE.y, posE.z,
 				m_pDamageeEntity ? (int)m_pDamageeEntity->IsInvincible() : -1,
 				(unsigned)m_nDamageLocale, m_pDamageProfile );
 		}
