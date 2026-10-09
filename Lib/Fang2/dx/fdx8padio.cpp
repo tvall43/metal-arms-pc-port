@@ -25,6 +25,7 @@
 
 #include "fang.h"
 #include "fdx8.h"
+#include "fdx8vid.h"	// fdx8vid_HaveFocus -- keyboard synth focus gate
 #include "fmath.h"
 #include "fres.h"
 #include "fclib.h"
@@ -151,6 +152,18 @@ static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 	fang_MemZero( paf, sizeof( poSample->afInputValues ) );
 	poSample->bValid = TRUE;
 
+	//// Focus gate: the keyboard is global (GetAsyncKeyState reads the state of
+	//// the physical keyboard no matter which window owns it), so without this
+	//// gate every key held in another application -- Alt+Tabbed back to a
+	//// terminal, a browser, the debugger -- would keep driving the game: W would
+	//// walk, the mouse buttons would fire, Escape would open the pause menu.
+	//// While the game window does not have focus, report an idle-but-connected
+	//// controller instead (bValid stays TRUE so the port stays online).
+	//
+	if( !fdx8vid_HaveFocus() ) {
+		return;
+	}
+
 	//// Left stick -- W/A/S/D.
 	//
 	// This alone drives the bootup menu: launcher.cpp reads
@@ -194,10 +207,10 @@ static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 	//// Face buttons and shoulders.
 	//
 	paf[ FPADIO_INPUT_CROSS_BOTTOM          - 1 ] = ( _KeyDown( VK_SPACE ) ) ? 1.0f : 0.0f; // A: accept, jump, select
-	paf[ FPADIO_INPUT_CROSS_RIGHT           - 1 ] = _KeyDown( VK_TAB ) ? 1.0f : 0.0f;                                    // B: back, cancel, primary weapon select (Escape is the WIN gameloop quit key, gameloop.cpp:1024)
+	paf[ FPADIO_INPUT_CROSS_RIGHT           - 1 ] = _KeyDown( VK_TAB ) ? 1.0f : 0.0f;                                    // B: back, cancel, primary weapon select
 	paf[ FPADIO_INPUT_CROSS_LEFT            - 1 ] = _KeyDown( 'Q' ) ? 1.0f : 0.0f;                                    // X
 	paf[ FPADIO_INPUT_CROSS_TOP             - 1 ] = _KeyDown( 'E' ) ? 1.0f : 0.0f;                                    // Y: action, interact
-	paf[ FPADIO_INPUT_START                 - 1 ] = ( _KeyDown( VK_RETURN ) || _KeyDown( 'P' ) ) ? 1.0f : 0.0f;       // Start: pause
+	paf[ FPADIO_INPUT_START                 - 1 ] = ( _KeyDown( VK_RETURN ) || _KeyDown( 'P' ) || _KeyDown( VK_ESCAPE ) ) ? 1.0f : 0.0f; // Start: pause (Escape opens the pause menu instead of quitting, gameloop.cpp)
 	paf[ FPADIO_INPUT_XB_DBUTTON_BACK       - 1 ] = _KeyDown( VK_BACK ) ? 1.0f : 0.0f;                                // Back
 	paf[ FPADIO_INPUT_TRIGGER_RIGHT         - 1 ] = ( _KeyDown( VK_LBUTTON ) || _KeyDown( VK_LCONTROL ) ) ? 1.0f : 0.0f; // RT: fire
 	paf[ FPADIO_INPUT_TRIGGER_LEFT          - 1 ] = ( _KeyDown( VK_RBUTTON ) || _KeyDown( VK_LSHIFT ) ) ? 1.0f : 0.0f;    // LT: aim

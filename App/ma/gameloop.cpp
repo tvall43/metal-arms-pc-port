@@ -396,7 +396,6 @@ static void _GameTerm( FLoopTermCode_t nTermCode, void *pParameter );
 static BOOL _GameMain( BOOL bExitRequest, void *pParameter );
 
 #if FANG_PLATFORM_WIN
-	static BOOL _IsEscKeyHit( void );
 	static BOOL _ShouldAppMinimize( void );
 #else if FANG_PLATFORM_GC
 	static void _CheckForGCReset( void );
@@ -1020,11 +1019,10 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 
 		if( fdx8vid_HaveFocus() ) {
 			// Our 3D window has the focus...
-
-			if( _IsEscKeyHit() ) {
-				// ESC key has been pressed...
-				return FALSE;
-			}
+			//
+			// ESC no longer quits: the keyboard synth (fdx8padio.cpp) maps it to
+			// the gamepad START button, which opens the pause menu. Quitting is
+			// now the window close box / Alt+F4, or a future pause-menu entry.
 
 			if( _ShouldAppMinimize() ) {
 				// Minimize our 3D window...
@@ -1183,11 +1181,6 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 }
 
 #if FANG_PLATFORM_WIN
-static BOOL _IsEscKeyHit( void ) {
-	// under windows, look for the escape key
-	return (GetAsyncKeyState( VK_ESCAPE ) < 0);
-}
-
 static BOOL _ShouldAppMinimize( void ) {
 	// under windows, look for the backspace key
 	return (GetAsyncKeyState( VK_BACK ) < 0);
