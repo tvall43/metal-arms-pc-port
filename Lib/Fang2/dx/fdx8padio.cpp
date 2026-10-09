@@ -47,6 +47,14 @@ typedef struct {
 	BOOL bEnumerated, bAcquired;
 	LPDIRECTINPUTDEVICE8 poDIDevice;
 
+	// Input modernization phase 3 (decisions D4/D5): a slot can be filled by
+	// an XInput controller instead of a DirectInput device, and slot 0 can
+	// additionally merge the keyboard synth so kb+mouse always co-sources
+	// port 0 (live kb<->pad swap with no mode change).
+	BOOL bXInput;
+	u32 uXInputSlot;
+	BOOL bSynthMerged;
+
 	FPadio_DeviceInfo_t oInfo;
 
 	u32 uAxis, uButtons;
@@ -72,6 +80,133 @@ static u32 _auInputEmulationPlatform[ FPADIO_MAX_DEVICES ], _auInputEmulationMap
 
 // Handles.
 static LPDIRECTINPUT8 _pDInput;
+
+//// XInput (input modernization phase 3, decision D4).
+//
+// Controllers are read through XInput rather than DirectInput: Xbox pads have
+// a fixed layout, so translation is exact, and Wine exposes Xbox controllers
+// through the same DLLs. Loaded at runtime (no import library, no xinput.h
+// dependency) -- the few types and masks needed are declared here with the
+// values every Windows/Wine version has shipped since Vista.
+//
+typedef struct {
+	WORD wButtons;
+	BYTE bLeftTrigger;
+	BYTE bRightTrigger;
+	SHORT sThumbLX;
+	SHORT sThumbLY;
+	SHORT sThumbRX;
+	SHORT sThumbRY;
+} _XInputGamepad_t;
+
+typedef struct {
+	DWORD dwPacketNumber;
+	_XInputGamepad_t Gamepad;
+} _XInputState_t;
+
+typedef struct {
+	WORD wLeftMotorSpeed;
+	WORD wRightMotorSpeed;
+} _XInputVibration_t;
+
+typedef DWORD (WINAPI *_PFN_XInputGetState)( DWORD dwUserIndex, _XInputState_t *pState );
+typedef DWORD (WINAPI *_PFN_XInputSetState)( DWORD dwUserIndex, const _XInputVibration_t *pVibration );
+
+#define _XINPUT_OK                          0L
+#define _XINPUT_ERROR_DEVICE_NOT_CONNECTED 1167L
+
+#define _XINPUT_GAMEPAD_DPAD_UP        0x0001
+#define _XINPUT_GAMEPAD_DPAD_DOWN      0x0002
+#define _XINPUT_GAMEPAD_DPAD_LEFT      0x0004
+#define _XINPUT_GAMEPAD_DPAD_RIGHT     0x0008
+#define _XINPUT_GAMEPAD_START          0x0010
+#define _XINPUT_GAMEPAD_BACK           0x0020
+#define _XINPUT_GAMEPAD_LEFT_THUMB     0x0040
+#define _XINPUT_GAMEPAD_RIGHT_THUMB    0x0080
+#define _XINPUT_GAMEPAD_LEFT_SHOULDER  0x0100
+#define _XINPUT_GAMEPAD_RIGHT_SHOULDER 0x0200
+#define _XINPUT_GAMEPAD_A              0x1000
+#define _XINPUT_GAMEPAD_B              0x2000
+#define _XINPUT_GAMEPAD_X              0x4000
+#define _XINPUT_GAMEPAD_Y              0x8000
+
+static HMODULE _hXInputModule;
+static _PFN_XInputGetState _pfnXInputGetState;
+static _PFN_XInputSetState _pfnXInputSetState;
+static BOOL _abXInputPrevConnected[ FPADIO_MAX_DEVICES ];
+
+// Motor request per device: written by fpadio_SetForcefeedback_XB (called
+// from fforce_Work on the game thread), dispatched by
+// fpadio_ApplyAllForcefeedbacks once per frame (decision D6).
+static f32 _afMotorCoarse[ FPADIO_MAX_DEVICES ], _afMotorFine[ FPADIO_MAX_DEVICES ];
+
+static BOOL _XInputLoad( void )
+{
+	static const char *const _apszModules[] = { "xinput1_4.dll", "xinput9_1_0.dll", "xinput1_3.dll" };
+	u32 uIndex;
+
+	if( _pfnXInputGetState )
+	{
+		return TRUE;
+	}
+
+	for( uIndex = 0; uIndex < ( sizeof( _apszModules ) / sizeof( _apszModules[ 0 ] ) ); ++uIndex )
+	{
+		_hXInputModule = LoadLibraryA( _apszModules[ uIndex ] );
+		if( !_hXInputModule )
+		{
+			continue;
+		}
+
+		_pfnXInputGetState = (_PFN_XInputGetState)GetProcAddress( _hXInputModule, "XInputGetState" );
+		_pfnXInputSetState = (_PFN_XInputSetState)GetProcAddress( _hXInputModule, "XInputSetState" );
+		if( _pfnXInputGetState && _pfnXInputSetState )
+		{
+			DEVPRINTF( "[ma] fpadio: XInput loaded from %s.\n", _apszModules[ uIndex ] );
+			return TRUE;
+		}
+
+		_pfnXInputGetState = NULL;
+		_pfnXInputSetState = NULL;
+		FreeLibrary( _hXInputModule );
+		_hXInputModule = NULL;
+	}
+
+	DEVPRINTF( "[ma] fpadio: no XInput DLL found; DirectInput/keyboard only.\n" );
+	return FALSE;
+}
+
+static void _XInputUnload( void )
+{
+	if( _hXInputModule )
+	{
+		FreeLibrary( _hXInputModule );
+		_hXInputModule = NULL;
+	}
+	_pfnXInputGetState = NULL;
+	_pfnXInputSetState = NULL;
+}
+
+static u32 _XInputConnectedCount( void )
+{
+	u32 uIndex, uCount = 0;
+	_XInputState_t oState;
+
+	if( !_pfnXInputGetState )
+	{
+		return 0;
+	}
+
+	for( uIndex = 0; uIndex < FPADIO_MAX_DEVICES; ++uIndex )
+	{
+		if( _XINPUT_OK == _pfnXInputGetState( uIndex, &oState ) )
+		{
+			++uCount;
+		}
+	}
+
+	return uCount;
+}
 
 // Double sample buffers.
 static FPadio_Sample_t **_papaoSamplesA;
@@ -281,6 +416,181 @@ static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 		if( ( 0 != _nWheelPulseSecondaryUntil ) && ( (LONG)( GetTickCount() - (DWORD)_nWheelPulseSecondaryUntil ) < 0 ) ) {
 			paf[ FPADIO_INPUT_CROSS_LEFT - 1 ] = 1.0f;
 		}
+	}
+}
+
+// Decision D5 -- per-input precedence when the keyboard synth co-sources a
+// port that also has a pad (slot 0): sticks and d-pad take the pad value once
+// it moves beyond the deadzone (so a centered stick never fights the keys),
+// buttons and triggers add together clamped to 1, and the port reports
+// connected if either source is. Only port 0 ever gets this; pads in slots
+// 1..3 are keyboard-free, which is what keeps local multiplayer honest.
+static void _MergeKeyboardInto( FPadio_Sample_t *poPad, FPadio_Sample_t *poScratch )
+{
+	u32 uInput;
+	f32 fPad, fKey;
+
+	_KeyboardSyntheticSample( poScratch );
+
+	for( uInput = 0; uInput < FPADIO_MAX_INPUTS; ++uInput )
+	{
+		fPad = poPad->afInputValues[ uInput ];
+		fKey = poScratch->afInputValues[ uInput ];
+
+		switch( (FPadio_InputID_e)( uInput + 1 ) )
+		{
+			case FPADIO_INPUT_STICK_LEFT_X:
+			case FPADIO_INPUT_STICK_LEFT_Y:
+			case FPADIO_INPUT_STICK_RIGHT_X:
+			case FPADIO_INPUT_STICK_RIGHT_Y:
+			case FPADIO_INPUT_DPAD_X:
+			case FPADIO_INPUT_DPAD_Y:
+				poPad->afInputValues[ uInput ] = ( FMATH_FABS( fPad ) > _DEADZONE_STICKS ) ? fPad : fKey;
+				break;
+
+			default:
+				fPad += fKey;
+				FMATH_CLAMP( fPad, 0.0f, 1.0f );
+				poPad->afInputValues[ uInput ] = fPad;
+				break;
+		}
+	}
+
+	poPad->bValid = poPad->bValid || poScratch->bValid;
+}
+
+// Phase 3 -- translate one XInput controller into an fpadio sample. Sign and
+// mapping conventions match the keyboard synth exactly: stick up = +Y, right
+// = +X, d-pad likewise, A/B/X/Y -> CROSS_BOTTOM/RIGHT/LEFT/TOP, bumpers ->
+// White/Black (the original Xbox face), stick clicks -> crouch/melee, Start/
+// Back where they belong; triggers stay analog 0..1. The focus gate follows
+// the phase-0 policy for the keyboard: while the window is inactive report an
+// idle-but-connected controller instead of letting a stray shoulder button
+// drive an unfocused game.
+static void _XInputSample( u32 uSlot, FPadio_Sample_t *poSample )
+{
+	const _XInputGamepad_t *poPad;
+	_XInputState_t oState;
+	BOOL bConnected;
+	f32 *paf = poSample->afInputValues;
+	f32 fX, fY;
+
+	fang_MemZero( paf, sizeof( poSample->afInputValues ) );
+
+	bConnected = _pfnXInputGetState && ( _XINPUT_OK == _pfnXInputGetState( uSlot, &oState ) );
+
+	// Hotplug: log the edges only (phase-3 acceptance -- unplug/replug live).
+	if( bConnected != _abXInputPrevConnected[ uSlot ] )
+	{
+		_abXInputPrevConnected[ uSlot ] = bConnected;
+		DEVPRINTF( "[ma] fpadio: xinput slot %u %s.\n", uSlot, bConnected ? "connected" : "disconnected" );
+	}
+
+	if( !bConnected )
+	{
+		poSample->bValid = FALSE;
+		return;
+	}
+
+	poSample->bValid = TRUE;
+
+	if( !fdx8vid_HaveFocus() )
+	{
+		return;
+	}
+
+	poPad = &( oState.Gamepad );
+
+	//// Left stick -- deadzone + renormalize exactly like the DirectInput path
+	//// so pads feel identical whichever way they are read. XInput already
+	//// reports up as +Y, which is the game's convention (W and I both read
+	//// +1 in the synth), so there is no Y negation here.
+	//
+	fX = (f32)poPad->sThumbLX * ( 1.0f / 32767.0f );
+	fY = (f32)poPad->sThumbLY * ( 1.0f / 32767.0f );
+	_ApplyDeadzone( fX );
+	_ApplyDeadzone( fY );
+	_RenormalizeStick( fX, fY );
+	paf[ FPADIO_INPUT_STICK_LEFT_X - 1 ] = fX;
+	paf[ FPADIO_INPUT_STICK_LEFT_Y - 1 ] = fY;
+
+	//// Right stick.
+	//
+	fX = (f32)poPad->sThumbRX * ( 1.0f / 32767.0f );
+	fY = (f32)poPad->sThumbRY * ( 1.0f / 32767.0f );
+	_ApplyDeadzone( fX );
+	_ApplyDeadzone( fY );
+	_RenormalizeStick( fX, fY );
+	paf[ FPADIO_INPUT_STICK_RIGHT_X - 1 ] = fX;
+	paf[ FPADIO_INPUT_STICK_RIGHT_Y - 1 ] = fY;
+
+	//// D-pad -- digital, same signs as the arrow keys in the synth.
+	//
+	fX = 0.0f;
+	fY = 0.0f;
+	if( poPad->wButtons & _XINPUT_GAMEPAD_DPAD_RIGHT ) { fX += 1.0f; }
+	if( poPad->wButtons & _XINPUT_GAMEPAD_DPAD_LEFT )  { fX -= 1.0f; }
+	if( poPad->wButtons & _XINPUT_GAMEPAD_DPAD_UP )    { fY += 1.0f; }
+	if( poPad->wButtons & _XINPUT_GAMEPAD_DPAD_DOWN )  { fY -= 1.0f; }
+	paf[ FPADIO_INPUT_DPAD_X - 1 ] = fX;
+	paf[ FPADIO_INPUT_DPAD_Y - 1 ] = fY;
+
+	//// Triggers -- analog (the retail DirectInput-Xbox emulation read them as
+	//// digital buttons; XInput gives the real axis, which the game handles
+	//// because that is what the console did).
+	//
+	paf[ FPADIO_INPUT_TRIGGER_LEFT  - 1 ] = (f32)poPad->bLeftTrigger  * ( 1.0f / 255.0f );
+	paf[ FPADIO_INPUT_TRIGGER_RIGHT - 1 ] = (f32)poPad->bRightTrigger * ( 1.0f / 255.0f );
+
+	//// Buttons.
+	//
+	paf[ FPADIO_INPUT_START                 - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_START          ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_DBUTTON_BACK       - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_BACK           ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_CROSS_BOTTOM          - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_A              ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_CROSS_RIGHT           - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_B              ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_CROSS_LEFT            - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_X              ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_CROSS_TOP             - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_Y              ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_ABUTTON_WHITE      - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_LEFT_SHOULDER  ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_ABUTTON_BLACK      - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_RIGHT_SHOULDER ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_LEFT - 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_LEFT_THUMB     ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_RIGHT- 1 ] = ( poPad->wButtons & _XINPUT_GAMEPAD_RIGHT_THUMB    ) ? 1.0f : 0.0f;
+}
+
+// Phase 3 -- fill all four fpadio slots with XInput devices. Every slot is
+// registered whether or not a controller is attached right now: an invalid
+// sample marks the port offline for as long as the pad is absent and the next
+// XInputGetState brings it straight back (hotplug), while slot 0 additionally
+// merges the keyboard synth so P1 can swap kb<->pad live (decision D5).
+static void _RegisterXInputDevices( void )
+{
+	u32 uIndex, uInput;
+	_Device_t *poDevice;
+	char szName[ 64 ];
+
+	for( uIndex = 0; uIndex < FPADIO_MAX_DEVICES; ++uIndex )
+	{
+		poDevice = &( _aoDevices[ uIndex ] );
+
+		sprintf( szName, "Xbox Controller %u (XInput)", uIndex + 1 );
+
+		poDevice->bEnumerated  = FALSE; // Skips the DirectInput setup loop below.
+		poDevice->bAcquired    = TRUE;  // The sampling thread fills it.
+		poDevice->poDIDevice   = NULL;  // No DirectInput object to poll or release.
+		poDevice->bXInput      = TRUE;
+		poDevice->uXInputSlot  = uIndex;
+		poDevice->bSynthMerged = ( 0 == uIndex );
+		poDevice->uAxis        = 0;
+		poDevice->uButtons     = FPADIO_MAX_INPUTS;
+
+		fclib_strcpy( poDevice->oInfo.szName, szName );
+		poDevice->oInfo.oeID    = FPADIO_INPUT_XB_GAMEPAD;
+		poDevice->oInfo.uInputs = FPADIO_MAX_INPUTS;
+		for( uInput = 0; uInput < FPADIO_MAX_INPUTS; ++uInput )
+		{
+			poDevice->oInfo.aeInputIDs[ uInput ] = (FPadio_InputID_e)( uInput + 1 );
+		}
+
+		_abXInputPrevConnected[ uIndex ] = FALSE;
 	}
 }
 
@@ -526,6 +836,8 @@ FPadio_Error_e fpadio_Install( const FPadio_Init_t *poInit /* = NULL */ )
 	////
 
 	fang_MemZero( _aoDevices, sizeof( _aoDevices ) );
+	fang_MemZero( _afMotorCoarse, sizeof( _afMotorCoarse ) );
+	fang_MemZero( _afMotorFine,   sizeof( _afMotorFine ) );
 
 	DWORD dwExitCode;
 
@@ -552,26 +864,51 @@ FPadio_Error_e fpadio_Install( const FPadio_Init_t *poInit /* = NULL */ )
 
 	////
 	//
+	//// Device population -- phase 3, decisions D4/D5.
+	//
+	// Prefer XInput whenever its DLL loads and a controller is already
+	// attached: Xbox pads then get exact, config-free translation and the
+	// same physical pad is never registered twice (DirectInput sees Wine's
+	// XInput pads too). If nothing is attached yet but DirectInput also finds
+	// nothing, take the XInput slots anyway so a pad plugged in after launch
+	// comes up live (hotplug). DirectInput keeps its legacy role only for
+	// non-XInput HID pads. In every mode slot 0 can merge the keyboard synth,
+	// so kb+mouse is always a co-source of port 0 and never drives 1..3.
+	//
 	u32 uCount = 0;
-	if( FAILED( _pDInput->EnumDevices( DI8DEVCLASS_GAMECTRL, _EnumDevicesCallback, &uCount, DIEDFL_ATTACHEDONLY ) ) )
-	{
-		DEVPRINTF( "[ FPADIO ] Error %u: EnumDevices() failed !!!\n", __LINE__ );
-		ReleaseMutex( _hPollingThreadMutex );
-		ResumeThread( _hPollingThread );
-		do
-		{
-			Sleep( 10 );
-			GetExitCodeThread( _hPollingThread, &dwExitCode );
+	BOOL bXInputMode = _XInputLoad() && ( _XInputConnectedCount() > 0 );
 
-		} while( STILL_ACTIVE == dwExitCode );
-		CloseHandle( _hPollingThreadMutex );
-		CloseHandle( _hSamplesAndDevicesMutex );
-		FDX8_SAFE_RELEASE( _pDInput );
-		fres_ReleaseFrame( oTempResFrame );
-		return FPADIO_ERROR;
+	if( ! bXInputMode )
+	{
+		if( FAILED( _pDInput->EnumDevices( DI8DEVCLASS_GAMECTRL, _EnumDevicesCallback, &uCount, DIEDFL_ATTACHEDONLY ) ) )
+		{
+			DEVPRINTF( "[ FPADIO ] Error %u: EnumDevices() failed !!!\n", __LINE__ );
+			ReleaseMutex( _hPollingThreadMutex );
+			ResumeThread( _hPollingThread );
+			do
+			{
+				Sleep( 10 );
+				GetExitCodeThread( _hPollingThread, &dwExitCode );
+
+			} while( STILL_ACTIVE == dwExitCode );
+			CloseHandle( _hPollingThreadMutex );
+			CloseHandle( _hSamplesAndDevicesMutex );
+			FDX8_SAFE_RELEASE( _pDInput );
+			fres_ReleaseFrame( oTempResFrame );
+			return FPADIO_ERROR;
+		}
+
+		bXInputMode = ( ( 0 == uCount ) && ( NULL != _pfnXInputGetState ) );
 	}
 
-	if( ! uCount )
+	if( bXInputMode )
+	{
+		//// XInput mode: four pad slots, keyboard merged into slot 0.
+		//
+		_RegisterXInputDevices();
+		DEVPRINTF( "[ma] fpadio: xinput mode, %u controller(s) attached at install; slot 0 also merges the keyboard.\n", _XInputConnectedCount() );
+	}
+	else if( ! uCount )
 	{
 		//// No controller attached -- register a keyboard instead of failing.
 		//
@@ -604,6 +941,15 @@ FPadio_Error_e fpadio_Install( const FPadio_Init_t *poInit /* = NULL */ )
 			poSynth->oInfo.aeInputIDs[ uSynthInput ] = (FPadio_InputID_e)( uSynthInput + 1 );
 		}
 		DEVPRINTF( "[ma] fpadio: no DirectInput controller, keyboard registered as device 0.\n" );
+	}
+	else
+	{
+		//// DirectInput pad(s) present: the keyboard still co-sources port 0
+		//// (decision D5) so a player can swap kb<->pad live; slots 1..3 stay
+		//// pad-only for local multiplayer.
+		//
+		_aoDevices[ 0 ].bSynthMerged = TRUE;
+		DEVPRINTF( "[ma] fpadio: %u DirectInput controller(s); keyboard merges into port 0.\n", uCount );
 	}
 	//
 	////
@@ -802,6 +1148,7 @@ void fpadio_Uninstall( void )
 	}
 
 	FDX8_SAFE_RELEASE( _pDInput );
+	_XInputUnload();
 
 	CloseHandle( _hPollingThreadMutex );
 	CloseHandle( _hSamplesAndDevicesMutex );
@@ -820,9 +1167,54 @@ BOOL fpadio_IsInstalled( void )
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+void fpadio_SetForcefeedback_XB( u32 uDeviceIndex, f32 fUnitVibeCoarse, f32 fUnitVibeFine )
+{
+	FASSERT_MSG( _bModuleInstalled,                 "[ FPADIO ] Error: System not installed !!!" );
+	FASSERT_MSG( FPADIO_MAX_DEVICES > uDeviceIndex, "[ FPADIO ] Error: Invalid device index !!!" );
+
+	FMATH_CLAMP( fUnitVibeCoarse, 0.0f, 1.0f );
+	FMATH_CLAMP( fUnitVibeFine,   0.0f, 1.0f );
+
+	// Called from fforce_Work() each frame (envelope math lives in
+	// fxbforce.cpp, decision D6); fpadio_ApplyAllForcefeedbacks() ships the
+	// values to the pads below.
+	_afMotorCoarse[ uDeviceIndex ] = fUnitVibeCoarse;
+	_afMotorFine[   uDeviceIndex ] = fUnitVibeFine;
+
+} // fpadio_SetForcefeedback_XB
+
 void fpadio_ApplyAllForcefeedbacks( void )
 {
 	FASSERT_MSG( _bModuleInstalled, "[ FPADIO ] Error: System not installed !!!" );
+
+	if( ! _pfnXInputSetState )
+	{
+		return;
+	}
+
+	// Stop rumbling while the window is unfocused: XInput keeps running while
+	// the game sits in the background, and a buzzing pad in another app is a
+	// bug, not a feature.
+	BOOL bFocus = fdx8vid_HaveFocus();
+	_XInputVibration_t oVibration;
+	_Device_t *poDevice;
+	u32 uIndex;
+
+	for( uIndex = 0; uIndex < FPADIO_MAX_DEVICES; ++uIndex )
+	{
+		poDevice = &( _aoDevices[ uIndex ] );
+		if( ! ( poDevice->bAcquired && poDevice->bXInput ) )
+		{
+			continue;
+		}
+
+		oVibration.wLeftMotorSpeed  = (WORD)( ( bFocus ? _afMotorCoarse[ uIndex ] : 0.0f ) * 65535.0f );
+		oVibration.wRightMotorSpeed = (WORD)( ( bFocus ? _afMotorFine[   uIndex ] : 0.0f ) * 65535.0f );
+
+		// Disconnected slots return _XINPUT_ERROR_DEVICE_NOT_CONNECTED -- a
+		// no-op, which also keeps kb-only players' pads silent.
+		_pfnXInputSetState( poDevice->uXInputSlot, &oVibration );
+	}
 
 } // fpadio_ApplyAllForcefeedbacks
 
@@ -877,6 +1269,7 @@ void fpadio_GetDeviceInfo( u32 uDeviceIndex, FPadio_DeviceInfo_t *poDeviceInfo )
 DWORD WINAPI _fpadio_SamplingThread( LPVOID pParam ) {
 	_Device_t *poTempDevice;
 	FPadio_Sample_t *poTempSample;
+	FPadio_Sample_t oTempSynth;
 	DIJOYSTATE2 oTempState;
 	u32 uIndex, uTemp, uCount;
 	f32 *pafInputValues, fX, fY;
@@ -889,6 +1282,16 @@ DWORD WINAPI _fpadio_SamplingThread( LPVOID pParam ) {
 			poTempDevice = &( _aoDevices[ uIndex ] );
 			
 			if( poTempDevice->bAcquired ) {
+				//// XInput controller (phase 3): poll the pad, then -- slot 0
+				//// only -- merge the keyboard synth over it (decision D5).
+				if( poTempDevice->bXInput ) {
+					_XInputSample( poTempDevice->uXInputSlot, poTempSample );
+					if( poTempDevice->bSynthMerged ) {
+						_MergeKeyboardInto( poTempSample, &oTempSynth );
+					}
+					continue;
+				}
+
 				//// Synthetic keyboard device: there is no DirectInput object to
 				//// poll, so read the keys straight into this sample instead.
 				if( ! poTempDevice->poDIDevice ) {
@@ -1044,6 +1447,12 @@ DWORD WINAPI _fpadio_SamplingThread( LPVOID pParam ) {
 					for( uTemp = 0; uTemp < poTempDevice->uButtons; ++uTemp ) {
 						pafInputValues[ uCount + uTemp ] = ( oTempState.rgbButtons[ uTemp ] & 0x80 ) ? 1.0f : 0.0f;
 					}
+				}
+
+				//// Legacy DirectInput pad co-sourcing port 0 with the keyboard
+				//// (decision D5) -- the same merge XInput slot 0 uses.
+				if( poTempDevice->bSynthMerged ) {
+					_MergeKeyboardInto( poTempSample, &oTempSynth );
 				}
 			} else {
 				poTempSample->bValid = FALSE;

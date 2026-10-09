@@ -43,6 +43,19 @@ PCH_EXCLUDE = {
     "App/ma/win/fangpch.cpp",
 }
 
+# Input modernization phase 4 (decision D6): the Windows stub fdx8force.cpp
+# fakes the force-feedback system off, so canned effects never reached a pad.
+# The real envelope system lives in fxbforce.cpp -- platform-independent math
+# that ends in fpadio_SetForcefeedback_XB(), which fdx8padio.cpp now
+# implements for the XInput motors. fang2win.vcproj lists the stub (the Xbox
+# file was never part of the PC project), so swap the two TUs here.
+FANG_EXCLUDE = {
+    "Lib/Fang2/dx/fdx8force.cpp",
+}
+FANG_EXTRA = {
+    "Lib/Fang2/dx/fxbforce.cpp",
+}
+
 
 def relpaths(vcproj):
     """Yield project-relative paths from a VS .vcproj, in document order."""
@@ -93,9 +106,12 @@ def main():
              "from App/ma/win/ma_win.vcproj minus MFC shell and PCH shims")
     print(f"ma_win:   {n} sources")
 
-    fang, fang_missing = sources(os.path.join(ROOT, "Lib/Fang2/dx/win/fang2win.vcproj"))
+    fang, fang_missing = sources(
+        os.path.join(ROOT, "Lib/Fang2/dx/win/fang2win.vcproj"), FANG_EXCLUDE
+    )
+    fang = sorted(set(fang) | FANG_EXTRA)
     n = emit("FANG2WIN_SOURCES", fang, os.path.join(outdir, "sources_fang2win.cmake"),
-             "from Lib/Fang2/dx/win/fang2win.vcproj")
+             "from Lib/Fang2/dx/win/fang2win.vcproj minus fdx8force stub, plus fxbforce")
     print(f"fang2win: {n} sources")
 
     # SmallAMX.vcproj is zero bytes in this dump; the .dsp is intact.

@@ -193,9 +193,13 @@ extern BOOL fpadio_IsInstalled( void );
 // the d-pad are fixed. Call before the game loop starts.
 extern void fpadio_SetSynthKeyOverrides( const u32 *pauVKPerInput );
 
-#if FANG_PLATFORM_XB
-	extern void fpadio_SetForcefeedback_XB( u32 uDeviceIndex, f32 fUnitVibeCoarse, f32 fUnitVibeFine );
-#elif FANG_PLATFORM_GC
+// [RUMBLE] (INPUT_MODERNIZATION phase 4, decision D6): unit vibration on the
+// two motors (coarse = low/left, fine = high/right). Declared for every
+// platform because fxbforce.cpp's envelope system is platform-independent and
+// this is the sink it feeds: fxbpadio.cpp implements it with XInput handles on
+// Xbox, fdx8padio.cpp stores it and ships it via fpadio_ApplyAllForcefeedbacks.
+extern void fpadio_SetForcefeedback_XB( u32 uDeviceIndex, f32 fUnitVibeCoarse, f32 fUnitVibeFine );
+#if FANG_PLATFORM_GC
 	extern void fpadio_SetForcefeedback_GC( u32 uDeviceIndex, FPadio_GCFFMode_e oeMode );
 #endif
 
