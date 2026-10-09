@@ -187,6 +187,12 @@ extern FPadio_Error_e fpadio_Install( const FPadio_Init_t *poInit = NULL ); // i
 extern void fpadio_Uninstall( void );
 extern BOOL fpadio_IsInstalled( void );
 
+// [KEYMAP] (INPUT_MODERNIZATION phase 2): pauVKPerInput is an array of
+// FPADIO_MAX_INPUTS virtual-key codes indexed by (FPadio_InputID_e - 1);
+// 0 keeps the keyboard synth's default binding. Buttons only -- sticks and
+// the d-pad are fixed. Call before the game loop starts.
+extern void fpadio_SetSynthKeyOverrides( const u32 *pauVKPerInput );
+
 #if FANG_PLATFORM_XB
 	extern void fpadio_SetForcefeedback_XB( u32 uDeviceIndex, f32 fUnitVibeCoarse, f32 fUnitVibeFine );
 #elif FANG_PLATFORM_GC

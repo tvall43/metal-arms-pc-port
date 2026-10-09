@@ -25,6 +25,7 @@
 
 #include "../gameloop.h"
 #include "../gamepad.h"	// Gamepad_fMouseSensitivity
+#include "fpadio.h"		// fpadio_SetSynthKeyOverrides, FPADIO_INPUT_*
 #include "Settings.h"
 #include "floop.h"
 #include "ffile.h"
@@ -283,6 +284,60 @@ static void _SetStatus( const char *pszText )
 
 // ---------------------------------------------------------------------------
 // Persistence
+
+// [KEYMAP] key-name parsing (phase 2): a [KEYMAP] value is a single key
+// name -- a letter or digit, "0xNN" for a raw virtual-key code, or one of the
+// names below. Returns 0 for anything unrecognized.
+static u32 _ParseKeyName( const char *pszName )
+{
+	static const struct { const char *psz; u32 vk; } _aNames[] = {
+		{ "Space",     VK_SPACE },   { "Tab",       VK_TAB },
+		{ "Return",    VK_RETURN },  { "Enter",     VK_RETURN },
+		{ "Escape",    VK_ESCAPE },  { "Esc",       VK_ESCAPE },
+		{ "Backspace", VK_BACK },    { "LShift",    VK_LSHIFT },
+		{ "RShift",    VK_RSHIFT },  { "LCtrl",     VK_LCONTROL },
+		{ "RCtrl",     VK_RCONTROL },{ "LAlt",      VK_LMENU },
+		{ "RAlt",      VK_RMENU },   { "Up",        VK_UP },
+		{ "Down",      VK_DOWN },    { "Left",      VK_LEFT },
+		{ "Right",     VK_RIGHT },   { "LButton",   VK_LBUTTON },
+		{ "RButton",   VK_RBUTTON }, { "MButton",   VK_MBUTTON },
+		{ "Insert",    VK_INSERT },  { "Delete",    VK_DELETE },
+		{ "Home",      VK_HOME },    { "End",       VK_END },
+		{ "PageUp",    VK_PRIOR },   { "PageDown",  VK_NEXT },
+		{ "CapsLock",  VK_CAPITAL }, { "Comma",     VK_OEM_COMMA },
+		{ "Period",    VK_OEM_PERIOD },{ "Slash",    VK_OEM_2 },
+		{ "Semicolon", VK_OEM_1 },   { "Quote",     VK_OEM_7 },
+		{ "LBracket",  VK_OEM_4 },   { "RBracket",  VK_OEM_6 },
+		{ "Minus",     VK_OEM_MINUS },{ "Equals",    VK_OEM_PLUS },
+		{ "Grave",     VK_OEM_3 },   { "Backslash", VK_OEM_5 },
+		{ "F1",  VK_F1 },  { "F2",  VK_F2 },  { "F3",  VK_F3 },  { "F4",  VK_F4 },
+		{ "F5",  VK_F5 },  { "F6",  VK_F6 },  { "F7",  VK_F7 },  { "F8",  VK_F8 },
+		{ "F9",  VK_F9 },  { "F10", VK_F10 }, { "F11", VK_F11 }, { "F12", VK_F12 },
+	};
+	u32 i;
+
+	// Single letter or digit: the character itself (upper-cased).
+	if( ( 1 == strlen( pszName ) ) &&
+		( ( ( pszName[0] >= 'a' ) && ( pszName[0] <= 'z' ) ) || ( ( pszName[0] >= 'A' ) && ( pszName[0] <= 'Z' ) ) ||
+		  ( ( pszName[0] >= '0' ) && ( pszName[0] <= '9' ) ) ) )
+	{
+		char c = pszName[0];
+		if( ( c >= 'a' ) && ( c <= 'z' ) ) { c -= 32; }
+		return (u32)(unsigned char)c;
+	}
+
+	// Explicit virtual-key code.
+	if( ( '0' == pszName[0] ) && ( ( 'x' == pszName[1] ) || ( 'X' == pszName[1] ) ) ) {
+		return (u32)strtoul( pszName + 2, NULL, 16 );
+	}
+
+	for( i = 0; i < sizeof( _aNames ) / sizeof( _aNames[0] ); ++i ) {
+		if( 0 == _stricmp( pszName, _aNames[i].psz ) ) {
+			return _aNames[i].vk;
+		}
+	}
+	return 0;
+}
 // ---------------------------------------------------------------------------
 
 static void _LoadConfig( void )
@@ -306,6 +361,44 @@ static void _LoadConfig( void )
 		Gamepad_fMouseSensitivity = 0.1f;
 	} else if( Gamepad_fMouseSensitivity > 10.0f ) {
 		Gamepad_fMouseSensitivity = 10.0f;
+	}
+
+	// [KEYMAP] button overrides (phase 2): optional per-action bindings for
+	// the keyboard synth. Absent entry = default binding (see fdx8padio.cpp;
+	// documented in HANDOFF.md). Buttons only; WASD / IJKL / arrows are fixed.
+	{
+		static const struct { const char *pszName; int nInputID; } _aKeyActions[] = {
+			{ "Jump",           FPADIO_INPUT_CROSS_BOTTOM },
+			{ "SelectPrimary",  FPADIO_INPUT_CROSS_RIGHT },
+			{ "SelectSecondary",FPADIO_INPUT_CROSS_LEFT },
+			{ "Action",         FPADIO_INPUT_CROSS_TOP },
+			{ "Start",          FPADIO_INPUT_START },
+			{ "Back",           FPADIO_INPUT_XB_DBUTTON_BACK },
+			{ "Fire",           FPADIO_INPUT_TRIGGER_RIGHT },
+			{ "Aim",            FPADIO_INPUT_TRIGGER_LEFT },
+			{ "Black",          FPADIO_INPUT_XB_ABUTTON_BLACK },
+			{ "White",          FPADIO_INPUT_XB_ABUTTON_WHITE },
+			{ "Crouch",         FPADIO_INPUT_XB_DBUTTON_STICK_LEFT },
+			{ "Melee",          FPADIO_INPUT_XB_DBUTTON_STICK_RIGHT },
+		};
+		u32 auKeys[ FPADIO_MAX_INPUTS ];
+		u32 i;
+
+		fang_MemZero( auKeys, sizeof( auKeys ) );
+		for( i = 0; i < sizeof( _aKeyActions ) / sizeof( _aKeyActions[0] ); ++i ) {
+			char szKey[64];
+			oSettings.ReadCustomString( "KEYMAP", _aKeyActions[i].pszName, "", szKey, sizeof( szKey ) );
+			if( szKey[0] ) {
+				u32 uVK = _ParseKeyName( szKey );
+				if( uVK ) {
+					auKeys[ _aKeyActions[i].nInputID - 1 ] = uVK;
+				} else {
+					DEVPRINTF( "[ma] [KEYMAP] %s=%s: unknown key name; using the default binding.\n",
+						_aKeyActions[i].pszName, szKey );
+				}
+			}
+		}
+		fpadio_SetSynthKeyOverrides( auKeys );
 	}
 }
 

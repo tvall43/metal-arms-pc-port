@@ -154,6 +154,30 @@ static LONG _nWheelPulsePrimaryUntil   = 0;
 static LONG _nWheelPulseSecondaryUntil = 0;
 #define _WHEEL_PULSE_MS 60
 
+// [KEYMAP] overrides (phase 2): virtual-key codes indexed by
+// (FPadio_InputID_e - 1); 0 keeps the default binding below. Populated by
+// fpadio_SetSynthKeyOverrides() from ma_win.ini before the game loop starts,
+// so the sampling thread only ever reads it. Buttons only -- sticks and the
+// d-pad keep their fixed keys.
+static u32 _auSynthKeyVK[ FPADIO_MAX_INPUTS ];
+
+void fpadio_SetSynthKeyOverrides( const u32 *pauVKPerInput )
+{
+	if( NULL == pauVKPerInput ) {
+		fang_MemZero( _auSynthKeyVK, sizeof( _auSynthKeyVK ) );
+	} else {
+		fang_MemCopy( _auSynthKeyVK, pauVKPerInput, sizeof( _auSynthKeyVK ) );
+	}
+}
+
+// TRUE if the bound key for this input is down -- the [KEYMAP] override when
+// one was supplied for nInputID, otherwise the compiled-in default.
+static BOOL _KeyBound( int nInputID, int nDefaultVK )
+{
+	u32 uVK = _auSynthKeyVK[ nInputID - 1 ];
+	return _KeyDown( ( 0 != uVK ) ? (int)uVK : nDefaultVK );
+}
+
 static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 {
 	static const f32 _fSqrtHalf = 0.70710678118654752440f;
@@ -217,26 +241,35 @@ static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 
 	//// Face buttons and shoulders.
 	//
-	paf[ FPADIO_INPUT_CROSS_BOTTOM          - 1 ] = ( _KeyDown( VK_SPACE ) ) ? 1.0f : 0.0f; // A: accept, jump, select
-	paf[ FPADIO_INPUT_CROSS_RIGHT           - 1 ] = _KeyDown( VK_TAB ) ? 1.0f : 0.0f;                                    // B: back, cancel, primary weapon select
-	paf[ FPADIO_INPUT_CROSS_LEFT            - 1 ] = _KeyDown( 'Q' ) ? 1.0f : 0.0f;                                    // X
-	paf[ FPADIO_INPUT_CROSS_TOP             - 1 ] = _KeyDown( 'E' ) ? 1.0f : 0.0f;                                    // Y: action, interact
-	paf[ FPADIO_INPUT_START                 - 1 ] = ( _KeyDown( VK_RETURN ) || _KeyDown( 'P' ) || _KeyDown( VK_ESCAPE ) ) ? 1.0f : 0.0f; // Start: pause (Escape opens the pause menu instead of quitting, gameloop.cpp)
-	paf[ FPADIO_INPUT_XB_DBUTTON_BACK       - 1 ] = _KeyDown( VK_BACK ) ? 1.0f : 0.0f;                                // Back
-	paf[ FPADIO_INPUT_TRIGGER_RIGHT         - 1 ] = ( _KeyDown( VK_LBUTTON ) || _KeyDown( VK_LCONTROL ) ) ? 1.0f : 0.0f; // RT: fire
-	paf[ FPADIO_INPUT_TRIGGER_LEFT          - 1 ] = ( _KeyDown( VK_RBUTTON ) || _KeyDown( VK_LSHIFT ) ) ? 1.0f : 0.0f;    // LT: aim
-	paf[ FPADIO_INPUT_XB_ABUTTON_BLACK      - 1 ] = _KeyDown( 'X' ) ? 1.0f : 0.0f;
-	paf[ FPADIO_INPUT_XB_ABUTTON_WHITE      - 1 ] = _KeyDown( 'C' ) ? 1.0f : 0.0f;
-	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_LEFT - 1 ] = _KeyDown( VK_LMENU ) ? 1.0f : 0.0f;   // LS: crouch
-	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_RIGHT- 1 ] = _KeyDown( 'R' ) ? 1.0f : 0.0f;        // RS: melee
+	paf[ FPADIO_INPUT_CROSS_BOTTOM          - 1 ] = _KeyBound( FPADIO_INPUT_CROSS_BOTTOM, VK_SPACE ) ? 1.0f : 0.0f; // A: accept, jump, select
+	paf[ FPADIO_INPUT_CROSS_RIGHT           - 1 ] = _KeyBound( FPADIO_INPUT_CROSS_RIGHT,  VK_TAB )    ? 1.0f : 0.0f; // B: back, cancel, primary weapon select
+	paf[ FPADIO_INPUT_CROSS_LEFT            - 1 ] = _KeyBound( FPADIO_INPUT_CROSS_LEFT,   'Q' )      ? 1.0f : 0.0f; // X
+	paf[ FPADIO_INPUT_CROSS_TOP             - 1 ] = _KeyBound( FPADIO_INPUT_CROSS_TOP,    'E' )      ? 1.0f : 0.0f; // Y: action, interact
+	// Start: pause (Escape opens the pause menu instead of quitting, gameloop.cpp).
+	// Defaults are a key OR-set; a [KEYMAP] override replaces the whole set with one key.
+	paf[ FPADIO_INPUT_START                 - 1 ] = ( ( 0 != _auSynthKeyVK[ FPADIO_INPUT_START - 1 ] )
+		? _KeyBound( FPADIO_INPUT_START, 0 )
+		: ( _KeyDown( VK_RETURN ) || _KeyDown( 'P' ) || _KeyDown( VK_ESCAPE ) ) ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_DBUTTON_BACK       - 1 ] = _KeyBound( FPADIO_INPUT_XB_DBUTTON_BACK, VK_BACK ) ? 1.0f : 0.0f; // Back
+	paf[ FPADIO_INPUT_TRIGGER_RIGHT         - 1 ] = ( ( 0 != _auSynthKeyVK[ FPADIO_INPUT_TRIGGER_RIGHT - 1 ] )
+		? _KeyBound( FPADIO_INPUT_TRIGGER_RIGHT, 0 )
+		: ( _KeyDown( VK_LBUTTON ) || _KeyDown( VK_LCONTROL ) ) ) ? 1.0f : 0.0f; // RT: fire
+	paf[ FPADIO_INPUT_TRIGGER_LEFT          - 1 ] = ( ( 0 != _auSynthKeyVK[ FPADIO_INPUT_TRIGGER_LEFT - 1 ] )
+		? _KeyBound( FPADIO_INPUT_TRIGGER_LEFT, 0 )
+		: ( _KeyDown( VK_RBUTTON ) || _KeyDown( VK_LSHIFT ) ) ) ? 1.0f : 0.0f;    // LT: aim
+	paf[ FPADIO_INPUT_XB_ABUTTON_BLACK      - 1 ] = _KeyBound( FPADIO_INPUT_XB_ABUTTON_BLACK, 'X' ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_ABUTTON_WHITE      - 1 ] = _KeyBound( FPADIO_INPUT_XB_ABUTTON_WHITE, 'C' ) ? 1.0f : 0.0f;
+	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_LEFT - 1 ] = _KeyBound( FPADIO_INPUT_XB_DBUTTON_STICK_LEFT,  VK_LMENU ) ? 1.0f : 0.0f; // LS: crouch
+	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_RIGHT- 1 ] = _KeyBound( FPADIO_INPUT_XB_DBUTTON_STICK_RIGHT, 'R' )      ? 1.0f : 0.0f; // RS: melee
 
-	//// Mouse wheel weapon cycling (phase 1): scroll = primary, Q+scroll =
-	//// secondary. Applied last so a pulse always wins over a held key.
+	//// Mouse wheel weapon cycling (phase 1): scroll = primary, the secondary
+	//// select key + scroll = secondary (decision D6 -- the key follows the
+	//// [KEYMAP] override). Applied last so a pulse wins over a held key.
 	//
 	{
 		LONG nNotch = fdx8vid_ConsumeMouseWheel();
 		if( 0 != nNotch ) {
-			if( _KeyDown( 'Q' ) ) {
+			if( _KeyBound( FPADIO_INPUT_CROSS_LEFT, 'Q' ) ) {
 				_nWheelPulseSecondaryUntil = (LONG)GetTickCount() + _WHEEL_PULSE_MS;
 			} else {
 				_nWheelPulsePrimaryUntil = (LONG)GetTickCount() + _WHEEL_PULSE_MS;
