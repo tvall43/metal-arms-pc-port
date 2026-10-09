@@ -576,39 +576,58 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 	// fallback below then selected 320x200 16-bit -- a paletted mode -- which
 	// the renderer's cube map cannot use.
 	//
-	// fvid_Enumerate() builds this table from the adapter's *windowed* mode list
-	// and tags each entry FVID_MODEFLAG_WINDOWED (fdx8vid.cpp:1843). So a caller
-	// asking for FVID_MODEFLAG_NONE can never match anything: on an Intel G45/G43
-	// all 44 of those entries are windowed, and only four 1024x768 entries are
-	// not. Match on resolution and colour depth and ignore the flags and the
-	// depth/stencil pair, which the enumeration sets independently.
+	// fvid_Enumerate() fills this table windowed entries first (the synthetic
+	// __aWindowResArray pass runs before the EnumAdapterModes fullscreen pass,
+	// and the dedup keeps both because the RefreshRate-as-bWindowed cheat
+	// differs), so "first resolution+colour hit, flags ignored" always yields a
+	// windowed entry. The original code ignored flags wholesale because a strict
+	// FVID_MODEFLAG_NONE request could match nothing at all (Intel G45/G43, see
+	// above) -- but ignoring them on the first pass too meant every fullscreen
+	// request silently degraded to windowed. Two passes: honour the requested
+	// windowed/fullscreen flag first, then fall back to the old ignore-flags
+	// behaviour with a log line, so a table without exclusive candidates still
+	// produces a window instead of a silent downgrade.
 	//
 	// If the requested colour depth is not offered at all -- that adapter
 	// enumerates 16-bit modes exclusively -- fall back to the deepest mode at the
 	// requested resolution rather than to mode[0]. Falling back to mode[0] picks
 	// 320x200 16-bit, a paletted mode the renderer's cube map cannot use, which
 	// then faults.
-	u32 nBestColour = 0;
+	const BOOL bWantWindowed = ( pWinInfo->VidMode.nFlags & FVID_MODEFLAG_WINDOWED ) != 0;
 	BOOL bHaveResolutionMatch = FALSE;
-	for( i=0; i<pCurAdapterInfo->nVidModeCount; i++ ) 
+	for( u32 nPass = 0; nPass < 2 && !bHaveResolutionMatch; nPass++ )
 	{
-		const FVidMode_t *pM = &pCurAdapterInfo->pVidModeArray[i].VidMode;
+		const BOOL bEnforceFlags = ( nPass == 0 );
+		u32 nBestColour = 0;
+		for( i=0; i<pCurAdapterInfo->nVidModeCount; i++ ) 
+		{
+			const FVidMode_t *pM = &pCurAdapterInfo->pVidModeArray[i].VidMode;
 
-		if( pM->nPixelsAcross != pWinInfo->VidMode.nPixelsAcross ) continue;
-		if( pM->nPixelsDown  != pWinInfo->VidMode.nPixelsDown )  continue;
+			if( pM->nPixelsAcross != pWinInfo->VidMode.nPixelsAcross ) continue;
+			if( pM->nPixelsDown  != pWinInfo->VidMode.nPixelsDown )  continue;
+			if( bEnforceFlags && ( ( pM->nFlags & FVID_MODEFLAG_WINDOWED ) != 0 ) != bWantWindowed ) continue;
 
-		if( pM->nColorBits == pWinInfo->VidMode.nColorBits ) {
-			// Exact colour depth match...
-			pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[i];
-			bHaveResolutionMatch = TRUE;
-			break;
+			if( pM->nColorBits == pWinInfo->VidMode.nColorBits ) {
+				// Exact colour depth match...
+				pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[i];
+				bHaveResolutionMatch = TRUE;
+				break;
+			}
+
+			if( !bHaveResolutionMatch || pM->nColorBits > nBestColour ) {
+				nBestColour = pM->nColorBits;
+				pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[i];
+				bHaveResolutionMatch = TRUE;
+			}
 		}
-
-		if( !bHaveResolutionMatch || pM->nColorBits > nBestColour ) {
-			nBestColour = pM->nColorBits;
-			pCurVidModeInfo = &pCurAdapterInfo->pVidModeArray[i];
-			bHaveResolutionMatch = TRUE;
-		}
+	}
+	if( bHaveResolutionMatch &&
+		( ( pCurVidModeInfo->VidMode.nFlags & FVID_MODEFLAG_WINDOWED ) != 0 ) != bWantWindowed )
+	{
+		DEVPRINTF( "fvid_CreateWindow(): no %s mode at %ux%u in the table; using a %s entry instead.\n",
+			bWantWindowed ? "windowed" : "fullscreen",
+			(unsigned)pWinInfo->VidMode.nPixelsAcross, (unsigned)pWinInfo->VidMode.nPixelsDown,
+			bWantWindowed ? "fullscreen" : "windowed" );
 	}
 	if( bHaveResolutionMatch && pCurVidModeInfo->VidMode.nColorBits != pWinInfo->VidMode.nColorBits ) {
 		DEVPRINTF( "fvid_CreateWindow(): %u-bit not available at %ux%u; using %u-bit instead.\n",
@@ -2686,9 +2705,10 @@ static BOOL _CreateWindow( void )
 {
 	DWORD nClearFlags;
 
-	DEVPRINTF( "fvid: _CreateWindow() entered, mode %ux%u %u-bit\n",
+	DEVPRINTF( "fvid: _CreateWindow() entered, mode %ux%u %u-bit flags 0x%02X%s\n",
 		(unsigned)FVid_Mode.nPixelsAcross, (unsigned)FVid_Mode.nPixelsDown,
-		(unsigned)FVid_Mode.nColorBits );
+		(unsigned)FVid_Mode.nColorBits, (unsigned)FVid_Mode.nFlags,
+		( FVid_Mode.nFlags & FVID_MODEFLAG_WINDOWED ) ? " (windowed)" : " (fullscreen)" );
 
 //	D3DPERF_SetShowFrameRateInterval( 5000 );
 //	D3DPERF_GetStatistics()->m_dwDumpFPSInfoMask |= D3DPERF_DUMP_FPS_PERFPROFILE;

@@ -674,7 +674,13 @@ u8 fang_ConvertEndian( u8 num ) {
 
 			return _tcslen( wszTemp );
 #else
-			OutputDebugString( _aszDevPrintfString );
+			// OutputDebugString raises 0x40010005/6 for every call when nothing
+			// is attached to read it -- bursts of exceptions during loads, all
+			// filtered again by the crash logger. The port's pFang_FcnPrintf
+			// hook captures everything, so only fall back when no hook is set.
+			if( !Fang_ConfigDefs.pFang_FcnPrintf ) {
+				OutputDebugString( _aszDevPrintfString );
+			}
 
 			FANG_VA_END(args);
 

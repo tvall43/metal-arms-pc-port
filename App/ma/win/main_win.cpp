@@ -48,10 +48,19 @@ static char _szMoviePath[512] = "MOVIES\\";
 //
 // The engine routes every DEVPRINTF through Fang_ConfigDefs.pFang_FcnPrintf.
 // Leaving that NULL, as this file originally did, throws all of it away, so a
-// failure during startup produced no output at all. Send it to stdout and to a
-// log file beside the executable, which survives being launched from a file
-// manager where stdout is lost.
+// failure during startup produced no output at all.
+//
+// Destinations, split by urgency (2026-10-09): stdout carries only urgent
+// lines -- startup status, the crash dump, and engine lines that look like
+// errors (_FangPrintf). Debug volume goes to ma_win_log.txt beside the
+// executable instead: each line to an unredirected Wine console is a console
+// round-trip, which is what made loads crawl. The file is gated on the
+// Debug/LogFile ini flag -- default on while the port is still being debugged;
+// flip _LOGFILE_DEFAULT to 0 (or set LogFile=0 in ma_win.ini) once it runs
+// well enough to not need it. The crash handler flushes both.
 static FILE *_pLogFile = NULL;
+static BOOL _bLogFileEnabled = FALSE;
+#define _LOGFILE_DEFAULT 1
 
 static void _TraceV( const char *pszFormat, va_list Args )
 {
@@ -84,12 +93,23 @@ static void _OpenLog( void )
 	DWORD nLen = GetModuleFileName( NULL, szExe, MAX_PATH );
 	if ( nLen == 0 || nLen >= MAX_PATH ) return;
 
-	char szDir[MAX_PATH] = "";
-	memcpy( szDir, szExe, nLen + 1 );
-	char *pSlash = strrchr( szDir, '\\' );
-	if ( pSlash ) { *(pSlash+1) = '\0'; } else { szDir[0] = '\0'; }
-	strncat( szDir, "ma_win_log.txt", MAX_PATH - strlen(szDir) - 1 );
-	_pLogFile = fopen( szDir, "w" );
+	char szLog[MAX_PATH] = "";
+	memcpy( szLog, szExe, nLen + 1 );
+	char *pSlash = strrchr( szLog, '\\' );
+	if ( pSlash ) { *(pSlash+1) = '\0'; } else { szLog[0] = '\0'; }
+	strncat( szLog, "ma_win_log.txt", MAX_PATH - strlen(szLog) - 1 );
+
+	if( _bLogFileEnabled ) {
+		_pLogFile = fopen( szLog, "w" );
+	}
+
+	// First lines of the run. These used to print before _LoadConfig ran (and
+	// before the file could open), which is why _OpenLog moved after the config
+	// read in WinMain.
+	_Trace( "[ma] WinMain, exe = %s\n", szExe );
+	if( _pLogFile ) {
+		_Trace( "[ma] log file    : %s\n", szLog );
+	}
 }
 
 // Also used by compat/mfc.cpp to report the game thread's lifecycle, which has
@@ -102,12 +122,26 @@ extern "C" void ma_win_Trace( const char *pszFormat, ... )
 	va_end( args );
 }
 
-// The engine's own logging: same signature as FangFcnPrintf_t.
+// The engine's own logging: same signature as FangFcnPrintf_t. Debug-level --
+// goes to the file log only, never to stdout, except lines that look like real
+// errors: those reach stdout even with the file log off, so a broken run still
+// says why it broke.
 static void _FangPrintf( const char *pszFormat, FANG_VA_LIST Args )
 {
 	char szBuf[2048];
 	vsnprintf( szBuf, sizeof(szBuf), pszFormat, Args );
-	_Trace( "%s", szBuf );
+
+	if( _pLogFile ) {
+		fputs( szBuf, _pLogFile );
+		fflush( _pLogFile );
+	}
+
+	if( strstr( szBuf, "Error" ) || strstr( szBuf, "error" ) || strstr( szBuf, "ERROR" )
+		|| strstr( szBuf, "failed" ) || strstr( szBuf, "Failed" ) || strstr( szBuf, "FAILED" )
+		|| strstr( szBuf, "Could not" ) || strstr( szBuf, "could not" ) ) {
+		printf( "%s", szBuf );
+		fflush( stdout );
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +255,7 @@ static char _szScreenshotDir[512]	= "";
 static u32  _nScreenWidth			= 640;
 static u32  _nScreenHeight		= 480;
 static u32  _nColorBits			= 32;
+static BOOL _bFullscreen		= FALSE;
 
 // Control identifiers.
 #define _ID_MASTEREDIT		1000
@@ -234,6 +269,7 @@ static u32  _nColorBits			= 32;
 #define _ID_CANCEL			1008
 #define _ID_BROWSE_SSHOT	1010
 #define _ID_STATUS			1009
+#define _ID_FULLSCREEN		1011
 
 static HWND _hwndStatus = NULL;
 
@@ -258,6 +294,8 @@ static void _LoadConfig( void )
 	_nScreenWidth  = oSettings.ReadCustomInt( "Video", "Width",  640 );
 	_nScreenHeight = oSettings.ReadCustomInt( "Video", "Height", 480 );
 	_nColorBits    = oSettings.ReadCustomInt( "Video", "ColorBits", 32 );
+	_bFullscreen   = oSettings.ReadCustomInt( "Video", "Fullscreen", 0 ) ? TRUE : FALSE;
+	_bLogFileEnabled = oSettings.ReadCustomInt( "Debug", "LogFile", _LOGFILE_DEFAULT ) ? TRUE : FALSE;
 }
 
 static void _SaveConfig( void )
@@ -270,6 +308,7 @@ static void _SaveConfig( void )
 	oSettings.WriteCustomInt( "Video", "Width", _nScreenWidth );
 	oSettings.WriteCustomInt( "Video", "Height", _nScreenHeight );
 	oSettings.WriteCustomInt( "Video", "ColorBits", _nColorBits );
+	oSettings.WriteCustomInt( "Video", "Fullscreen", _bFullscreen ? 1 : 0 );
 }
 
 // ---------------------------------------------------------------------------
@@ -392,6 +431,11 @@ static void _ReadControls( HWND hwndDlg )
 			_nColorBits = aBits[nSel];
 		}
 	}
+
+	HWND hwndFS = GetDlgItem( hwndDlg, _ID_FULLSCREEN );
+	if( hwndFS ) {
+		_bFullscreen = ( SendMessage( hwndFS, BM_GETCHECK, 0, 0 ) == BST_CHECKED );
+	}
 }
 
 static BOOL _OnStart( HWND hwndDlg )
@@ -507,6 +551,15 @@ static void _CreateDialogControls( HWND hwndDlg )
 
 	_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Resolution:" );
 	_AddCombo( hwndDlg, _ID_WIDTH, nCtrlX, nY, 120 );
+	{
+		const int nFSX = nCtrlX + 136;
+		HWND hwnd = CreateWindowEx( 0, "BUTTON", "Fullscreen",
+			WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
+			nFSX, nY + 2, 120, 20, hwndDlg, (HMENU)(INT_PTR)_ID_FULLSCREEN, _hInstance, NULL );
+		if( hwnd ) {
+			SendMessage( hwnd, BM_SETCHECK, _bFullscreen ? BST_CHECKED : BST_UNCHECKED, 0 );
+		}
+	}
 	nY += 32;
 
 	_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Colour depth:" );
@@ -612,7 +665,8 @@ static BOOL _RunGame( void )
 	_Trace( "[ma] ---- startup ----\n" );
 	_Trace( "[ma] master file : %s\n", _szMasterFile );
 	_Trace( "[ma] level       : %s\n", _szLevelFile[0] ? _szLevelFile : "(none)" );
-	_Trace( "[ma] video       : %ux%u %u-bit\n", _nScreenWidth, _nScreenHeight, _nColorBits );
+	_Trace( "[ma] video       : %ux%u %u-bit %s\n", _nScreenWidth, _nScreenHeight, _nColorBits,
+		_bFullscreen ? "fullscreen" : "windowed" );
 
 	fang_Init();
 	_Trace( "[ma] fang_Init done\n" );
@@ -707,10 +761,12 @@ static BOOL _RunGame( void )
 	pVidWin->VidDev.nRenderer	= FVID_RENDERER_HARDWARE;
 	strcpy( pVidWin->VidDev.szName, "Default" );
 
-	// The engine enumerates the adapter's *windowed* modes and tags each
-	// FVID_MODEFLAG_WINDOWED (fdx8vid.cpp:1843), so asking for FVID_MODEFLAG_NONE
-	// matches nothing and forces a fullscreen mode change the OS may refuse.
-	pVidWin->VidMode.nFlags		= FVID_MODEFLAG_WINDOWED;
+	// Windowed unless the launch dialog's Fullscreen box is ticked (Video/Fullscreen
+	// in ma_win.ini). Fullscreen = FVID_MODEFLAG_NONE, which is what the retail
+	// mode list uses for exclusive modes (fdx8vid.cpp tags only windowed entries
+	// with FVID_MODEFLAG_WINDOWED). This was hardwired windowed while the port
+	// still had no visible output and was never retested.
+	pVidWin->VidMode.nFlags		= _bFullscreen ? FVID_MODEFLAG_NONE : FVID_MODEFLAG_WINDOWED;
 	pVidWin->VidMode.nColorBits	= (u8)_nColorBits;
 	pVidWin->VidMode.nDepthBits	= 24;
 	pVidWin->VidMode.nStencilBits	= 8;
@@ -788,19 +844,17 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	_hInstance = hInstance;
 
-	_OpenLog();
 	AddVectoredExceptionHandler( 1, _CrashLogger );
-	{
-		char szExe[MAX_PATH] = "";
-		GetModuleFileNameA( NULL, szExe, MAX_PATH );
-		_Trace( "[ma] WinMain, exe = %s\n", szExe );
-	}
 
 	CoInitialize( NULL );
 
 	CSettings::SetSettingsFilename( "ma_win.ini" );
 	CSettings::SetApplicationName( "ma_win" );
 	_LoadConfig();
+
+	// After _LoadConfig: gated on the Debug/LogFile flag. Also emits the first
+	// trace lines, so the crash handler must already be installed above.
+	_OpenLog();
 
 	BOOL bAutoRun = FALSE;
 	if( pszCmdLine ) {

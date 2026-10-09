@@ -193,7 +193,7 @@ static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 
 	//// Face buttons and shoulders.
 	//
-	paf[ FPADIO_INPUT_CROSS_BOTTOM          - 1 ] = ( _KeyDown( VK_SPACE ) || _KeyDown( VK_RETURN ) ) ? 1.0f : 0.0f; // A: accept, jump, select
+	paf[ FPADIO_INPUT_CROSS_BOTTOM          - 1 ] = ( _KeyDown( VK_SPACE ) ) ? 1.0f : 0.0f; // A: accept, jump, select
 	paf[ FPADIO_INPUT_CROSS_RIGHT           - 1 ] = _KeyDown( VK_TAB ) ? 1.0f : 0.0f;                                    // B: back, cancel, primary weapon select (Escape is the WIN gameloop quit key, gameloop.cpp:1024)
 	paf[ FPADIO_INPUT_CROSS_LEFT            - 1 ] = _KeyDown( 'Q' ) ? 1.0f : 0.0f;                                    // X
 	paf[ FPADIO_INPUT_CROSS_TOP             - 1 ] = _KeyDown( 'E' ) ? 1.0f : 0.0f;                                    // Y: action, interact
