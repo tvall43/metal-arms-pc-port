@@ -24,6 +24,7 @@
 #include "fvid.h"
 
 #include "../gameloop.h"
+#include "../gamepad.h"	// Gamepad_fMouseSensitivity
 #include "Settings.h"
 #include "floop.h"
 #include "ffile.h"
@@ -296,6 +297,16 @@ static void _LoadConfig( void )
 	_nColorBits    = oSettings.ReadCustomInt( "Video", "ColorBits", 32 );
 	_bFullscreen   = oSettings.ReadCustomInt( "Video", "Fullscreen", 0 ) ? TRUE : FALSE;
 	_bLogFileEnabled = oSettings.ReadCustomInt( "Debug", "LogFile", _LOGFILE_DEFAULT ) ? TRUE : FALSE;
+
+	// Mouse look sensitivity (phase 1): scales only the mouse-look deltas in
+	// CPlayer::Work, not the sticks. Clamp to a sane band so a typo cannot
+	// freeze or rocket the view.
+	Gamepad_fMouseSensitivity = oSettings.ReadCustomFloat( "Mouse", "Sensitivity", 1.0f );
+	if( Gamepad_fMouseSensitivity < 0.1f ) {
+		Gamepad_fMouseSensitivity = 0.1f;
+	} else if( Gamepad_fMouseSensitivity > 10.0f ) {
+		Gamepad_fMouseSensitivity = 10.0f;
+	}
 }
 
 static void _SaveConfig( void )

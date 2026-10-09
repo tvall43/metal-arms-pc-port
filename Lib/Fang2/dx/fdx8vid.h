@@ -76,6 +76,11 @@ extern BOOL fdx8vid_SetCursor( HCURSOR hCursor );
 extern void fdx8vid_SetCursorPosition( u32 nScreenspaceX, u32 nScreenspaceY );
 extern void fdx8vid_GetCursorPosition( u32 *pnScreenspaceX, u32 *pnScreenspaceY );
 
+// Mouse look plumbing (INPUT_MODERNIZATION phase 1): consume the mouse deltas
+// and wheel notches the window proc accumulated since the last call.
+extern void fdx8vid_GetMouseDelta( LONG *pnDX, LONG *pnDY );	// client pixels, +x right, +y down
+extern LONG fdx8vid_ConsumeMouseWheel( void );				// net notches since last call, +1 = wheel up
+
 
 #endif
 

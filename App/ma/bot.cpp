@@ -3025,6 +3025,16 @@ void CBot::VelocityHasChanged( void ) {
 //--------------------------------------------------------------------------------------------------------------------------------
 // Bot Rotation:
 //--------------------------------------------------------------------------------------------------------------------------------
+
+// Mouse look (INPUT_MODERNIZATION phase 1, decision D2): radians of mount
+// rotation per sensitivity-scaled mouse pixel. Direct delta -- no cubic curve,
+// no stick smoothing -- but still clamped by the mount pitch limits and still
+// scaled by the scope zoom ratio, exactly like the stick's top speed is.
+// Tuned for a ~1500px/s sweep being a comfortable turn; [Mouse] Sensitivity in
+// ma_win.ini scales the pixels before they get here.
+static f32 _MOUSE_PITCH_RAD_PER_PIXEL = 0.0045f;
+static f32 _MOUSE_YAW_RAD_PER_PIXEL   = 0.0050f;
+
 void CBot::HandlePitchMovement( void ) {
 	f32 fZoomRevsPerSec, fMaxRevsPerSec;
 
@@ -3045,6 +3055,25 @@ void CBot::HandlePitchMovement( void ) {
 		fMaxRevsPerSec *= Player_aPlayer[m_nPossessionPlayerIndex].ComputeLookSensitivityMultiplier();
 	}
 
+	// Mouse pitch for this frame (read-only -- CPlayer::Work refreshes it).
+	// Sign note: m_fControls_AimDown > 0 means look DOWN; the invert setting
+	// was applied to the stick at bot.cpp HumanControl capture (invert ? +raw :
+	// -raw), and the mouse's raw equivalent of "stick up" is -m_fMouseLookDY,
+	// so the same mapping gives: invert ? -dy : +dy. Scaled by the same
+	// zoom ratio fMaxRevsPerSec picked up above so aiming down the scope
+	// slows the mouse like it slows the stick.
+	f32 fMousePitchRad = 0.0f;
+	if( m_nPossessionPlayerIndex >= 0 ) {
+		f32 fMousePixels = Player_aPlayer[ m_nPossessionPlayerIndex ].m_fMouseLookDY;
+		if( 0.0f != fMousePixels ) {
+			if( Player_aPlayer[ m_nPossessionPlayerIndex ].GetInvertLook() ) {
+				fMousePixels = -fMousePixels;
+			}
+			fMousePitchRad = fMousePixels * _MOUSE_PITCH_RAD_PER_PIXEL *
+				( fMaxRevsPerSec / m_pBotInfo_MountAim->fMountPitchUpDownRevsPerSec );
+		}
+	}
+
 	// Should we be applying bias?
 	BOOL bApplyBias = ( m_nPossessionPlayerIndex >= 0 && (m_fControls_AimDown || m_fControls_RotateCW || m_fControlsHuman_Forward || m_fControlsHuman_StrafeRight) );
 	if( !bApplyBias && m_nPossessionPlayerIndex >= 0 ) {
@@ -3055,7 +3084,7 @@ void CBot::HandlePitchMovement( void ) {
 	m_fMountPitchClampedNormDelta = fmath_Abs( m_fControls_AimDown );
 
 	// Update look pitch...
-	if( m_fControls_AimDown != 0.0f || bApplyBias ) {
+	if( m_fControls_AimDown != 0.0f || bApplyBias || 0.0f != fMousePitchRad ) {
 		f32 fAdjustment = 0;
 		if ( m_fControls_AimDown ) {
 			fAdjustment = fMaxRevsPerSec * FMATH_2PI * m_fControls_AimDown * fmath_Abs(m_fControls_AimDown) * FLoop_fPreviousLoopSecs;
@@ -3064,6 +3093,7 @@ void CBot::HandlePitchMovement( void ) {
 			// This is a human player, so we want to apply biasing
 			fAdjustment += Player_aPlayer[ m_nPossessionPlayerIndex ].m_fPitchAdjust;
 		}
+		fAdjustment += fMousePitchRad;
 
 		m_fMountPitch_WS += fAdjustment;
 
@@ -3097,6 +3127,19 @@ void CBot::HandleYawMovement( void ) {
 		Player_aPlayer[ m_nPossessionPlayerIndex ].m_fYawAdjust = 0.f;
 	}
 
+	// Mouse yaw for this frame (read-only -- CPlayer::Work refreshes it).
+	// +m_fMouseLookDX = turn right, same sense as a positive stick deflection.
+	// The look-sensitivity multiplier is applied at the apply site for the
+	// unscoped path (the scoped path folds it in through fZoomRevsPerSec,
+	// mirroring how pitch gets it through fMaxRevsPerSec).
+	f32 fMouseYawRad = 0.0f;
+	if( m_nPossessionPlayerIndex >= 0 ) {
+		f32 fMousePixels = Player_aPlayer[ m_nPossessionPlayerIndex ].m_fMouseLookDX;
+		if( 0.0f != fMousePixels ) {
+			fMouseYawRad = fMousePixels * _MOUSE_YAW_RAD_PER_PIXEL;
+		}
+	}
+
 	if( m_nScopeState == SCOPESTATE_LOOKING_THROUGH_SCOPE ) {
 		// We're in scope mode...
 
@@ -3113,6 +3156,11 @@ void CBot::HandleYawMovement( void ) {
 			// Shut off overdrive...
 			m_fYawUnitOverdrive = 0.0f;
 			FMATH_CLEARBITMASK( m_nBotFlags, BOTFLAG_YAW_CONTROL_OVERDRIVE );
+
+			// Mouse: down the scope the mouse turns slower by the same ratio
+			// the stick does (fZoomRevsPerSec already carries the look
+			// sensitivity multiplier).
+			fMouseYawRad *= fZoomRevsPerSec / ( m_pBotInfo_MountAim->fMountYawBaseRevsPerSec + m_pBotInfo_MountAim->fMountYawOverdriveRevsPerSec );
 
 			// Update yaw...
 			if( fAbsControlsRotateCW > 0.0f || bApplyBias ) {
@@ -3253,6 +3301,18 @@ void CBot::HandleYawMovement( void ) {
 				ChangeMountYaw( m_fMountYaw_WS + fDelta );
 			}
 		}
+	}
+
+	// Mouse yaw: applied after the stick paths (ChangeMountYaw keeps
+	// m_fMountYaw_WS current, so this simply adds). Runs even when the stick
+	// is untouched -- pure mouse look, bypassing the cubic overdrive curve
+	// exactly as decision D2 requires. No yaw clamp exists at this level; the
+	// wrap in ChangeMountYaw handles the range.
+	if( 0.0f != fMouseYawRad ) {
+		if( !bUseScopeZoomSpeed && ( m_nPossessionPlayerIndex >= 0 ) ) {
+			fMouseYawRad *= Player_aPlayer[ m_nPossessionPlayerIndex ].ComputeLookSensitivityMultiplier();
+		}
+		ChangeMountYaw( m_fMountYaw_WS + fMouseYawRad );
 	}
 
 	// pgm added this code so that bots torso will counter

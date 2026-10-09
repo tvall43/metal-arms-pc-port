@@ -31,6 +31,7 @@
 u32 Gamepad_nPortOnlineMask;
 FPad_Sample_t *Gamepad_aapSample[GAMEPAD_MAX_PORT_COUNT][GAMEPAD_MAX_ACTIONS];
 u32 Gamepad_nDebugPortIndex;// what controller port should we look at for debug features
+f32 Gamepad_fMouseSensitivity = 1.0f;	// [Mouse] Sensitivity from ma_win.ini (mouse look only)
 
 
 typedef enum {
@@ -396,25 +397,6 @@ void gamepad_Sample( void )
 	FASSERT( _bSystemInitialized );
 
 	Gamepad_nPortOnlineMask = fpad_UpdateSamples();
-
-	{
-		// TEMPORARY DIAGNOSTIC -- prove the synthetic keyboard device (fdx8padio.cpp)
-		// reaches fpad. First 30 frames log unconditionally so a dead stack is visible
-		// even if no key is ever pressed; after that only log on input activity, so a
-		// held key does not flood the log. Drop this block once controls are confirmed.
-		static u32 _uDiagFrames = 0;
-		BOOL bActive = ( ( 0.0f != Gamepad_aapSample[0][GAMEPAD_MENU_LEFT_ANALOG_Y]->fCurrentState ) ||
-						 ( 0 != ( Gamepad_aapSample[0][GAMEPAD_MENU_ACCEPT]->uLatches & GAMEPAD_BUTTON_1ST_PRESS_MASK ) ) );
-		if( ( ( _uDiagFrames < 30 ) || bActive ) && ( _uDiagFrames < 400 ) ) {
-			++_uDiagFrames;
-			DEVPRINTF( "[ma] in %u: portMask=%u map0=%u analogY=%f analogYLatch=%08X accept=%f acceptLatch=%08X\n",
-				_uDiagFrames, Gamepad_nPortOnlineMask, _anCurrentMap[0],
-				Gamepad_aapSample[0][GAMEPAD_MENU_LEFT_ANALOG_Y]->fCurrentState,
-				Gamepad_aapSample[0][GAMEPAD_MENU_LEFT_ANALOG_Y]->uLatches,
-				Gamepad_aapSample[0][GAMEPAD_MENU_ACCEPT]->fCurrentState,
-				Gamepad_aapSample[0][GAMEPAD_MENU_ACCEPT]->uLatches );
-		}
-	}
 
 	_HandleCheatCodes();
 

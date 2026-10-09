@@ -22,6 +22,9 @@
 #include "fviewport.h"
 #include "FScriptSystem.h"
 #include "gamepad.h"
+#if FANG_PLATFORM_WIN
+	#include "dx/fdx8vid.h"	// fdx8vid_GetMouseDelta -- mouse look capture
+#endif
 #include "ItemInst.h"
 #include "entity.h"
 #include "frenderer.h"
@@ -138,6 +141,8 @@ BOOL CPlayer::InitSystem( void ) {
 		pPlayer->m_fUnitTargetingAssistance = PLAYER_HIGH_TARGET_ASSIST_SETTING;
 		pPlayer->m_bHidePlayerEntity = FALSE;
 		pPlayer->m_fLookSensitivity = 0.5f;
+		pPlayer->m_fMouseLookDX = 0.0f;
+		pPlayer->m_fMouseLookDY = 0.0f;
 
 		for( j=0; j<RETICLE_SCOPE_INFO_SLOT_COUNT; ++j ) {
 			pPlayer->m_ahTextBoxScopeInfo[j] = ftext_Create( &TextArea );
@@ -745,6 +750,25 @@ void CPlayer::Work( void ) {
 		{
 			m_nPlayerKillEntityEvent = -2;
 		}
+	}
+
+	// Mouse look capture (phase 1): pull this frame's deltas once here so every
+	// consumer (bot pitch/yaw, gunner camera) sees the same value and nothing
+	// can consume twice. Only player 0 gets the mouse -- kb+mouse is P1's
+	// co-source only (decision D5); everyone else reads zeros. Refreshing it
+	// unconditionally (before HasEntityControl) also means a stale delta can
+	// never survive a frame in which this player was not updated.
+	{
+		LONG nMouseDX = 0;
+		LONG nMouseDY = 0;
+#if FANG_PLATFORM_WIN
+		if( 0 == m_nPlayerIndex )
+		{
+			fdx8vid_GetMouseDelta( &nMouseDX, &nMouseDY );
+		}
+#endif
+		m_fMouseLookDX = (f32)nMouseDX * Gamepad_fMouseSensitivity;
+		m_fMouseLookDY = (f32)nMouseDY * Gamepad_fMouseSensitivity;
 	}
 
 	if( HasEntityControl() ) {

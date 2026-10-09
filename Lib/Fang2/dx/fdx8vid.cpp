@@ -167,6 +167,20 @@ static BOOL _bCursorOn;
 static u32 _nCursorX, _nCursorY;
 static BOOL _bLeftMouseButton;
 static BOOL _bRightMouseButton;
+// Mouse-look plumbing (INPUT_MODERNIZATION phase 1). _WndProc accumulates
+// deltas and wheel notches here; the game consumes them once per frame with
+// fdx8vid_GetMouseDelta / fdx8vid_ConsumeMouseWheel. Written on the window
+// thread, read by the game thread (same thread in this port) and by the
+// fpadio sampling thread (wheel only), hence the Interlocked accessors.
+static volatile LONG _nMouseLookDX;
+static volatile LONG _nMouseLookDY;
+static volatile LONG _nWheelNotches;
+static BOOL _bRawMouseRegistered;	// RegisterRawInputDevices() succeeded
+static BOOL _bRawMouseSeen;			// WM_INPUT has arrived at least once
+static BOOL _bMouseRecenterMode;	// GetCursorPos/SetCursorPos fallback active
+static u32 _uMouseMoveWithoutRaw;	// WM_MOUSEMOVEs seen while waiting for WM_INPUT
+static BOOL _bMouseLastPosValid;
+static POINT _oMouseLastPos;
 static HWND _hWnd;
 static BOOL _bWeCreatedTheWindow;
 static DWORD _nWindowStyle;
@@ -1446,6 +1460,33 @@ void fdx8vid_EnableCursor( BOOL bEnable )
 			FDX8_pDev->ShowCursor( _bCursorOn );
 #		endif
 	}
+}
+
+//
+// Mouse look plumbing: consume the deltas/wheel notches _WndProc accumulated
+// since the previous call. Game thread reads, WndProc writes -- same thread in
+// this port, but the Interlocked ops keep it correct either way. The wheel
+// is also consumed by the fpadio sampling thread (keyboard synth pulses).
+//
+void fdx8vid_GetMouseDelta( LONG *pnDX, LONG *pnDY )
+{
+	if( pnDX )
+	{
+		*pnDX = InterlockedExchange( &_nMouseLookDX, 0 );
+	}
+	if( pnDY )
+	{
+		*pnDY = InterlockedExchange( &_nMouseLookDY, 0 );
+	}
+}
+
+//
+// Consumes the accumulated mouse wheel notches (+1 per wheel-up detent,
+// -1 per wheel-down detent) and returns the net since the last call.
+//
+LONG fdx8vid_ConsumeMouseWheel( void )
+{
+	return InterlockedExchange( &_nWheelNotches, 0 );
 }
 
 
@@ -2809,6 +2850,30 @@ static BOOL _CreateWindow( void )
 	_nWindowStyle = GetWindowLong( _hWnd, GWL_STYLE );
 	GetWindowRect( _hWnd, &_WindowRect );
 	GetClientRect( _hWnd, &_ClientRect );
+
+	// Mouse look: Raw Input so deltas keep working at the screen edges and in
+	// fullscreen (no cursor clamping, immune to GetCursorPos surprises). No
+	// RIDEV_INPUTSINK: WM_INPUT only arrives while we own the focus, matching
+	// the keyboard-synth focus gate. If registration fails (or Wine never
+	// delivers WM_INPUT) _WndProc falls back to GetCursorPos + SetCursorPos.
+	{
+		RAWINPUTDEVICE oRID;
+		oRID.usUsagePage = 1;	// generic desktop controls
+		oRID.usUsage     = 2;	// mouse
+		oRID.dwFlags     = 0;
+		oRID.hwndTarget  = _hWnd;
+		_bRawMouseRegistered = RegisterRawInputDevices( &oRID, 1, sizeof( oRID ) ) ? TRUE : FALSE;
+		_bRawMouseSeen       = FALSE;
+		_bMouseRecenterMode  = !_bRawMouseRegistered;
+		_uMouseMoveWithoutRaw = 0;
+		_bMouseLastPosValid  = FALSE;
+		InterlockedExchange( &_nMouseLookDX, 0 );
+		InterlockedExchange( &_nMouseLookDY, 0 );
+		InterlockedExchange( &_nWheelNotches, 0 );
+		if( !_bRawMouseRegistered ) {
+			DEVPRINTF( "fvid: RegisterRawInputDevices failed (%lu); using GetCursorPos fallback mouse deltas.\n", GetLastError() );
+		}
+	}
 #endif
 
 	FDX8Vid_nBackBufferMultisampleType = _GetMultiSampleType( &_CurAdapterInfo, &_CurVidModeInfo, &FVid_Win.fUnitFSAA );
@@ -2907,7 +2972,11 @@ static BOOL _CreateWindow( void )
 
 	_nCursorX = FVid_Mode.nPixelsAcross >> 1;
 	_nCursorY = FVid_Mode.nPixelsDown >> 1;
-	_bCursorOn = !!(FVid_Mode.nFlags & FVID_MODEFLAG_WINDOWED);
+	// No pointer-driven UI exists in this port (menus are keyboard/pad), so
+	// keep the cursor hidden in every mode -- windowed included. Mouse look
+	// uses raw deltas, never the cursor position, and the fallback mode moves
+	// the (invisible) cursor programmatically.
+	_bCursorOn = FALSE;
 
 #if FANG_PLATFORM_WIN
 	// disable the screensaver from kicking on
@@ -3200,6 +3269,12 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 
 	case WM_KILLFOCUS:
 		_bHaveFocus = FALSE;
+		// Focus loss ends mouse look: drop anything accumulated so no delta or
+		// wheel notch from while we were focused leaks into another app's
+		// session (the keyboard side is gated in fdx8padio.cpp).
+		InterlockedExchange( &_nMouseLookDX, 0 );
+		InterlockedExchange( &_nMouseLookDY, 0 );
+		InterlockedExchange( &_nWheelNotches, 0 );
 		break;
 
 	case WM_NCACTIVATE:
@@ -3246,6 +3321,25 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 		}
 		break;
 
+	case WM_INPUT:
+		// Raw mouse deltas for mouse look. Registered without RIDEV_INPUTSINK,
+		// so these only arrive while we have focus; belt and braces check
+		// _bHaveFocus anyway.
+		if( _bReady && _bHaveFocus )
+		{
+			RAWINPUT oRaw;
+			UINT ucbSize = sizeof( oRaw );
+
+			if( ( GetRawInputData( (HRAWINPUT)lParam, RID_INPUT, &oRaw, &ucbSize, sizeof( RAWINPUTHEADER ) ) == ucbSize ) &&
+				( RIM_TYPEMOUSE == oRaw.header.dwType ) )
+			{
+				_bRawMouseSeen = TRUE;
+				InterlockedExchangeAdd( &_nMouseLookDX, (LONG)oRaw.data.mouse.lLastX );
+				InterlockedExchangeAdd( &_nMouseLookDY, (LONG)oRaw.data.mouse.lLastY );
+			}
+		}
+		return 0;
+
 	case WM_MOUSEMOVE:
 		if( _bReady ) 
 		{
@@ -3259,6 +3353,48 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 			{
 				FDX8_pDev->SetCursorPosition( _nCursorX, _nCursorY, 0 );
 			}
+
+			// Fallback mouse look for hosts where Raw Input never shows up:
+			// measure the move against the last position we forced the cursor
+			// to, then recenter it (invisible -- the cursor is hidden) so the
+			// deltas never saturate at the screen edge. Kicks in only if
+			// registration failed or several moves arrive without any WM_INPUT.
+			if( !_bRawMouseSeen )
+			{
+				++_uMouseMoveWithoutRaw;
+				if( _bRawMouseRegistered && !_bMouseRecenterMode && ( _uMouseMoveWithoutRaw >= 4 ) )
+				{
+					_bMouseRecenterMode = TRUE;
+					_bMouseLastPosValid = FALSE;
+					DEVPRINTF( "fvid: no raw input after %u mouse moves; using GetCursorPos recenter mouse deltas.\n", (unsigned)_uMouseMoveWithoutRaw );
+				}
+			}
+			if( _bMouseRecenterMode && !_bRawMouseSeen && _bHaveFocus )
+			{
+				if( _bMouseLastPosValid )
+				{
+					LONG nDX = (LONG)CursorPoint.x - _oMouseLastPos.x;
+					LONG nDY = (LONG)CursorPoint.y - _oMouseLastPos.y;
+					// 512px in one message is a window drag or a recenter
+					// artefact, not a mouse gesture.
+					if( ( nDX > -512 ) && ( nDX < 512 ) && ( nDY > -512 ) && ( nDY < 512 ) && ( ( 0 != nDX ) || ( 0 != nDY ) ) )
+					{
+						InterlockedExchangeAdd( &_nMouseLookDX, nDX );
+						InterlockedExchangeAdd( &_nMouseLookDY, nDY );
+					}
+				}
+				{
+					RECT oRC;
+					POINT oCentre;
+					GetClientRect( _hWnd, &oRC );
+					oCentre.x = ( oRC.left + oRC.right ) / 2;
+					oCentre.y = ( oRC.top + oRC.bottom ) / 2;
+					_oMouseLastPos = oCentre;
+					_bMouseLastPosValid = TRUE;
+					ClientToScreen( _hWnd, &oCentre );
+					SetCursorPos( oCentre.x, oCentre.y );
+				}
+			}
 		}
 		break;
 
@@ -3270,6 +3406,17 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 			CursorPoint.y = HIWORD(lParam);
 
 			_MouseActivity( &CursorPoint, (short)HIWORD(wParam) );
+
+			// Wheel notches for weapon cycling (fdx8padio.cpp synthesizes the
+			// SELECT_PRIMARY/SECONDARY press from these). +1 = wheel up.
+			if( _bHaveFocus )
+			{
+				LONG nNotch = (LONG)( (short)HIWORD( wParam ) ) / 120;
+				if( 0 != nNotch )
+				{
+					InterlockedExchangeAdd( &_nWheelNotches, nNotch );
+				}
+			}
 		}
 		break;
 

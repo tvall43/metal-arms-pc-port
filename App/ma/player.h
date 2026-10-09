@@ -144,6 +144,14 @@ public:
 	f32  m_fUnitTargetingAssistance;		// Default: 1.0f   (1.0=Max, 0.0=None)
 	f32  m_fLookSensitivity;				// Default: 1.0f   (Looking sensitivity(1.0=Max, 0.0=Min))
 
+	// Mouse look (INPUT_MODERNIZATION phase 1): this frame's mouse delta in
+	// sensitivity-scaled pixels, consumed read-only by CBot::HandlePitch/
+	// HandleYaw and the gunner camera. Refreshed every frame by Work() for
+	// player 0 only -- the keyboard+mouse port is P1's alone (decision D5).
+	// +x = turn right, +y = pointer-down (signs resolved per consumer).
+	f32  m_fMouseLookDX;
+	f32  m_fMouseLookDY;
+
 	CVehicle *m_pRacingVehicle;				// if not NULL, then player should always be inside this vehicle (for racing levels)
 
 	// Target assist parameters

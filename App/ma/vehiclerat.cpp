@@ -3176,7 +3176,16 @@ void CVehicleRat::UpdateGunnerCamera( void )
 	u32 nControlIndex = Player_aPlayer[m_GunnerCameraTrans.GetPlayerIndex()].m_nControllerIndex;
 	if( IsDriveable() )
 	{
-		m_GunnerCamera.SetHeightFromXZPlane( Gamepad_aapSample[nControlIndex][GAMEPAD_MAIN_LOOK_UP_DOWN]->fCurrentState );
+		// Mouse look in the gunner seat: the same per-frame delta the bot pitch
+		// uses, folded into the unit height-rate the stick produces. Mouse up
+		// (-dy) must match the stick's up key (+raw), hence the negation. The
+		// 1/50 scale means a 50-pixel frame is worth a full stick deflection;
+		// SetHeightFromXZPlane clamps to +-1 anyway. Other players' members are
+		// always zero (only player 0 ever gets mouse deltas).
+		#define _GUNNERCAM_MOUSE_PIXELS_PER_FULL_STICK 50.0f
+		f32 fLookY = Gamepad_aapSample[nControlIndex][GAMEPAD_MAIN_LOOK_UP_DOWN]->fCurrentState;
+		fLookY -= Player_aPlayer[m_GunnerCameraTrans.GetPlayerIndex()].m_fMouseLookDY / _GUNNERCAM_MOUSE_PIXELS_PER_FULL_STICK;
+		m_GunnerCamera.SetHeightFromXZPlane( fLookY );
 	}
 	else
 	{

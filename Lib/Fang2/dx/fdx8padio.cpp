@@ -143,6 +143,17 @@ static BOOL _KeyDown( int nVK ) {
 	return ( 0 != ( GetAsyncKeyState( nVK ) & 0x8000 ) );
 }
 
+// Mouse wheel -> weapon cycle pulse (phase 1). fdx8vid.cpp accumulates the
+// wheel notches; the synthetic device turns them into a short press of
+// SELECT_PRIMARY (scroll) or SELECT_SECONDARY (Q held + scroll, decision D6).
+// The press is held for _WHEEL_PULSE_MS so fpad's once-per-frame latch
+// sampling always sees the edge no matter where in the frame it lands; the
+// nonzero guard on the deadlines keeps GetTickCount's 49-day wrap from
+// looking like an active pulse.
+static LONG _nWheelPulsePrimaryUntil   = 0;
+static LONG _nWheelPulseSecondaryUntil = 0;
+#define _WHEEL_PULSE_MS 60
+
 static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 {
 	static const f32 _fSqrtHalf = 0.70710678118654752440f;
@@ -218,6 +229,26 @@ static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 	paf[ FPADIO_INPUT_XB_ABUTTON_WHITE      - 1 ] = _KeyDown( 'C' ) ? 1.0f : 0.0f;
 	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_LEFT - 1 ] = _KeyDown( VK_LMENU ) ? 1.0f : 0.0f;   // LS: crouch
 	paf[ FPADIO_INPUT_XB_DBUTTON_STICK_RIGHT- 1 ] = _KeyDown( 'R' ) ? 1.0f : 0.0f;        // RS: melee
+
+	//// Mouse wheel weapon cycling (phase 1): scroll = primary, Q+scroll =
+	//// secondary. Applied last so a pulse always wins over a held key.
+	//
+	{
+		LONG nNotch = fdx8vid_ConsumeMouseWheel();
+		if( 0 != nNotch ) {
+			if( _KeyDown( 'Q' ) ) {
+				_nWheelPulseSecondaryUntil = (LONG)GetTickCount() + _WHEEL_PULSE_MS;
+			} else {
+				_nWheelPulsePrimaryUntil = (LONG)GetTickCount() + _WHEEL_PULSE_MS;
+			}
+		}
+		if( ( 0 != _nWheelPulsePrimaryUntil ) && ( (LONG)( GetTickCount() - (DWORD)_nWheelPulsePrimaryUntil ) < 0 ) ) {
+			paf[ FPADIO_INPUT_CROSS_RIGHT - 1 ] = 1.0f;
+		}
+		if( ( 0 != _nWheelPulseSecondaryUntil ) && ( (LONG)( GetTickCount() - (DWORD)_nWheelPulseSecondaryUntil ) < 0 ) ) {
+			paf[ FPADIO_INPUT_CROSS_LEFT - 1 ] = 1.0f;
+		}
+	}
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

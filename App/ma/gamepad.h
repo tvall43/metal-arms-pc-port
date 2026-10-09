@@ -97,6 +97,7 @@ typedef enum {
 extern u32 Gamepad_nPortOnlineMask;		// Set bits indicate ports that have controllers installed in them
 extern FPad_Sample_t *Gamepad_aapSample[GAMEPAD_MAX_PORT_COUNT][GAMEPAD_MAX_ACTIONS];
 extern u32 Gamepad_nDebugPortIndex;// what controller port should we look at for debug features
+extern f32 Gamepad_fMouseSensitivity;	// [Mouse] Sensitivity in ma_win.ini: scales mouse-look deltas only (1.0 = default)
 
 extern BOOL gamepad_InitSystem( void );
 extern void gamepad_UninitSystem( void );
