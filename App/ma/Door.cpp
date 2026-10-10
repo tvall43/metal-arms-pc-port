@@ -1870,6 +1870,14 @@ void CDoorEntity::DoBehaviorElevator()
 		}
 		case DOORSTATE_ONE:
 		{
+			if(m_uBehaviorCtrlFlags & DOOR_BEHAVIOR_CTRL_AUTOCLOSE)
+			{
+				AutoClose();
+				if(m_eState != DOORSTATE_ONE)
+				{
+					break;
+				}
+			}
 			if(m_bUnoccupiedLastFrame)
 			{
 				// Check to see if someone has entered our smaller region, and if so, move them to 1.
