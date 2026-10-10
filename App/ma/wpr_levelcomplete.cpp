@@ -274,18 +274,9 @@ static BOOL _SP_Init( void ) {
 		_pScreenInfo->pwszLevelName = _pScreenInfo->wszTagName;			
 	}
 		
-	// load the font that we are going to use for the print outs
-	if( ftext_Load( 'Z', "TFHarials$" ) == FTEXT_ERROR ) {
-		DEVPRINTF( "wpr_levelcomplete::_SP_Init() : Could not load the font: 'TFHarials$'\n" );
-#if !GAMELOOP_EXTERNAL_DEMO
-		ffile_LogStop();
-#endif
-		DEVPRINTF( "******** LOAD MARKER - END OF LEVEL COMPLETE SCREEN***********.\n" );			
-		_UnloadAndExit( FALSE );
-		launcher_LoadFailure();
-		return TRUE;
-	}
-	
+	// NOTE: retail 1.20 never loads a 'Z' TFHarials$ font here (that font is
+	// absent from the (USA,Japan) master and the load aborted the screen).
+	// The print-outs below use handle '1' (tfharialw$), loaded at boot.
 	_pScreenInfo->pViewportOrtho3D = fviewport_Create();
 	if( !_pScreenInfo->pViewportOrtho3D ) {
 #if !GAMELOOP_EXTERNAL_DEMO
@@ -559,7 +550,7 @@ static BOOL _SP_Draw( void ) {
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
 		ftext_Printf( _VALUES_X, _LINE_3_Y, 
-				L"~fZ~C%ls~w0~aL~s0.95%02d:%02d:%02d",
+				L"~f1~C%ls~w0~aL~s0.95%02d:%02d:%02d",
 				_VALUE_COLOR,
 				_nHoursToComplete, _nMinsToComplete, _nSecsToComplete );
 
@@ -588,13 +579,13 @@ static void _PrintLine( f32 fX, f32 fY, s32 nCharsToPrint, cwchar *pwszLine ) {
 	
 		// print only a portion of the text
 		ftext_Printf( fX, fY,
-			L"~fZ~C%ls~w0~aL~s0.95%ls",
+			L"~f1~C%ls~w0~aL~s0.95%ls",
 			_LINE_COLOR,
 			wszTemp );
 	} else if( nCharsToPrint < 0 ) {
 		// print all of the text
 		ftext_Printf( fX, fY,
-			L"~fZ~C%ls~w0~aL~s0.95%ls",
+			L"~f1~C%ls~w0~aL~s0.95%ls",
 			_LINE_COLOR,
 			pwszLine );
 	}
@@ -602,7 +593,7 @@ static void _PrintLine( f32 fX, f32 fY, s32 nCharsToPrint, cwchar *pwszLine ) {
 
 static void _PrintRegValue( f32 fX, f32 fY, u32 nValue ) {
 	ftext_Printf( fX, fY,
-		L"~fZ~C%ls~w0~aL~s0.95%d",
+		L"~f1~C%ls~w0~aL~s0.95%d",
 		_VALUE_COLOR,
 		nValue );
 }
@@ -618,13 +609,13 @@ static void _PrintPressButton( f32 fX, f32 fY, s32 nCharsToPrint ) {
 	
 		// print only a portion of the text
 		ftext_Printf( fX, fY,
-			L"~fZ~C%ls~w0~al~s1.20%ls",
+			L"~f1~C%ls~w0~al~s1.20%ls",
 			WprDataTypes_pwszPressStartColor,
 			wszTemp );
 	} else if( nCharsToPrint < 0 ) {
 		// print all of the text
 		ftext_Printf( fX, fY,
-			L"~fZ~C%ls~w0~al~s1.20%ls",
+			L"~f1~C%ls~w0~al~s1.20%ls",
 			WprDataTypes_pwszPressStartColor,
 			Game_apwszPhrases[GAMEPHRASE_PRESS_A_TO_CONTINUE] );
 	}
@@ -687,18 +678,7 @@ static BOOL _SellSheet_Init( void ) {
 	}
 	_pScreenInfo->pBackgroundTexInst->SetTexDef( (FTexDef_t *)fresload_Load( FTEX_RESNAME, "TFH2sell_01" ) );
 	
-	// load the font that we are going to use for the print outs
-	if( ftext_Load( 'Z', "TFHarials$" ) == FTEXT_ERROR ) {
-		DEVPRINTF( "wpr_levelcomplete::_SellSheet_Init() : Could not load the font: 'TFHarials$'\n" );
-#if !GAMELOOP_EXTERNAL_DEMO
-		ffile_LogStop();
-#endif
-		DEVPRINTF( "******** LOAD MARKER - END OF LEVEL COMPLETE SCREEN***********.\n" );			
-		_SellSheet_UnloadAndExit( FALSE );
-		launcher_LoadFailure();
-		return TRUE;
-	}
-	
+	// see _SP_Init(): retail never loads 'Z' TFHarials$; prints use handle '1'.
 	_pScreenInfo->pViewportOrtho3D = fviewport_Create();
 	if( !_pScreenInfo->pViewportOrtho3D ) {
 #if !GAMELOOP_EXTERNAL_DEMO

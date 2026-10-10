@@ -179,6 +179,7 @@ static BOOL _bRawMouseRegistered;	// RegisterRawInputDevices() succeeded
 static BOOL _bRawMouseSeen;			// WM_INPUT has arrived at least once
 static BOOL _bMouseRecenterMode;	// GetCursorPos/SetCursorPos fallback active
 static u32 _uMouseMoveWithoutRaw;	// WM_MOUSEMOVEs seen while waiting for WM_INPUT
+static u32 _uRawWarpSkip;			// WM_INPUTs to drop after our own SetCursorPos warp
 static BOOL _bMouseLastPosValid;
 static POINT _oMouseLastPos;
 static HWND _hWnd;
@@ -1463,6 +1464,55 @@ void fdx8vid_EnableCursor( BOOL bEnable )
 }
 
 //
+// Raw-input mouse look: on hosts that derive raw deltas from cursor position
+// (Wine/X11 does), motion stops dead the moment the hidden cursor reaches the
+// edge of the screen or window -- the mouse "wall of turning", where the view
+// stops turning and reversing the mouse only unwinds what it already turned.
+// Keep the cursor off the client edges instead: warp it to the centre once it
+// gets within _RAW_WARP_MARGIN of one, and drop the warp's own raw event (if
+// the host reports one) so the jump never reaches the game. Called from both
+// _WndProc (WM_INPUT) and fdx8vid_GetMouseDelta so a cursor already parked
+// against an edge -- where no further input events will ever arrive -- is
+// still rescued. Only while the cursor is hidden: menus show it and must not
+// have it yanked out from under the pointer.
+//
+enum { _RAW_WARP_MARGIN = 64, _RAW_WARP_SKIP_EVENTS = 1 };
+
+static void _RecenterRawMouseIfNearEdge( void )
+{
+	RECT oRC;
+	POINT oPt;
+
+	if( !_bReady || !_bHaveFocus || !_bRawMouseSeen || _bCursorOn )
+	{
+		return;
+	}
+
+	GetCursorPos( &oPt );
+	ScreenToClient( _hWnd, &oPt );
+	GetClientRect( _hWnd, &oRC );
+	if( ( oPt.x < _RAW_WARP_MARGIN ) || ( oPt.x >= ( oRC.right - _RAW_WARP_MARGIN ) ) ||
+		( oPt.y < _RAW_WARP_MARGIN ) || ( oPt.y >= ( oRC.bottom - _RAW_WARP_MARGIN ) ) )
+	{
+		POINT oCentre;
+		oCentre.x = ( oRC.left + oRC.right ) / 2;
+		oCentre.y = ( oRC.top + oRC.bottom ) / 2;
+		ClientToScreen( _hWnd, &oCentre );
+		_uRawWarpSkip = _RAW_WARP_SKIP_EVENTS;
+		SetCursorPos( oCentre.x, oCentre.y );
+		{
+			static BOOL _bLoggedWarp = FALSE;
+			if( !_bLoggedWarp )
+			{
+				_bLoggedWarp = TRUE;
+				DEVPRINTF( "fvid: raw mouse recenter warp active (cursor near client edge %d,%d -> centre).\n",
+					(int)oPt.x, (int)oPt.y );
+			}
+		}
+	}
+}
+
+//
 // Mouse look plumbing: consume the deltas/wheel notches _WndProc accumulated
 // since the previous call. Game thread reads, WndProc writes -- same thread in
 // this port, but the Interlocked ops keep it correct either way. The wheel
@@ -1470,6 +1520,10 @@ void fdx8vid_EnableCursor( BOOL bEnable )
 //
 void fdx8vid_GetMouseDelta( LONG *pnDX, LONG *pnDY )
 {
+	// Rescue an edge-parked raw-input cursor even when no input events are
+	// arriving (they stop entirely once the pointer can't move any more).
+	_RecenterRawMouseIfNearEdge();
+
 	if( pnDX )
 	{
 		*pnDX = InterlockedExchange( &_nMouseLookDX, 0 );
@@ -2845,6 +2899,23 @@ static BOOL _CreateWindow( void )
 		}
 	}
 
+	// Fullscreen: pin the window to the desktop origin and size it to the
+	// desktop. Nothing in this port ever calls ChangeDisplaySettings (Wine
+	// keeps the host resolution), and CreateWindow's CW_USEDEFAULT let the
+	// window manager park the 800x600 window wherever it liked -- on Wine,
+	// the top-right corner. The device presents windowed (Windowed=TRUE
+	// below), so this window is the screen and the 800x600 backbuffer is
+	// stretched across it.
+	if( !( FVid_Mode.nFlags & FVID_MODEFLAG_WINDOWED ) )
+	{
+		SetWindowPos( _hWnd, HWND_TOP, 0, 0,
+			GetSystemMetrics( SM_CXSCREEN ), GetSystemMetrics( SM_CYSCREEN ),
+			SWP_SHOWWINDOW );
+		DEVPRINTF( "fvid: fullscreen window pinned to 0,0 sized %dx%d (backbuffer %ux%u, windowed present).\n",
+			GetSystemMetrics( SM_CXSCREEN ), GetSystemMetrics( SM_CYSCREEN ),
+			(unsigned)FVid_Mode.nPixelsAcross, (unsigned)FVid_Mode.nPixelsDown );
+	}
+
 	// Removed by Justin - 1/15/02 - I can't find any reason why this should be called.
 //	_SetClientSize( FVid_Mode.nPixelsAcross, FVid_Mode.nPixelsDown );
 	_nWindowStyle = GetWindowLong( _hWnd, GWL_STYLE );
@@ -2866,6 +2937,7 @@ static BOOL _CreateWindow( void )
 		_bRawMouseSeen       = FALSE;
 		_bMouseRecenterMode  = !_bRawMouseRegistered;
 		_uMouseMoveWithoutRaw = 0;
+		_uRawWarpSkip        = 0;
 		_bMouseLastPosValid  = FALSE;
 		InterlockedExchange( &_nMouseLookDX, 0 );
 		InterlockedExchange( &_nMouseLookDY, 0 );
@@ -2929,7 +3001,14 @@ static BOOL _CreateWindow( void )
 	_PresentationParms.MultiSampleType = FDX8Vid_nBackBufferMultisampleType;
 	_PresentationParms.SwapEffect = D3DSWAPEFFECT_DISCARD;
 	_PresentationParms.hDeviceWindow = _hWnd;
-	_PresentationParms.Windowed = !!(FVid_Mode.nFlags & FVID_MODEFLAG_WINDOWED);
+	// Present windowed even for "fullscreen": there is no display mode
+	// switch in this port, so an exclusive swapchain can only ever paint an
+	// 800x600 block somewhere on a native-resolution desktop. Windowed
+	// Present stretches the backbuffer across the desktop-sized window
+	// created above, which is what fullscreen should look like. FVid_Mode
+	// keeps its fullscreen flag, so cursor, shortcut and menu handling
+	// below are unchanged.
+	_PresentationParms.Windowed = TRUE;
 	_PresentationParms.EnableAutoDepthStencil = TRUE;
 	_PresentationParms.AutoDepthStencilFormat = _CurVidModeInfo.nDepthFormat;
 #if FANG_PLATFORM_WIN
@@ -3275,6 +3354,7 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 		InterlockedExchange( &_nMouseLookDX, 0 );
 		InterlockedExchange( &_nMouseLookDY, 0 );
 		InterlockedExchange( &_nWheelNotches, 0 );
+		_uRawWarpSkip = 0;
 		break;
 
 	case WM_NCACTIVATE:
@@ -3334,8 +3414,22 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 				( RIM_TYPEMOUSE == oRaw.header.dwType ) )
 			{
 				_bRawMouseSeen = TRUE;
-				InterlockedExchangeAdd( &_nMouseLookDX, (LONG)oRaw.data.mouse.lLastX );
-				InterlockedExchangeAdd( &_nMouseLookDY, (LONG)oRaw.data.mouse.lLastY );
+				if( _uRawWarpSkip > 0 )
+				{
+					// Our own SetCursorPos recenter coming back at us as raw
+					// motion, not mouse movement. Hosts that report it do so
+					// as a single event; hosts that report nothing instead
+					// cost the next few milliseconds of real motion, which is
+					// imperceptible.
+					--_uRawWarpSkip;
+				}
+				else
+				{
+					InterlockedExchangeAdd( &_nMouseLookDX, (LONG)oRaw.data.mouse.lLastX );
+					InterlockedExchangeAdd( &_nMouseLookDY, (LONG)oRaw.data.mouse.lLastY );
+
+					_RecenterRawMouseIfNearEdge();
+				}
 			}
 		}
 		return 0;
