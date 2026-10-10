@@ -165,6 +165,9 @@ public:
 	static cell AMX_NATIVE_CALL Bot_GetPlayer(AMX *pAMX, cell *aParams);
 	static cell AMX_NATIVE_CALL Bot_IsDeadOrDying(AMX *pAMX, cell *aParams);
 	static cell AMX_NATIVE_CALL Bot_IsDead(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Bot_IsPosessed(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Bot_IsRecruited(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Bot_Recruit(AMX *pAMX, cell *aParams);
 
 	//
 	// AI functions
@@ -455,6 +458,7 @@ public:
 	static cell AMX_NATIVE_CALL Audio_PlayAmbient(AMX *pAMX, cell *aParams);
 	static cell AMX_NATIVE_CALL Audio_StopAmbient(AMX *pAMX, cell *aParams);
 	static cell AMX_NATIVE_CALL Audio_Play2DSound(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Audio_Play2DSoundEx(AMX *pAMX, cell *aParams);
 };
 
 
@@ -480,6 +484,7 @@ class CMAST_Checkpoint
 {
 public:
 	static cell AMX_NATIVE_CALL Checkpoint_Save(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Checkpoint_Save2(AMX *pAMX, cell *aParams);
 };
 
 #if 0
@@ -497,6 +502,10 @@ public:
 	static cell AMX_NATIVE_CALL Game_EndCutScene(AMX *pAMX, cell *aParams);
 	static cell AMX_NATIVE_CALL Game_WinLevel(AMX *pAMX, cell *aParams);
 	static cell AMX_NATIVE_CALL Game_DoPauseMode(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Console_Enable(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Misc_GetDifficulty(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Misc_GetValue(AMX *pAMX, cell *aParams);
+	static cell AMX_NATIVE_CALL Misc_SetValue(AMX *pAMX, cell *aParams);
 };
 
 class CMAST_TackWrapper
@@ -597,6 +606,7 @@ class CMAST_FXWrapper
 public:
 	static cell AMX_NATIVE_CALL FX_Explosion_Find(AMX *pAMX, cell *aParams);	
 	static cell AMX_NATIVE_CALL FX_Explosion(AMX *pAMX, cell *aParams);	
+	static cell AMX_NATIVE_CALL FX_StompRing(AMX *pAMX, cell *aParams);
 };
 
 class CMAST_GoodieWrapper

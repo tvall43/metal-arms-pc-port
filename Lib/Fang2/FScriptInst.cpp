@@ -53,6 +53,8 @@ BOOL CFScriptInst::Init( CFScript *pScript, void *pObject )
 		return FALSE;
 	}
 
+	m_oAMX.userdata[0] = (void *)( pScript->m_szScriptFileName );
+
 	amx_Register(&m_oAMX, core_Natives, -1);
 	amx_Register(&m_oAMX, console_Natives, -1);
 	amx_Register(&m_oAMX, CFScriptSystem::m_paNativeFunc, CFScriptSystem::m_uNumNatives);

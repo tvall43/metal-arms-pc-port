@@ -44,6 +44,7 @@
 #include "FScriptSystem.h"
 #include "fverlet.h"
 #include "game.h"
+#include "difficulty.h"
 #include "gamecam.h"
 #include "gamepad.h"
 #include "gamesave.h"
@@ -133,6 +134,9 @@ AMX_NATIVE_INFO MAScriptTypes_aMAEventNatives[] =
 	"Bot_RemoveFromWorld",				&CMAST_BotWrapper::Bot_RemoveFromWorld,
 	"Bot_IsDeadOrDying",				&CMAST_BotWrapper::Bot_IsDeadOrDying,
 	"Bot_IsDead",						&CMAST_BotWrapper::Bot_IsDead,
+	"Bot_IsPosessed",					&CMAST_BotWrapper::Bot_IsPosessed,
+	"Bot_IsRecruited",					&CMAST_BotWrapper::Bot_IsRecruited,
+	"Bot_Recruit",						&CMAST_BotWrapper::Bot_Recruit,
 
 	"Bot_JobWander",					&CMAST_BotWrapper::Bot_JobWander,
 	"Bot_GetPlayer",					&CMAST_BotWrapper::Bot_GetPlayer,
@@ -289,6 +293,7 @@ AMX_NATIVE_INFO MAScriptTypes_aMAEventNatives[] =
 	"Audio_PlayAmbient",				&CMAST_Audio::Audio_PlayAmbient,
 	"Audio_StopAmbient",				&CMAST_Audio::Audio_StopAmbient,
 	"Audio_Play2DSound",				&CMAST_Audio::Audio_Play2DSound,
+	"Audio_Play2DSoundEx",				&CMAST_Audio::Audio_Play2DSoundEx,
 
 	"Movie_GetHandle",					&CMAST_Movie::Movie_GetHandle,
 	"Movie_Play",						&CMAST_Movie::Movie_Play,
@@ -300,6 +305,7 @@ AMX_NATIVE_INFO MAScriptTypes_aMAEventNatives[] =
 	"Particle_Stop",					&CMAST_Particle::Particle_Stop,
 
 	"Checkpoint_Save",					&CMAST_Checkpoint::Checkpoint_Save,
+	"Checkpoint_Save2",					&CMAST_Checkpoint::Checkpoint_Save2,
 
 //	"DE_StartDestruct",					&CMAST_DestructEntityWrapper::DE_StartDestruct,
 
@@ -307,6 +313,10 @@ AMX_NATIVE_INFO MAScriptTypes_aMAEventNatives[] =
 	"Game_EndCutScene",					&CMAST_GameWrapper::Game_EndCutScene,
 	"Game_WinLevel",					&CMAST_GameWrapper::Game_WinLevel,
 	"Game_DoPauseMode",					&CMAST_GameWrapper::Game_DoPauseMode,
+	"Console_Enable",					&CMAST_GameWrapper::Console_Enable,
+	"Misc_GetDifficulty",				&CMAST_GameWrapper::Misc_GetDifficulty,
+	"Misc_GetValue",					&CMAST_GameWrapper::Misc_GetValue,
+	"Misc_SetValue",					&CMAST_GameWrapper::Misc_SetValue,
 
 	// Tack functions...
 	"Tack_Find",						&CMAST_TackWrapper::Tack_Find,
@@ -382,6 +392,7 @@ AMX_NATIVE_INFO MAScriptTypes_aMAEventNatives[] =
 	// Effects funcitons...
 	"FX_Explosion_Find",				&CMAST_FXWrapper::FX_Explosion_Find,
 	"FX_Explosion",						&CMAST_FXWrapper::FX_Explosion,
+	"FX_StompRing",						&CMAST_FXWrapper::FX_StompRing,
 
 	// Goodie functions...
 	"G_GiveToGlitch",					&CMAST_GoodieWrapper::G_GiveToGlitch,
@@ -1744,6 +1755,47 @@ cell AMX_NATIVE_CALL CMAST_BotWrapper::Bot_GetPlayer(AMX *pAMX, cell *aParams)
 	FASSERT(pE->TypeBits() & ENTITY_BIT_BOT);
 	CBot *pBot = (CBot *)(pE);
 	return((cell)(pE));
+}
+
+
+cell AMX_NATIVE_CALL CMAST_BotWrapper::Bot_IsPosessed(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Bot_IsPosessed", 1 );
+	CBot *pBot = (CBot *)(aParams[1]);
+	if(pBot == NULL)
+	{
+		return((cell)(0));
+	}
+
+	return((cell) pBot->IsPossessed());
+}
+
+
+cell AMX_NATIVE_CALL CMAST_BotWrapper::Bot_IsRecruited(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Bot_IsRecruited", 1 );
+	CBot *pBot = (CBot *)(aParams[1]);
+	if(pBot == NULL)
+	{
+		return((cell)(0));
+	}
+
+	return((cell) pBot->Recruit_IsRecruited());
+}
+
+
+cell AMX_NATIVE_CALL CMAST_BotWrapper::Bot_Recruit(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Bot_Recruit", 2 );
+	CBot *pRecruiter = (CBot *)(aParams[1]);
+	CBot *pBot = (CBot *)(aParams[2]);
+	if( ( pRecruiter == NULL ) || ( pBot == NULL ) )
+	{
+		SCRIPT_ERROR("Bot_Recruit() : Passed in null bot.");
+		return((cell)(0));
+	}
+
+	return((cell) pBot->Recruit( pRecruiter ));
 }
 
 
@@ -4585,6 +4637,27 @@ cell AMX_NATIVE_CALL CMAST_Audio::Audio_Play2DSound(AMX *pAMX, cell *aParams)
 }
 
 
+cell AMX_NATIVE_CALL CMAST_Audio::Audio_Play2DSoundEx(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Audio_Play2DSoundEx", 3 );
+
+	FSndFx_FxHandle_t hSFX = (FSndFx_FxHandle_t)(aParams[1]);
+	if( ( hSFX == NULL ) || ( hSFX == FSNDFX_INVALID_FX_HANDLE ) )
+	{
+		SCRIPT_ERROR("Audio_Play2DSoundEx : Invalid SFX Handle provided." );
+		return((cell)(0));
+	}
+
+	u32 uVolume = aParams[2];
+	f32 fVolume = 0.01f * ( (f32) uVolume );
+	FMATH_CLAMP_UNIT_FLOAT( fVolume );
+
+	fsndfx_Play2D(hSFX, fVolume );
+
+	return( (cell)(0) );
+}
+
+
 /////////////////////////////////////////////////////////////////
 // Movie functions
 
@@ -4733,6 +4806,16 @@ cell AMX_NATIVE_CALL CMAST_Checkpoint::Checkpoint_Save(AMX *pAMX, cell *aParams)
 }
 
 
+cell AMX_NATIVE_CALL CMAST_Checkpoint::Checkpoint_Save2(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Checkpoint_Save2", 1 );
+	CESphere *pESphere = (CESphere *)(aParams[1]);
+	BOOL bResult;
+	bResult = checkpoint_Save( 1, TRUE, pESphere );
+	return( (cell) bResult );
+}
+
+
 /////////////////////////////////////////////////////////////////
 // destruct entity functions
 
@@ -4784,6 +4867,49 @@ cell AMX_NATIVE_CALL CMAST_GameWrapper::Game_DoPauseMode(AMX *pAMX, cell *aParam
 {
 	SCRIPT_CHECK_NUM_PARAMS( "Game_DoPauseMode", 0 );
 	Game_bEnterPauseModeImmediatelyForCutsceneCreation = TRUE;
+
+	return((cell)(0));
+}
+
+
+cell AMX_NATIVE_CALL CMAST_GameWrapper::Console_Enable(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Console_Enable", 2 );
+	static BOOL s_bLogged = FALSE;
+	if( !s_bLogged )
+	{
+		s_bLogged = TRUE;
+		DEVPRINTF("[ Console_Enable ] -- no-op (aParams[1]=%d, aParams[2]=%d)\n", (int)aParams[1], (int)aParams[2]);
+	}
+
+	return((cell)(0));
+}
+
+
+cell AMX_NATIVE_CALL CMAST_GameWrapper::Misc_GetDifficulty(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Misc_GetDifficulty", 0 );
+
+	return( (cell)( CDifficulty::GetLevel() ) );
+}
+
+
+static cell s_oMAGameMiscValue = 0;
+
+
+cell AMX_NATIVE_CALL CMAST_GameWrapper::Misc_GetValue(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Misc_GetValue", 0 );
+
+	return( s_oMAGameMiscValue );
+}
+
+
+cell AMX_NATIVE_CALL CMAST_GameWrapper::Misc_SetValue(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "Misc_SetValue", 1 );
+
+	s_oMAGameMiscValue = aParams[1];
 
 	return((cell)(0));
 }
@@ -6202,6 +6328,20 @@ cell AMX_NATIVE_CALL CMAST_FXWrapper::FX_Explosion(AMX *pAMX, cell *aParams)
 		SpawnParams.uSurfaceType = 0;
 
 		CExplosion2::SpawnExplosion( hSpawner, hExplosionGroup, &SpawnParams );
+	}
+
+	return((cell)(0));
+}
+
+
+cell AMX_NATIVE_CALL CMAST_FXWrapper::FX_StompRing(AMX *pAMX, cell *aParams)
+{
+	SCRIPT_CHECK_NUM_PARAMS( "FX_StompRing", 3 );
+	static BOOL s_bLogged = FALSE;
+	if( !s_bLogged )
+	{
+		s_bLogged = TRUE;
+		DEVPRINTF("[ FX_StompRing ] -- not implemented (aParams[1]=%d, aParams[2]=%d, aParams[3]=%d)\n", (int)aParams[1], (int)aParams[2], (int)aParams[3]);
 	}
 
 	return((cell)(0));

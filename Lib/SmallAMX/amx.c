@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 #if defined LINUX
   #include <sclinux.h>
@@ -250,10 +251,9 @@ int AMXAPI amx_Flags(AMX *amx,uint16_t *flags)
 int AMXAPI amx_Callback(AMX *amx, cell index, cell *result, cell *params)
 {
   AMX_HEADER *hdr=(AMX_HEADER *)amx->base;
-  AMX_FUNCSTUB *func=(AMX_FUNCSTUB *)(amx->base+(int)hdr->natives+(int)index*sizeof(AMX_FUNCSTUB));
-  AMX_NATIVE f=(AMX_NATIVE)func->address;
-  assert(f!=NULL);
-  assert(index<hdr->num_natives);
+  AMX_FUNCSTUB *func;
+  AMX_NATIVE f;
+  static unsigned char aLogged[256];
 
   /* Note:
    *   params[0] == number of parameters passed to the native function
@@ -262,6 +262,28 @@ int AMXAPI amx_Callback(AMX *amx, cell index, cell *result, cell *params)
    */
 
   amx->error=AMX_ERR_NONE;
+  *result=0;
+
+  if (index<0 || index>=hdr->num_natives) {
+    fprintf(stderr,"[ma] AMX: native index %d out of range (%d natives)\n",
+            (int)index,(int)hdr->num_natives);
+    amx->error=AMX_ERR_NATIVE;
+    return amx->error;
+  }
+
+  func=(AMX_FUNCSTUB *)(amx->base+(int)hdr->natives+(int)index*sizeof(AMX_FUNCSTUB));
+  f=(AMX_NATIVE)func->address;
+  if (f==NULL) {
+    if (index<256 && !aLogged[index]) {
+      aLogged[index]=1;
+      fprintf(stderr,"[ma] AMX: unbound native '%.20s' (index %d) at line %d of '%.32s'\n",
+              func->name,(int)index,(int)amx->curline,
+              amx->userdata[0] ? (const char *)amx->userdata[0] : "?");
+    }
+    amx->error=AMX_ERR_NATIVE;
+    return amx->error;
+  }
+
   *result = f(amx,params);
   return amx->error;
 }
