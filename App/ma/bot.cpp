@@ -2025,10 +2025,15 @@ _ExitWithError:
 
 void CBot::ClassHierarchyDestroy( void ) {
 	fdelete( m_pNoLegsDebrisPileWorldMesh );
+	m_pNoLegsDebrisPileWorldMesh = NULL;
 	fdelete( m_pPartMgr );
+	m_pPartMgr = NULL;
 	fdelete( m_pDataPortMeshEntity );
+	m_pDataPortMeshEntity = NULL;
 	fdelete( m_pDataPortEffectMeshEntity );
+	m_pDataPortEffectMeshEntity = NULL;
 	fdelete( m_pTalkInst );
+	m_pTalkInst = NULL;
 
 	_ClearDataMembers();
 

@@ -57,14 +57,12 @@ void CSpawnSys::UninitLevel(void)
 		{
 			if (m_paAutoBotAlloc[uBotType])
 			{
-//ARG - >>>>>
-#if FANG_PLATFORM_PS2
-//ARG - FIX for weird crash freeing NULL pointer
+// Pool was allocated as CBotSwarmer[] (fnew CBotSwarmer[n]) but m_paAutoBotAlloc
+// is typed CBot*. delete[] through the base pointer walks with sizeof(CBot)=0x970
+// while the objects are sizeof(CBotSwarmer)=0xAE0 apart, so every element after
+// the first is destroyed at a misaligned this and reads freed garbage (crash on
+// m_pDataPortMeshEntity at this+0x4e8). Always cast to the derived type.
 				fdelete_array((CBotSwarmer *)m_paAutoBotAlloc[uBotType]);
-#else
-//ARG - <<<<<
-				fdelete_array(m_paAutoBotAlloc[uBotType]);
-#endif	//ARG
 			}
 			m_papAutoBotPool[uBotType] = NULL;			//no delete since fres'd it
 			m_pauAutoBotNetUseage[uBotType] = NULL;		//no delete since fres'd it
