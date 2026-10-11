@@ -743,7 +743,9 @@ BOOL CFLiquidVolume::CheckCollision(CFVec3& vPos, f32 fRadius)
 				//FMATH_CLAMP(fIntens, 0.1f, 1.0f);
 
 				vPartOrig.x = vSpherePos.x; vPartOrig.z = vSpherePos.z;
-				vPartOrig.y = vSelfPos.y + 0.5f*m_pSelf->m_vExt.y;
+				// CheckCollision is a member; SpawnExplosion may call us without
+				// HandleCollisions() having set m_pSelf (static), which crashed.
+				vPartOrig.y = vSelfPos.y + 0.5f*m_vExt.y;
 
 				//Spawn explosion particles
 				fparticle_SpawnEmitter( m_hExplosionParticleDef, vPartOrig,  &_vUp, fIntens ); 

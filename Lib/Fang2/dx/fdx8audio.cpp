@@ -4026,6 +4026,7 @@ void _ApplyRealEmittersChanges( FLinkRoot_t *poVirtualEmittersListActive ) {
 				if( FAudio_bMasterSfxVolChanged ||
 					poVirtualEmitter->uStateChanges & _EMITTER_STATE_CHANGE_VOLUME ) {
 					fVolume = FAudio_fMasterSfxUnitVol * poVirtualEmitter->fVolumeDucked;
+					FMATH_CLAMP_UNIT_FLOAT( fVolume );
 					pDSBuffer->SetVolume( _anVolumes[ fmath_FloatToU32( _UNIQUE_FLOAT_VOL_LEVEL_INDICES * fVolume ) ] );					
 				}
 				
@@ -4276,7 +4277,9 @@ static void _StreamRefill( _Stream_t *poStream )
 	}
 
 	// Track seconds played from play-cursor advance.
-	DWORD dwPlay = 0, dwWrite = 0;
+	// Default to last known play pos: a failed GetCurrentPosition must not
+	// zero the cursor (that made free-space look empty forever).
+	DWORD dwPlay = poStream->uPlayPosLast, dwWrite = 0;
 	if( SUCCEEDED( poStream->poDSBuffer->GetCurrentPosition( &dwPlay, &dwWrite ) ) )
 	{
 		u32 uDelta;
@@ -4306,8 +4309,14 @@ static void _StreamRefill( _Stream_t *poStream )
 	}
 
 	// Free space between write cursor and play cursor (leave a small margin).
+	// write==play means empty (start of stream), not full: a classic ring-buffer
+	// ambiguity. Treating empty as full left uFree=0 forever and music silent.
 	u32 uFree;
-	if( dwPlay >= poStream->uWritePos )
+	if( dwPlay == poStream->uWritePos )
+	{
+		uFree = poStream->uBufferSize;
+	}
+	else if( dwPlay > poStream->uWritePos )
 	{
 		uFree = dwPlay - poStream->uWritePos;
 	}
@@ -4901,10 +4910,19 @@ void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 	_StreamApplyChanges( poStream );
 	if( poStream->poDSBuffer )
 	{
-		poStream->poDSBuffer->Play( 0, 0, DSBPLAY_LOOPING );
+		HRESULT hPlay = poStream->poDSBuffer->Play( 0, 0, DSBPLAY_LOOPING );
+		DEVPRINTF( "[ FAUDIO ] Stream Play '%s' loops=%u vol=%.3f hr=0x%08x buf=%u write=%u\n",
+			poStream->szName, uLoops, poStream->fVolume, (unsigned)hPlay,
+			poStream->uBufferSize, poStream->uWritePos );
+	}
+	else
+	{
+		DEVPRINTF( "[ FAUDIO ] Stream Play '%s' has NULL DS buffer!!!\n", poStream->szName );
 	}
 
 	_StreamRefill( poStream );
+	DEVPRINTF( "[ FAUDIO ] Stream after refill '%s' write=%u eof=%d state=%u\n",
+		poStream->szName, poStream->uWritePos, (int)poStream->bEOF, (unsigned)poStream->oeState );
 
 	_bSkipStreamsWorkDelay = FALSE;
 
