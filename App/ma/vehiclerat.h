@@ -403,7 +403,7 @@ private:
 
 	f32 m_fRawSteeringPosition;								// current unmodified steering angle of tires, values from -1.0 to 1.0
 	f32 m_fSteeringPosition;								// final steering angle of tires (scaled by vehicle velocity, etc)
-	f32 m_fDriverCamYawOffset;								// accumulated mouse orbit of the driver chase-cam (radians); decays toward 0 when idle
+	f32 m_fMouseSteerPos;								// virtual bipolar steering from mouse X (-1..1); decays toward 0 when mouse idle
 	f32 m_fFlipOverTime;									// remaining time to apply force when flipping over to return to right-side-up.
 
 	FMeshTexLayerHandle_t m_hBrakeLightLayer;				// handle to brake light texture

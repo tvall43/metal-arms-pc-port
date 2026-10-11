@@ -1043,7 +1043,7 @@ void CVehicleRat::_ClearDataMembers( void )
 	m_pGunnerBot = NULL;
 	m_fSteeringPosition = 0.0f;
 	m_fRawSteeringPosition = 0.0f;
-	m_fDriverCamYawOffset = 0.0f;
+	m_fMouseSteerPos = 0.0f;
 	m_qGroundNormal.Identity();
 	m_fFlipOverTime = 0.0f;
 	m_fCollCylinderRadius_WS = 10.0f;   //adjust these if the size of the model changes
@@ -2654,6 +2654,33 @@ void CVehicleRat::MoveVehicle( void )
 	{
 		// compute steering change requested by driver
 		fSteeringPos = m_fControls_RotateCW;
+
+		// Mouse steering: IJKL works because it writes bipolar values into
+		// Gamepad_aapSample, which CPlayer::Work copies into m_fControls_RotateCW
+		// (the line above). The mouse never writes those samples; it only feeds
+		// m_fMouseLookDX/DY. Fold mouse X into a virtual stick on top of the real
+		// one so A/D (or pad) still work. Accumulate pixels, decay toward center
+		// on idle frames (like releasing the stick), clamp to +/-1. The existing
+		// fMaxDeltaSteering rate limit smooths the edges.
+		#define _MOUSE_STEER_PER_PIXEL          0.02f		// ~50px of motion = full steer
+		#define _MOUSE_STEER_RECENTRE_PER_SEC   3.0f
+		s32 nMousePlayer = m_pDriverBot->m_nPossessionPlayerIndex;
+		if( nMousePlayer >= 0 )
+		{
+			f32 fMouseDX = Player_aPlayer[nMousePlayer].m_fMouseLookDX;
+			m_fMouseSteerPos += fMouseDX * _MOUSE_STEER_PER_PIXEL;
+			if( fMouseDX == 0.0f )
+			{
+				// mouse idle: recentre like releasing the stick
+				f32 fDecay = _MOUSE_STEER_RECENTRE_PER_SEC * FLoop_fPreviousLoopSecs;
+				if( m_fMouseSteerPos > fDecay ) m_fMouseSteerPos -= fDecay;
+				else if( m_fMouseSteerPos < -fDecay ) m_fMouseSteerPos += fDecay;
+				else m_fMouseSteerPos = 0.0f;
+			}
+			FMATH_CLAMP( m_fMouseSteerPos, -1.0f, 1.0f );
+			fSteeringPos += m_fMouseSteerPos;
+			FMATH_CLAMP( fSteeringPos, -1.0f, 1.0f );
+		}
 		fDeltaSteering = fSteeringPos - m_fRawSteeringPosition;
 	}
 	else
@@ -3111,7 +3138,7 @@ void CVehicleRat::UpdateDriverCamera( void )
 {
 	if( m_DriverCameraTrans.IsCameraInactive() )
 	{
-		m_fDriverCamYawOffset = 0.0f;
+		m_fMouseSteerPos = 0.0f;
 		return;
 	}
 
@@ -3145,38 +3172,19 @@ void CVehicleRat::UpdateDriverCamera( void )
 		fAim *= 1.0f / (1.0f - _CAM_HEIGHT_DEAD_ZONE);
 	}
 
-	// Mouse look-while-driving (driver seat): orbit the chase cam with mouse X
-	// and fold mouse Y into camera height. The rat driver cam is otherwise
-	// locked behind the vehicle heading, so without this the only ways to
-	// look around are steering (which yaws the whole vehicle) or IJKL.
-	// Scale matches the gunner cam: ~50 pixels/frame = full stick.
+	// Mouse Y adjusts driver-cam height. Mouse X no longer orbits the cam;
+	// it steers the vehicle in the human-steering block below (same place
+	// IJKL's RotateCW lands).
 	#define _DRIVERCAM_MOUSE_PIXELS_PER_FULL_STICK 50.0f
-	#define _DRIVERCAM_MOUSE_YAW_RAD_PER_PIXEL     0.0050f
-	#define _DRIVERCAM_YAW_RECENTRE_PER_SEC        0.60f		// rad/s toward 0 when idle (~full 180-deg orbit in ~5s)
 	{
 		s32 nPlayer = m_DriverCameraTrans.GetPlayerIndex();
 		if( nPlayer >= 0 )
 		{
-			f32 fMouseDX = Player_aPlayer[nPlayer].m_fMouseLookDX;
 			f32 fMouseDY = Player_aPlayer[nPlayer].m_fMouseLookDY;
 			if( Player_aPlayer[nPlayer].GetInvertLook() )
 			{
 				fMouseDY = -fMouseDY;
 			}
-			// Accumulate, do not set: a per-frame set from the instantaneous delta
-			// zeros the moment motion stops and the camera slerps home before the
-			// player can steer or get a useful look. Decay only on idle frames so
-			// the orbit sticks while the mouse is moving.
-			m_fDriverCamYawOffset += fMouseDX * _DRIVERCAM_MOUSE_YAW_RAD_PER_PIXEL;
-			if( fMouseDX == 0.0f )
-			{
-				f32 fDecay = _DRIVERCAM_YAW_RECENTRE_PER_SEC * FLoop_fPreviousLoopSecs;
-				if( m_fDriverCamYawOffset > fDecay ) m_fDriverCamYawOffset -= fDecay;
-				else if( m_fDriverCamYawOffset < -fDecay ) m_fDriverCamYawOffset += fDecay;
-				else m_fDriverCamYawOffset = 0.0f;
-			}
-			FMATH_CLAMP( m_fDriverCamYawOffset, -FMATH_PI, FMATH_PI );
-			m_DriverCamera.SetYawOffset( m_fDriverCamYawOffset );
 			// mouse down (+dy) raises the cam like a negative stick AimDown;
 			// bypass the stick dead zone so every pixel counts.
 			fAim -= fMouseDY / _DRIVERCAM_MOUSE_PIXELS_PER_FULL_STICK;
@@ -5863,7 +5871,7 @@ void CVehicleRat::RecycleVehicle( CFMtx43A &rNewLocation,
 	}
 	m_fSteeringPosition = 0.0f;
 	m_fRawSteeringPosition = 0.0f;
-	m_fDriverCamYawOffset = 0.0f;
+	m_fMouseSteerPos = 0.0f;
 	m_qGroundNormal.Identity();
 	m_fFlipOverTime = 0.0f;
 	m_fTimeSinceLastContact = 0.0f;
