@@ -1761,6 +1761,32 @@ void CVehicleSentinel::MoveVehicle( void )
 
 		// allow controls to affect elevation angle of turret cannon
 		m_fCannonElevation += m_fControls_AimDown * FLoop_fPreviousLoopSecs * _CANNON_ELEVATION_RATE;
+
+		// Mouse aim while driving: turret yaw + cannon elevation. Sentinel
+		// only reads stick (m_fControls_RotateCW/AimDown); without this the
+		// turret cannot be aimed with the mouse. Same rad/pixel scales as
+		// the on-foot mount aim in bot.cpp.
+		if( m_nPossessionPlayerIndex >= 0 )
+		{
+			static const f32 _SENT_MOUSE_YAW_RAD_PER_PIXEL   = 0.0050f;
+			static const f32 _SENT_MOUSE_PITCH_RAD_PER_PIXEL = 0.0045f;
+			f32 fMouseDX = Player_aPlayer[m_nPossessionPlayerIndex].m_fMouseLookDX;
+			f32 fMouseDY = Player_aPlayer[m_nPossessionPlayerIndex].m_fMouseLookDY;
+			if( Player_aPlayer[m_nPossessionPlayerIndex].GetInvertLook() )
+			{
+				fMouseDY = -fMouseDY;
+			}
+			m_fTurretAngleWS += fMouseDX * _SENT_MOUSE_YAW_RAD_PER_PIXEL;
+			if( m_fTurretAngleWS > FMATH_DEG2RAD( 360.0f ) )
+			{
+				m_fTurretAngleWS -= FMATH_DEG2RAD( 360.0f );
+			}
+			else if( m_fTurretAngleWS < 0.0f )
+			{
+				m_fTurretAngleWS += FMATH_DEG2RAD( 360.0f );
+			}
+			m_fCannonElevation += fMouseDY * _SENT_MOUSE_PITCH_RAD_PER_PIXEL;
+		}
 		if( m_fCannonElevation > _CANNON_MAX_DOWN_ELEVATION )
 		{
 			m_fCannonElevation = _CANNON_MAX_DOWN_ELEVATION;

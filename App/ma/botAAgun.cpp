@@ -674,6 +674,38 @@ void CBotAAGun::ClassHierarchyWork() {
 	// move the barrels based on the x y controllers
 	_YawPitchWork( fControllerX, fControllerY );
 
+	// Mouse aim (Hold Your Ground etc): the possessed AAGun only reads
+	// m_fControls_RotateCW/AimDown (stick), so fold the per-frame mouse
+	// delta into gun heading/pitch here with the same rad/pixel scale the
+	// on-foot mount aim uses. Positive mouse X = turn right (heading up);
+	// positive mouse Y = look down (pitch up), invert flips Y at the source.
+	if( m_nPossessionPlayerIndex >= 0 )
+	{
+		static const f32 _AAGUN_MOUSE_YAW_RAD_PER_PIXEL   = 0.0050f;
+		static const f32 _AAGUN_MOUSE_PITCH_RAD_PER_PIXEL = 0.0045f;
+		f32 fMouseDX = Player_aPlayer[m_nPossessionPlayerIndex].m_fMouseLookDX;
+		f32 fMouseDY = Player_aPlayer[m_nPossessionPlayerIndex].m_fMouseLookDY;
+		if( Player_aPlayer[m_nPossessionPlayerIndex].GetInvertLook() )
+		{
+			fMouseDY = -fMouseDY;
+		}
+		if( fMouseDX != 0.0f )
+		{
+			m_fGunHeading += fMouseDX * _AAGUN_MOUSE_YAW_RAD_PER_PIXEL;
+			if( m_bLimitHeading )
+			{
+				if( m_fGunHeading > m_fMaxHeading ) m_fGunHeading = m_fMaxHeading;
+				else if( m_fGunHeading < m_fMinHeading ) m_fGunHeading = m_fMinHeading;
+			}
+		}
+		if( fMouseDY != 0.0f )
+		{
+			m_fGunPitch += fMouseDY * _AAGUN_MOUSE_PITCH_RAD_PER_PIXEL;
+			if( m_fGunPitch > m_fMaxPitch ) m_fGunPitch = m_fMaxPitch;
+			else if( m_fGunPitch < m_fMinPitch ) m_fGunPitch = m_fMinPitch;
+		}
+	}
+
 	_BarrelWork();
 
 	_UpdateMatrices();	

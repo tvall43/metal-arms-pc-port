@@ -87,6 +87,7 @@ private:
 	f32 m_fCamSlerp;					// current camera slerp rate
 	f32 m_fAirTime;						// time that object has been airborne.  Must be 0.0 if on ground.
 	f32 m_fFOV;							// camera field of view
+	f32 m_fYawOffsetRad;				// per-frame yaw orbit offset around the target (mouse look-while-driving)
 	u32 m_uFlags;						// misc. flags, see _FLAG_*
 
 	//----------------------------------------------------------------------------------------------------------------------------------
@@ -98,6 +99,7 @@ public:
 	void SetHeight( f32 fBipolarUnitHeight );
 	void SetHeightFromXZPlane( f32 fBipolarUnitHeight );
 	void SetElevationAngle( f32 fAngle );
+	FINLINE void SetYawOffset( f32 fRad ) { m_fYawOffsetRad = fRad; };	// this frame only; Update() consumes it
 	FINLINE void SetAirTime( f32 fTime ) { FMATH_CLAMPMIN( fTime, 0.0f ); m_fAirTime = fTime; };
 	FINLINE void Snap( void ) { m_uFlags |= _FLAG_SNAP; };
 	FINLINE void SetDead( BOOL bDead ) { if( bDead ) m_uFlags |= _FLAG_DEAD; else m_uFlags &= ~_FLAG_DEAD; };

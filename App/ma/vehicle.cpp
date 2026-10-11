@@ -1913,6 +1913,7 @@ void CVehicleCamera::Init( CCamManualInfo *pCamInfo, BotInfo_VehicleCamera_t *pP
 	m_fCamSlerp = m_pParams->fCamGroundRotRate;
 	m_fAirTime = 0.0f;
 	m_fFOV = FMATH_DEG2RAD( m_pParams->fFOV );
+	m_fYawOffsetRad = 0.0f;
 	m_uFlags = 0;
 }
 
@@ -2036,6 +2037,16 @@ void CVehicleCamera::Update( CFMtx43A *pmTargetObject, const CFVec3A &vObjectVel
 		vLookBack.Mul( m_pParams->fCamDistance );
 		vLookBack.Add( vTemp );
 		vLookBack.Unitize();
+	}
+
+	// Mouse look-while-driving: orbit the chase cam around the target by
+	// this frame's yaw offset (radians). Consumed here so a caller that
+	// never sets it (or sets 0) keeps the stock behind-the-vehicle framing.
+	if( m_fYawOffsetRad != 0.0f ) {
+		CFMtx43A mYawOrbit;
+		mYawOrbit.Identity();
+		mYawOrbit.SetRotationY( m_fYawOffsetRad );
+		mYawOrbit.MulDir( vLookBack );
 	}
 
 	// build a quaternion representing rotation from Z axis to lookback vector

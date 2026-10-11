@@ -3142,6 +3142,30 @@ void CVehicleRat::UpdateDriverCamera( void )
 		fAim -= _CAM_HEIGHT_DEAD_ZONE;
 		fAim *= 1.0f / (1.0f - _CAM_HEIGHT_DEAD_ZONE);
 	}
+
+	// Mouse look-while-driving (driver seat): orbit the chase cam with mouse X
+	// and fold mouse Y into camera height. The rat driver cam is otherwise
+	// locked behind the vehicle heading, so without this the only ways to
+	// look around are steering (which yaws the whole vehicle) or IJKL.
+	// Scale matches the gunner cam: ~50 pixels/frame = full stick.
+	#define _DRIVERCAM_MOUSE_PIXELS_PER_FULL_STICK 50.0f
+	#define _DRIVERCAM_MOUSE_YAW_RAD_PER_PIXEL     0.0050f
+	{
+		s32 nPlayer = m_DriverCameraTrans.GetPlayerIndex();
+		if( nPlayer >= 0 )
+		{
+			f32 fMouseDX = Player_aPlayer[nPlayer].m_fMouseLookDX;
+			f32 fMouseDY = Player_aPlayer[nPlayer].m_fMouseLookDY;
+			if( Player_aPlayer[nPlayer].GetInvertLook() )
+			{
+				fMouseDY = -fMouseDY;
+			}
+			m_DriverCamera.SetYawOffset( fMouseDX * _DRIVERCAM_MOUSE_YAW_RAD_PER_PIXEL );
+			// mouse down (+dy) raises the cam like a negative stick AimDown;
+			// bypass the stick dead zone so every pixel counts.
+			fAim -= fMouseDY / _DRIVERCAM_MOUSE_PIXELS_PER_FULL_STICK;
+		}
+	}
 	m_DriverCamera.SetHeight( fAim );
 
 	FWorld_nTrackerSkipListCount = 0;
