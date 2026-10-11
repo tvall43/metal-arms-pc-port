@@ -861,6 +861,7 @@ const FGameData_TableEntry_t CBotCorrosive::m_aBotInfoVocab_Corrosive[] = {
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupDeath2
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupDeathCrash
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupRocketLauncher
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupBeatChest
 
 	// pszBotTossParticleFXResName:
 	FGAMEDATA_VAR_TYPE_STRING|

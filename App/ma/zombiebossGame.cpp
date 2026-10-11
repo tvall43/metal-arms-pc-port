@@ -95,7 +95,7 @@ void CZombieBossGame::_Work( void )
 	
 	if (m_nState == _STATE_ACTIVE)
 	{
-		if (m_pMozerCage->NormHealth() <= 0.0f)
+		if (m_pMozerCage && m_pMozer && m_pMozerCage->NormHealth() <= 0.0f)
 		{
 			if (m_pMozer->NormHealth() > 0.0f)
 			{
@@ -158,54 +158,51 @@ BOOL CZombieBossGame::Create( void )
 	if (!pEntity)
 	{
 		DEVPRINTF( "CZombieBossGame::Create() Cannot find 'target' entity '%s'.\n", "ZombieBotBoss" );
-		goto _ExitWithError;
+		return FALSE;
 	}
 
 	if (! (pEntity->TypeBits() & ENTITY_BIT_BOTZOMBIEBOSS) )
 	{
 		DEVPRINTF( "CZombieBossGame::Create() Entity '%s' at Max ( %.2f, %.2f, %.2f )\n", pEntity->Name(), pEntity->MtxToWorld()->m_vPos.x, pEntity->MtxToWorld()->m_vPos.z, pEntity->MtxToWorld()->m_vPos.y );
 		DEVPRINTF( "entity is not of type zombieboss, failure\n");
-		goto _ExitWithError;
+		return FALSE;
 	}
 	m_pBossBot = (CBotZombieBoss*)pEntity;
 
+	// Cage and Mozer are optional in retail (the cage-death->Mozer-die sequence
+	// lives in the level script via a diemozer tripwire filtered by mozercage).
+	// Only ZombieBotBoss is required; boss DeathIsOver ends the level.
+	m_pMozerCage = NULL;
+	m_pMozer = NULL;
+
 	pEntity = CEntity::Find( "mozercage" );
-	if (!pEntity)
+	if (pEntity && (pEntity->TypeBits() & ENTITY_BIT_BOOMER))
 	{
-		DEVPRINTF( "CZombieBossGame::Create() Cannot find 'target' entity '%s'.\n", "mozercage" );
-		goto _ExitWithError;
+		m_pMozerCage = (CEBoomer*)pEntity;
 	}
-	if (! (pEntity->TypeBits() & ENTITY_BIT_BOOMER) )
+	else if (pEntity)
 	{
-		DEVPRINTF( "CZombieBossGame::Create() Entity '%s' at Max ( %.2f, %.2f, %.2f )\n", pEntity->Name(), pEntity->MtxToWorld()->m_vPos.x, pEntity->MtxToWorld()->m_vPos.z, pEntity->MtxToWorld()->m_vPos.y );
-		DEVPRINTF( "entity is not of type eboomer, failure\n");
-		goto _ExitWithError;
+		DEVPRINTF( "CZombieBossGame::Create() Entity '%s' is not boomer; ignoring cage.\n", pEntity->Name() );
 	}
-	m_pMozerCage = (CEBoomer*)pEntity;
+
 	pEntity = CEntity::Find( "mozer01" );
 	if (!pEntity)
 	{
 		pEntity = CEntity::Find( "diemozer" );
 	}
-	if (!pEntity)
+	if (pEntity && (pEntity->TypeBits() & ENTITY_BIT_BOTMOZER))
 	{
-		DEVPRINTF( "CZombieBossGame::Create() Cannot find 'target' entity '%s'.\n", "mozer01"  );
-		goto _ExitWithError;
+		m_pMozer = (CBotMozer*)pEntity;
 	}
-	if (! (pEntity->TypeBits() & ENTITY_BIT_BOTMOZER) )
+	else if (pEntity)
 	{
-		DEVPRINTF( "CZombieBossGame::Create() Entity '%s' at Max ( %.2f, %.2f, %.2f )\n", pEntity->Name(), pEntity->MtxToWorld()->m_vPos.x, pEntity->MtxToWorld()->m_vPos.z, pEntity->MtxToWorld()->m_vPos.y );
-		DEVPRINTF( "entity is not of type botmozer, failure\n");
-		goto _ExitWithError;
+		DEVPRINTF( "CZombieBossGame::Create() Entity '%s' is not botmozer; ignoring mozer.\n", pEntity->Name() );
 	}
-	m_pMozer = (CBotMozer*)pEntity;
-	
+
 	m_nState = _STATE_ACTIVE;
 	m_fTimer = 0.0f;
 
 	return TRUE;
-_ExitWithError:
-	return FALSE;
 }
 
 void CZombieBossGame::EndGame( void )

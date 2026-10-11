@@ -105,6 +105,39 @@ typedef struct {
 	cchar *pszAlloy;
 	cchar *pszJumpPoint;
 
+	// Retail 1.20 expanded Mini_Game to 104 fields. Fields 0-61 above match
+	// the leak layout; the remaining 42 fields are unused by this code but
+	// must be present so sizeof(_InitData_t)/4 == retail nNumFields.
+	cchar *pszLGExplosion;		// [62] LargeRatExplosion
+	cchar *pszPred1;			// [63]
+	cchar *pszPred2;			// [64]
+	cchar *pszPredSpawner1;		// [65]
+	cchar *pszPredSpawner2;		// [66]
+	cchar *pszPredSpawner3;		// [67]
+	cchar *pszPredGoal1;		// [68]
+	cchar *pszPredGoal2;		// [69]
+	cchar *pszRatSmokeHuge;	// [70]
+	cchar *pszIntro;			// [71] cewcintro01
+	cchar *pszUnused72;		// [72] NULL
+	cchar *pszUnused73;		// [73] NULL
+	f32 fRetail74;				// [74]
+	f32 fRetail75;				// [75]
+	// Callout/milestone pairs: (name, delay)
+	cchar *pszCallout0Name;	f32 fCallout0Delay;	// [76-77] CA_Great1
+	cchar *pszCallout1Name;	f32 fCallout1Delay;	// [78-79] CA_Great2
+	cchar *pszCallout2Name;	f32 fCallout2Delay;	// [80-81] CA_Groove
+	cchar *pszCallout3Name;	f32 fCallout3Delay;	// [82-83] CA_Hang
+	cchar *pszCallout4Name;	f32 fCallout4Delay;	// [84-85] CA_Lead
+	cchar *pszCallout5Name;	f32 fCallout5Delay;	// [86-87] CA_More
+	cchar *pszCallout6Name;	f32 fCallout6Delay;	// [88-89] CA_Mortar
+	cchar *pszCallout7Name;	f32 fCallout7Delay;	// [90-91] CA_Close
+	cchar *pszCallout8Name;	f32 fCallout8Delay;	// [92-93] CA_Rounds
+	cchar *pszCallout9Name;	f32 fCallout9Delay;	// [94-95] CA_Thread
+	cchar *pszCallout10Name;	f32 fCallout10Delay;	// [96-97] CA_Left
+	cchar *pszCallout11Name;	f32 fCallout11Delay;	// [98-99] CA_Pace
+	cchar *pszCallout12Name;	f32 fCallout12Delay;	// [100-101] CA_Right
+	cchar *pszCallout13Name;	f32 fCallout13Delay;	// [102-103] CA_Show
+
 } _InitData_t;
 
 #define _NUM_CSV_FIELDS		( sizeof( _InitData_t ) / 4 )

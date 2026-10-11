@@ -193,21 +193,45 @@ const FGameData_TableEntry_t CWallSentry::m_aSpewPropVocab[] =
 	F32_DATATABLE_0,
 	F32_DATATABLE_1,
 
-	// pszDamageProfile:
+	// hSpewSmoke (retail field22: particle handle, SpewSmoke):
+	FGAMEDATA_VOCAB_PARTICLE,
+
+	// fRetailOO23 (retail field23: OO-only float, stores 1/x):
+	FGAMEDATA_VAR_TYPE_FLOAT|
+	FGAMEDATA_FLAGS_FLOAT_OO_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
+	sizeof( f32 ),
+	F32_DATATABLE_Pt001,
+	F32_DATATABLE_30,
+
+	// fRetailOO24 (retail field24: OO-only float, stores 1/x):
+	FGAMEDATA_VAR_TYPE_FLOAT|
+	FGAMEDATA_FLAGS_FLOAT_OO_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
+	sizeof( f32 ),
+	F32_DATATABLE_Pt001,
+	F32_DATATABLE_30,
+
+	// fRetailPercent25 (retail field25: percent->unit float):
+	FGAMEDATA_VAR_TYPE_FLOAT|
+	FGAMEDATA_FLAGS_FLOAT_PERCENT_TO_UNIT_FLOAT | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
+	sizeof( f32 ),
+	F32_DATATABLE_0,
+	F32_DATATABLE_100,
+
+	// pszDamageProfile (retail field26):
 	FGAMEDATA_VAR_TYPE_STRING|
 	FGAMEDATA_FLAGS_STRING_PTR_TO_MAIN_STR_TBL,
 	sizeof( char * ),
 	F32_DATATABLE_0,
 	F32_DATATABLE_0,
 
-	// fSoundRadius:
+	// fSoundRadius (retail field27):
 	FGAMEDATA_VAR_TYPE_FLOAT|
 	FGAMEDATA_FLAGS_FLOAT_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( f32 ),
 	F32_DATATABLE_0,
 	F32_DATATABLE_10000000,
 
-	// FDecalDefHandle_t hBulletDecal;
+	// hBulletDecal (retail field28: GenericBullet):
 	FGAMEDATA_VOCAB_DECAL_DEF,
 
 	// End of table:

@@ -367,7 +367,8 @@ private:
 		CFSoundGroup *pSoundGroupDeath2;			// Death Howl2
 		CFSoundGroup *pSoundGroupDeathCrash;		// The sound of corrosive crashing to the ground dead
 		CFSoundGroup *pSoundGroupRocketLauncher;	// Rocket launcher sound
-	
+		CFSoundGroup *pSoundGroupBeatChest;			// Beat chest sound (retail field; CorrBeatChest)
+
 		cchar* pszBotTossParticleFXResName;			// The name of the particle effect that gets attached to the spawned bot for a bot toss
 		f32 fBotTossFXIntensity;					// The intensity of the particle animation to play for the spawned tossed bot
 

@@ -59,10 +59,15 @@ FCLASS_ALIGN_PREFIX class CWallSentry : public CBotSiteWeapon::CSiteWeaponAnimat
 		f32 fExplosionDamage;
 		f32 fFlameDamage;
 
-		cchar *pszDamageProfile;			// Damage profile string (references a damage profile in damage.csv)
+		FParticle_DefHandle_t hSpewSmoke;	// Retail field22: smoke particle (SpewSmoke)
+		f32 fRetailOO23;					// Retail field23: OO-only float (stores 1/x)
+		f32 fRetailOO24;					// Retail field24: OO-only float (stores 1/x)
+		f32 fRetailPercent25;				// Retail field25: percent->unit float
 
-		f32 fSoundRadius;					// Distance sound from this weapon travels
-		FDecalDefHandle_t hBulletDecal;
+		cchar *pszDamageProfile;			// Retail field26: damage profile string
+
+		f32 fSoundRadius;					// Retail field27: distance sound from this weapon travels
+		FDecalDefHandle_t hBulletDecal;		// Retail field28: bullet decal (GenericBullet)
 
 	} _WallSpewProps_t;
 
