@@ -2814,9 +2814,9 @@ static void _MusicWork( void ) {
 													_LMData.fMusicVolume * _LMData.fCurrentFadeToVolume,
 													_STREAM_MUSIC,
 													_LMData.bPlayNewTrackAsMusic );
-			_aStreamingAudioInfo[ _LMData.nMusicIndex ].fVolume = _LMData.fMaxMusicVolume;
 
 			if( _LMData.nMusicIndex != -1 ) {
+				_aStreamingAudioInfo[ _LMData.nMusicIndex ].fVolume = _LMData.fMaxMusicVolume;
 				// stream start successful
 				fclib_strcpy( _LMData.szCurrentMusic, _LMData.szNewMusic );
 				_LMData.nMusicState = _LEVEL_MUSIC_STATE_PLAYING;

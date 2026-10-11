@@ -41,6 +41,62 @@
 
 // Does not include bank headers, but does include wave headers and wave data.
 #define _MAX_TOTAL_WAVE_DATA_SIZE					( 2047 * ( 4 * 1024 ) )
+#define _MAX_TOTAL_STREAMS							( 4 )
+#define _STREAMS_WORK_DELAY							( 0.00f ) // full fps.
+#define _STREAM_PCM_BUFFER_SECS						( 2.0f )
+#define _STREAM_COMPRESS_CHUNK_BYTES				( 8192 )
+#define _STREAM_WRITE_MARGIN_BYTES					( 256 )
+
+// _StreamStateChange_e is defined with the other enums below.
+
+struct _Stream_t
+{
+	CFAudioStream *poAudioStream;
+
+	FFileHandle ohFile;
+	LPDIRECTSOUNDBUFFER8 poDSBuffer;
+
+	f32	fVolume;
+	f32 fPanLeftRight;
+	f32 fFrequencyInHz;
+	f32 fFrequencyFactor;
+	f32 fLengthInSeconds;
+	f32 fSecondsPlayed;
+	f32 fSecondsToPlay;
+
+	BOOL8 bIsActive;
+	BOOL8 bIsLooping;
+	BOOL8 bIgnoreInPauseMode;
+	BOOL8 bTreatAsSfx;
+	BOOL8 bEOF;
+
+	u32 uStateChanges;
+
+	u32 uDataStart;
+	u32 uDataBytes;
+	u32 uBytesReadCompressed;
+
+	u32 uBufferSize;
+	u32 uWritePos;
+	u32 uPlayPosLast;
+	u32 uBytesPerSecPCM;
+
+	FDX8Data_WaveFormatEx_t oWavFormat;
+
+	u8	*pbyCompressScratch;
+	u8	*pbyPcmScratch;
+	u32 uCompressChunkBytes;
+	u32 uPcmChunkBytes;
+
+	char	szName[ FAUDIO_MAX_ASSET_NAME_LENGTH + 1 ];
+
+	FAudio_StreamState_e oeState;
+	FAudio_PauseLevel_e ePauseLevel;
+
+	CFAudioStream::FAudio_StreamEndOfPlayCallback_t *pEndOfPlayCallback;
+
+}; // _Stream_t
+
 
 #define _UNIQUE_VOLUME_LEVELS						( 128 )
 #define _UNIQUE_FLOAT_VOL_LEVEL_INDICES				( (f32)( _UNIQUE_VOLUME_LEVELS - 1 ) )
@@ -259,6 +315,17 @@ static f32 _fEmittersListenersWorkDelay, _fOOEmittersListenersWorkDelay; // (use
 static BOOL _bSkipEmittersListenersWorkDelay;
 static u32 _uTimeStamp;
 static s32 _anVolumes[ _UNIQUE_VOLUME_LEVELS ]; // Optimization.
+
+// Streams.
+static u32 _uMaxStreams;
+static _Stream_t *_paoStreams;
+static FAudio_PauseLevel_e _ePauseLevelStreams;
+static f32 _fStreamsWorkDelay;
+static BOOL _bSkipStreamsWorkDelay;
+
+static void _StreamRefill( _Stream_t *poStream );
+static void _StreamApplyChanges( _Stream_t *poStream );
+static void _StreamFinish( _Stream_t *poStream );
 
 // Temp.
 static CFVec3A _oTempVec3A, _oTempVec3A_Velocity;
@@ -733,6 +800,59 @@ FAudio_Error_e faudio_Install( const FAudio_Init_t *poInit )
 	//
 	////
 
+	//// Init streams.
+	//
+	_ePauseLevelStreams   = FAUDIO_PAUSE_LEVEL_NONE;
+	_fStreamsWorkDelay    = 0.0f;
+	_bSkipStreamsWorkDelay = TRUE;
+	_uMaxStreams          = poInit->uMaxStreams;
+
+	if( _MAX_TOTAL_STREAMS < _uMaxStreams )
+	{
+		DEVPRINTF( "[ FAUDIO ] Warning %u: Clamping max streams to %u.\n", __LINE__, _MAX_TOTAL_STREAMS );
+		_uMaxStreams = _MAX_TOTAL_STREAMS;
+	}
+
+	_paoStreams = (_Stream_t *)fres_AllocAndZero( sizeof( _Stream_t ) * _uMaxStreams );
+	if( ! _paoStreams )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: fres_AllocAndZero() failed !!!\n", __LINE__ );
+		FDX8_SAFE_RELEASE( _poDSRealListener );
+		FDX8_SAFE_RELEASE( _poDS );
+		fres_ReleaseFrame( oResFrame );
+		return FAUDIO_ERROR;
+	}
+
+	{
+		CFAudioStream *poStreamObjects = (CFAudioStream *)fnew CFAudioStream[ _uMaxStreams ];
+		if( ! poStreamObjects )
+		{
+			DEVPRINTF( "[ FAUDIO ] Error %u: fnew() failed !!!\n", __LINE__ );
+			FDX8_SAFE_RELEASE( _poDSRealListener );
+			FDX8_SAFE_RELEASE( _poDS );
+			fres_ReleaseFrame( oResFrame );
+			return FAUDIO_ERROR;
+		}
+
+		for( uIndex = 0; uIndex < _uMaxStreams; ++uIndex )
+		{
+			_Stream_t *poStream = &( _paoStreams[ uIndex ] );
+
+			poStream->poAudioStream          = ( poStreamObjects + uIndex );
+			poStream->poAudioStream->m_uData = (u32)poStream;
+			poStream->bIsActive              = FALSE;
+			poStream->ohFile                 = FFILE_INVALID_HANDLE;
+			poStream->poDSBuffer             = NULL;
+			poStream->pbyCompressScratch     = NULL;
+			poStream->pbyPcmScratch          = NULL;
+			poStream->ePauseLevel            = FAUDIO_PAUSE_LEVEL_1;
+			poStream->oeState                = FAUDIO_STREAM_STATE_NONE;
+			poStream->szName[ 0 ]            = 0;
+		}
+	}
+	//
+	////
+
 	FAudio_bModuleInstalled = TRUE;
 
 	return FAUDIO_NO_ERROR;
@@ -749,8 +869,35 @@ void faudio_Uninstall( void )
 	}
 
 	CFAudioEmitter::DestroyAll();
+	CFAudioStream::DestroyAll();
 
 	u32 uIndex;
+
+	//// Free streams.
+	//
+	if( _paoStreams )
+	{
+		for( uIndex = 0; uIndex < _uMaxStreams; ++uIndex )
+		{
+			_Stream_t *poStream = &( _paoStreams[ uIndex ] );
+
+			FDX8_SAFE_RELEASE( poStream->poDSBuffer );
+			delete[] poStream->pbyCompressScratch;
+			delete[] poStream->pbyPcmScratch;
+
+			if( FFILE_INVALID_HANDLE != poStream->ohFile )
+			{
+				ffile_Close( poStream->ohFile );
+				poStream->ohFile = FFILE_INVALID_HANDLE;
+			}
+		}
+
+		fdelete_array( _paoStreams[ 0 ].poAudioStream );
+		_paoStreams = NULL;
+		_uMaxStreams = 0;
+	}
+	//
+	////
 
 	////
 	//
@@ -1951,6 +2098,68 @@ void faudio_Work( void )
 	//
 	//// Emitters and listeners work.
 
+	//// Stream work.
+	//
+	_fStreamsWorkDelay += FLoop_fRealPreviousLoopSecs;
+
+	if( ( ! _bSkipStreamsWorkDelay ) || ( _STREAMS_WORK_DELAY < _fStreamsWorkDelay ) )
+	{
+		for( uIndex = 0; uIndex < _uMaxStreams; ++uIndex )
+		{
+			_Stream_t *poStream = &( _paoStreams[ uIndex ] );
+
+			if( ( ! poStream->bIsActive ) || ( FAUDIO_STREAM_STATE_ERROR == poStream->oeState ) )
+			{
+				continue;
+			}
+
+			if( poStream->bTreatAsSfx )
+			{
+				if( FAudio_bMasterSfxVolChanged )
+				{
+					poStream->uStateChanges |= _STREAM_STATE_CHANGE_VOLUME;
+				}
+			}
+			else if( FAudio_bMasterMusicVolChanged )
+			{
+				poStream->uStateChanges |= _STREAM_STATE_CHANGE_VOLUME;
+			}
+
+			_StreamApplyChanges( poStream );
+
+			if( FAUDIO_STREAM_STATE_PLAYING == poStream->oeState )
+			{
+				_StreamRefill( poStream );
+			}
+		}
+
+		// Invoke end-of-play callbacks.
+		for( uIndex = 0; uIndex < _uMaxStreams; ++uIndex )
+		{
+			_Stream_t *poStream = &( _paoStreams[ uIndex ] );
+
+			if( ! poStream->bIsActive )
+			{
+				continue;
+			}
+
+			if( _STREAM_STATE_CHANGE_STOP & poStream->uStateChanges )
+			{
+				if( poStream->pEndOfPlayCallback )
+				{
+					poStream->pEndOfPlayCallback( poStream->poAudioStream );
+				}
+			}
+
+			poStream->uStateChanges = _STREAM_STATE_CHANGE_NONE;
+		}
+
+		_bSkipStreamsWorkDelay = TRUE;
+		_fStreamsWorkDelay     = 0.0f;
+	}
+	//
+	//// Stream work.
+
 	// reset the master volume change vars
 	FAudio_bMasterSfxVolChanged = FALSE;
 	FAudio_bMasterMusicVolChanged = FALSE;
@@ -2854,10 +3063,10 @@ void CFAudioEmitter::SetVolume( f32 fVolume )
 	FASSERT(flinklist_IsLinkInList(poVirtualEmitter->paoVirtualEmittersListActive, flinklist_GetLinkPointer(poVirtualEmitter->paoVirtualEmittersListActive, poVirtualEmitter)));
 #endif
 
-	if( ! ( poVirtualEmitter->uProperties & _EMITTER_PROPERTIES_3D ) )
-	{
-		fVolume *= 0.1f; // Hack to attenuate 2D sounds, which are much louder than 3D.
-	}
+// Windows 2D "loudness" hack (fVolume *= 0.1f) removed: it drove player-owned
+// weapons, possessed-bot SFX, HUD transmissions and all dialog ~20dB below
+// world/AI 3D sounds and below Bink cutscene audio.  Authored CSV fVolume2D
+// plus the master SFX volume are the intended mix controls.
 	//
 	////
 
@@ -3251,7 +3460,7 @@ void CFAudioEmitter::SetPriority( u8 uPriority )
 	}
 	else
 	{
-		poVirtualEmitter->paoVirtualEmittersListActive = &( _paoVirtualEmittersListActive3D[ uPriority ] );
+		poVirtualEmitter->paoVirtualEmittersListActive = &( _paoVirtualEmittersListActive2D[ uPriority ] );
 	}
 
 	//// Keep list in volume order.
@@ -3932,71 +4141,1023 @@ static void _DestroyAllEmittersFromABank( FAudio_BankHandle_t hBank ) {
 
 
 //////////////////////////////////////////////////////////////////////////////////
-// CFAudioStream Methods - the windows platform has no streaming support currently
-//////////////////////////////////////////////////////////////////////////////////
-CFAudioStream *CFAudioStream::Create( cchar *pszName, BOOL bWillBeUsedForMusic/*=TRUE*/ ) {
+// CFAudioStream - Windows DirectSound PCM ring-buffer streaming of .wvs files.
+// .wvs is an FDX8Data_WvsFile_Header_t followed by Xbox XADPCM (or PCM) blocks.
+// DirectSound on Windows has no IDirectSoundStream; we decode to PCM on the
+// fly and refill a looping CreateSoundBuffer from the play cursor.
+////////////////////////////////////////////////////////////////////////////////
+
+static void _StreamFinish( _Stream_t *poStream )
+{
+	if( poStream->poDSBuffer )
+	{
+		poStream->poDSBuffer->Stop();
+	}
+
+	poStream->oeState        = FAUDIO_STREAM_STATE_STOPPED;
+	poStream->uStateChanges |= _STREAM_STATE_CHANGE_STOP;
+	poStream->bIsLooping     = FALSE;
+	poStream->bEOF           = TRUE;
+}
+
+static void _StreamSeekToStart( _Stream_t *poStream )
+{
+	if( FFILE_INVALID_HANDLE == poStream->ohFile )
+	{
+		return;
+	}
+
+	if( FFILE_ERROR_RET == ffile_Seek( poStream->ohFile, (s32)poStream->uDataStart, FFILE_SEEK_SET ) )
+	{
+		poStream->oeState = FAUDIO_STREAM_STATE_ERROR;
+		return;
+	}
+
+	poStream->uBytesReadCompressed = 0;
+	poStream->bEOF                 = FALSE;
+}
+
+static void _StreamWritePCM( _Stream_t *poStream, const u8 *pbyPCM, u32 uBytes )
+{
+	if( ( ! poStream->poDSBuffer ) || ( 0 == uBytes ) )
+	{
+		return;
+	}
+
+	LPVOID pData1 = NULL, pData2 = NULL;
+	DWORD  dwBytes1 = 0, dwBytes2 = 0;
+
+	u32 uFirst = poStream->uBufferSize - poStream->uWritePos;
+	if( uFirst > uBytes )
+	{
+		uFirst = uBytes;
+	}
+
+	if( FAILED( poStream->poDSBuffer->Lock( poStream->uWritePos, uFirst, &pData1, &dwBytes1, &pData2, &dwBytes2, 0 ) ) )
+	{
+		poStream->oeState = FAUDIO_STREAM_STATE_ERROR;
+		return;
+	}
+
+	fang_MemCopy( pData1, pbyPCM, dwBytes1 );
+
+	if( pData2 && dwBytes2 )
+	{
+		fang_MemCopy( pData2, pbyPCM + dwBytes1, dwBytes2 );
+	}
+
+	poStream->poDSBuffer->Unlock( pData1, dwBytes1, pData2, dwBytes2 );
+
+	poStream->uWritePos = ( poStream->uWritePos + uBytes ) % poStream->uBufferSize;
+}
+
+static void _StreamApplyChanges( _Stream_t *poStream )
+{
+	if( ( ! poStream->poDSBuffer ) || ( 0 == poStream->uStateChanges ) )
+	{
+		return;
+	}
+
+	if( poStream->uStateChanges & _STREAM_STATE_CHANGE_VOLUME )
+	{
+		f32 fVolume = poStream->fVolume;
+		if( poStream->bTreatAsSfx )
+		{
+			fVolume *= FAudio_fMasterSfxUnitVol;
+		}
+		else
+		{
+			fVolume *= FAudio_fMasterMusicUnitVol;
+		}
+
+		FMATH_CLAMP_UNIT_FLOAT( fVolume );
+
+		poStream->poDSBuffer->SetVolume( _anVolumes[ fmath_FloatToU32( _UNIQUE_FLOAT_VOL_LEVEL_INDICES * fVolume ) ] );
+	}
+
+	if( poStream->uStateChanges & _STREAM_STATE_CHANGE_PAN )
+	{
+		// Bi-polar unitfloat -> DirectSound pan (-10000 .. 10000).
+		f32 fPan = poStream->fPanLeftRight;
+		FMATH_BIPOLAR_CLAMP( fPan, -1.0f, 1.0f );
+		poStream->poDSBuffer->SetPan( (LONG)( fPan * (f32)DSBPAN_RIGHT ) );
+	}
+
+	if( poStream->uStateChanges & _STREAM_STATE_CHANGE_FREQUENCY )
+	{
+		u32 uNewFreq = fmath_FloatToU32( poStream->fFrequencyFactor * poStream->fFrequencyInHz );
+		FMATH_CLAMP( uNewFreq, DSBFREQUENCY_MIN, DSBFREQUENCY_MAX );
+		poStream->poDSBuffer->SetFrequency( uNewFreq );
+	}
+
+	if( poStream->uStateChanges & _STREAM_STATE_CHANGE_PAUSE )
+	{
+		poStream->poDSBuffer->Stop();
+	}
+
+	if( poStream->uStateChanges & _STREAM_STATE_CHANGE_UNPAUSE )
+	{
+		poStream->poDSBuffer->Play( 0, 0, DSBPLAY_LOOPING );
+	}
+
+	if( poStream->uStateChanges & _STREAM_STATE_CHANGE_STOP )
+	{
+		poStream->poDSBuffer->Stop();
+	}
+}
+
+static void _StreamRefill( _Stream_t *poStream )
+{
+	if( ( ! poStream->bIsActive ) ||
+		( ! poStream->poDSBuffer ) ||
+		( FAUDIO_STREAM_STATE_PLAYING != poStream->oeState ) )
+	{
+		return;
+	}
+
+	// Track seconds played from play-cursor advance.
+	DWORD dwPlay = 0, dwWrite = 0;
+	if( SUCCEEDED( poStream->poDSBuffer->GetCurrentPosition( &dwPlay, &dwWrite ) ) )
+	{
+		u32 uDelta;
+		if( dwPlay >= poStream->uPlayPosLast )
+		{
+			uDelta = dwPlay - poStream->uPlayPosLast;
+		}
+		else
+		{
+			uDelta = ( poStream->uBufferSize - poStream->uPlayPosLast ) + dwPlay;
+		}
+
+		if( poStream->uBytesPerSecPCM )
+		{
+			poStream->fSecondsPlayed += ( (f32)uDelta / (f32)poStream->uBytesPerSecPCM );
+		}
+
+		poStream->uPlayPosLast = dwPlay;
+	}
+
+	// End of finite play (multi-loop count exhausted).
+	if( ( FAUDIO_UNLIMITED_SECONDS != poStream->fSecondsToPlay ) &&
+		( poStream->fSecondsPlayed >= poStream->fSecondsToPlay ) )
+	{
+		poStream->bIsLooping = FALSE;
+		poStream->bEOF       = TRUE;
+	}
+
+	// Free space between write cursor and play cursor (leave a small margin).
+	u32 uFree;
+	if( dwPlay >= poStream->uWritePos )
+	{
+		uFree = dwPlay - poStream->uWritePos;
+	}
+	else
+	{
+		uFree = ( poStream->uBufferSize - poStream->uWritePos ) + dwPlay;
+	}
+
+	if( uFree > _STREAM_WRITE_MARGIN_BYTES )
+	{
+		uFree -= _STREAM_WRITE_MARGIN_BYTES;
+	}
+	else
+	{
+		uFree = 0;
+	}
+
+	// Fill free space with decoded PCM.
+	while( ( uFree >= poStream->uPcmChunkBytes ) && ( ! poStream->bEOF ) && ( FAUDIO_STREAM_STATE_PLAYING == poStream->oeState ) )
+	{
+		u32 uToRead = poStream->uCompressChunkBytes;
+		u32 uRemaining = ( poStream->uDataBytes > poStream->uBytesReadCompressed ) ?
+			( poStream->uDataBytes - poStream->uBytesReadCompressed ) : 0;
+
+		if( 0 == uRemaining )
+		{
+			if( poStream->bIsLooping )
+			{
+				_StreamSeekToStart( poStream );
+				if( FAUDIO_STREAM_STATE_ERROR == poStream->oeState )
+				{
+					return;
+				}
+				uRemaining = poStream->uDataBytes;
+			}
+			else
+			{
+				poStream->bEOF = TRUE;
+				break;
+			}
+		}
+
+		if( uToRead > uRemaining )
+		{
+			uToRead = uRemaining;
+		}
+
+		// Keep ADPCM reads block-aligned.
+		if( FDX8DATA_WAVEFORMATEX_ID_XBOX_ADPCM == poStream->oWavFormat.WaveFormatEx.wFormatTag )
+		{
+			u32 uBlockAlign = poStream->oWavFormat.WaveFormatEx.nBlockAlign;
+			if( uBlockAlign )
+			{
+				uToRead = ( uToRead / uBlockAlign ) * uBlockAlign;
+				if( 0 == uToRead )
+				{
+					uToRead = uBlockAlign;
+				}
+			}
+		}
+
+		s32 nRead = ffile_Read( poStream->ohFile, uToRead, poStream->pbyCompressScratch );
+		if( nRead <= 0 )
+		{
+			if( poStream->bIsLooping )
+			{
+				_StreamSeekToStart( poStream );
+				if( FAUDIO_STREAM_STATE_ERROR == poStream->oeState )
+				{
+					return;
+				}
+				continue;
+			}
+			poStream->bEOF = TRUE;
+			break;
+		}
+
+		u32 uDecoded = _xadpcm_DecodedSize( &poStream->oWavFormat, (u32)nRead );
+		if( ( 0 == uDecoded ) || ( uDecoded > poStream->uPcmChunkBytes ) || ( uDecoded > uFree ) )
+		{
+			// Leave the short read for the next tick (or treat as EOF below).
+			if( (u32)nRead < uToRead )
+			{
+				if( poStream->bIsLooping )
+				{
+					_StreamSeekToStart( poStream );
+					continue;
+				}
+				poStream->bEOF = TRUE;
+			}
+			break;
+		}
+
+		if( ! _xadpcm_DecodeWave( &poStream->oWavFormat, poStream->pbyCompressScratch, (u32)nRead, poStream->pbyPcmScratch ) )
+		{
+			poStream->oeState = FAUDIO_STREAM_STATE_ERROR;
+			return;
+		}
+
+		_StreamWritePCM( poStream, poStream->pbyPcmScratch, uDecoded );
+		if( FAUDIO_STREAM_STATE_ERROR == poStream->oeState )
+		{
+			return;
+		}
+
+		poStream->uBytesReadCompressed += (u32)nRead;
+		uFree -= uDecoded;
+
+		if( (u32)nRead < poStream->uCompressChunkBytes )
+		{
+			// Short read: either EOF or a partial tail.
+			if( poStream->uBytesReadCompressed >= poStream->uDataBytes )
+			{
+				if( poStream->bIsLooping )
+				{
+					_StreamSeekToStart( poStream );
+					if( FAUDIO_STREAM_STATE_ERROR == poStream->oeState )
+					{
+						return;
+					}
+				}
+				else
+				{
+					poStream->bEOF = TRUE;
+				}
+			}
+		}
+	}
+
+	// Natural end: play cursor has drained the buffer past EOF.
+	if( poStream->bEOF && ( ! poStream->bIsLooping ) && ( FAUDIO_STREAM_STATE_PLAYING == poStream->oeState ) )
+	{
+		u32 uBuffered;
+		if( poStream->uWritePos >= dwPlay )
+		{
+			uBuffered = poStream->uWritePos - dwPlay;
+		}
+		else
+		{
+			uBuffered = ( poStream->uBufferSize - dwPlay ) + poStream->uWritePos;
+		}
+
+		if( uBuffered <= _STREAM_WRITE_MARGIN_BYTES )
+		{
+			_StreamFinish( poStream );
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// CFAudioStream Methods
+////////////////////////////////////////////////////////////////////////////////
+CFAudioStream *CFAudioStream::Create( cchar *pszName, BOOL bWillBeUsedForMusic/*=TRUE*/ )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return NULL;
+	}
+
+	if( ! pszName )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: CFAudioStream::Create() failed !!!\n", __LINE__ );
+		return NULL;
+	}
+
+	if( fclib_strlen( pszName ) > FAUDIO_MAX_ASSET_NAME_LENGTH )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: CFAudioStream::Create() failed. Stream name '%s' is longer than %u characters.\n", __LINE__, pszName, FAUDIO_MAX_ASSET_NAME_LENGTH );
+		return NULL;
+	}
+
+	_Stream_t *poStream;
+
+	u32 uIndex;
+
+	for( uIndex = 0; uIndex < _uMaxStreams; ++uIndex )
+	{
+		poStream = &_paoStreams[ uIndex ];
+
+		if( ! poStream->bIsActive )
+		{
+			break;
+		}
+	}
+
+	if( uIndex >= _uMaxStreams )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: CFAudioStream::Create() failed !!!\n", __LINE__ );
+		return NULL;
+	}
+
+	char szTemp[ FAUDIO_MAX_ASSET_NAME_LENGTH + 128 ];
+
+	fclib_strcpy( szTemp, Fang_ConfigDefs.pszFile_GameRootPathName );
+	fclib_strcat( szTemp, pszName );
+	fclib_strcat( szTemp, ".wvs" );
+
+	poStream->ohFile = ffile_Open( szTemp, FFILE_OPEN_RONLY, TRUE );
+	if( FFILE_INVALID_HANDLE == poStream->ohFile )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: Could not open \"%s\" file !!!\n", __LINE__, szTemp );
+		return NULL;
+	}
+
+	// Read the .wvs header synchronously (32 bytes).
+	FDX8Data_WvsFile_Header_t oHeader;
+	fang_MemZero( &oHeader, sizeof( oHeader ) );
+
+	if( (s32)sizeof( oHeader ) != ffile_Read( poStream->ohFile, sizeof( oHeader ), &oHeader ) )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: Could not read header from \"%s\" !!!\n", __LINE__, szTemp );
+		ffile_Close( poStream->ohFile );
+		poStream->ohFile = FFILE_INVALID_HANDLE;
+		return NULL;
+	}
+
+	if( ( FDX8DATA_WAVEFORMATEX_ID_XBOX_ADPCM != oHeader.WavFormat.WaveFormatEx.wFormatTag ) &&
+		( FDX8DATA_WAVEFORMATEX_ID_PCM != oHeader.WavFormat.WaveFormatEx.wFormatTag ) )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: Unsupported wvs format tag %u in \"%s\" !!!\n", __LINE__, oHeader.WavFormat.WaveFormatEx.wFormatTag, szTemp );
+		ffile_Close( poStream->ohFile );
+		poStream->ohFile = FFILE_INVALID_HANDLE;
+		return NULL;
+	}
+
+	if( ( 0 == oHeader.nNumBytes ) || ( 0.0f >= oHeader.fSecs ) || ( 0.0f >= oHeader.fFreqHz ) ||
+		( 0 == oHeader.WavFormat.WaveFormatEx.nChannels ) || ( 2 < oHeader.WavFormat.WaveFormatEx.nChannels ) )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: Invalid wvs header in \"%s\" !!!\n", __LINE__, szTemp );
+		ffile_Close( poStream->ohFile );
+		poStream->ohFile = FFILE_INVALID_HANDLE;
+		return NULL;
+	}
+
+	// Build a PCM DirectSound buffer matching the decoded stream format.
+	WAVEFORMATEX oPCMFormat;
+	fang_MemZero( &oPCMFormat, sizeof( oPCMFormat ) );
+	oPCMFormat.wFormatTag      = WAVE_FORMAT_PCM;
+	oPCMFormat.nChannels       = oHeader.WavFormat.WaveFormatEx.nChannels;
+	oPCMFormat.nSamplesPerSec  = (DWORD)oHeader.fFreqHz;
+	oPCMFormat.wBitsPerSample  = 16;
+	oPCMFormat.nBlockAlign     = (WORD)( oPCMFormat.nChannels * sizeof( s16 ) );
+	oPCMFormat.nAvgBytesPerSec = oPCMFormat.nSamplesPerSec * oPCMFormat.nBlockAlign;
+	oPCMFormat.cbSize          = 0;
+
+	u32 uCompressChunk = _STREAM_COMPRESS_CHUNK_BYTES;
+	if( oHeader.WavFormat.WaveFormatEx.nBlockAlign )
+	{
+		uCompressChunk = ( uCompressChunk / oHeader.WavFormat.WaveFormatEx.nBlockAlign ) * oHeader.WavFormat.WaveFormatEx.nBlockAlign;
+		if( 0 == uCompressChunk )
+		{
+			uCompressChunk = oHeader.WavFormat.WaveFormatEx.nBlockAlign;
+		}
+	}
+
+	u32 uPcmChunk = _xadpcm_DecodedSize( &oHeader.WavFormat, uCompressChunk );
+	if( 0 == uPcmChunk )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: Could not size PCM chunk for \"%s\" !!!\n", __LINE__, szTemp );
+		ffile_Close( poStream->ohFile );
+		poStream->ohFile = FFILE_INVALID_HANDLE;
+		return NULL;
+	}
+
+	// Ring buffer: a couple of seconds of PCM, rounded up to whole chunks.
+	u32 uBytesPerSec = (u32)( oPCMFormat.nAvgBytesPerSec );
+	u32 uBufferSize  = (u32)( _STREAM_PCM_BUFFER_SECS * (f32)uBytesPerSec );
+	uBufferSize      = ( ( uBufferSize + uPcmChunk - 1 ) / uPcmChunk ) * uPcmChunk;
+	if( uBufferSize < ( uPcmChunk * 2 ) )
+	{
+		uBufferSize = uPcmChunk * 2;
+	}
+
+	DSBUFFERDESC oBufferDesc;
+	fang_MemZero( &oBufferDesc, sizeof( oBufferDesc ) );
+	oBufferDesc.dwSize        = sizeof( oBufferDesc );
+	oBufferDesc.dwFlags       = ( DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPAN | DSBCAPS_CTRLFREQUENCY | DSBCAPS_GLOBALFOCUS | DSBCAPS_GETCURRENTPOSITION2 );
+	oBufferDesc.dwBufferBytes = uBufferSize;
+	oBufferDesc.lpwfxFormat   = &oPCMFormat;
+
+	LPDIRECTSOUNDBUFFER8 poDSBuffer = NULL;
+	HRESULT hResult = _poDS->CreateSoundBuffer( &oBufferDesc, (LPDIRECTSOUNDBUFFER *)&poDSBuffer, NULL );
+	if( FAILED( hResult ) || ( ! poDSBuffer ) )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: CreateSoundBuffer() failed for \"%s\" (hr=0x%08x) !!!\n", __LINE__, szTemp, (unsigned)hResult );
+		ffile_Close( poStream->ohFile );
+		poStream->ohFile = FFILE_INVALID_HANDLE;
+		return NULL;
+	}
+
+	u8 *pbyCompressScratch = new u8[ uCompressChunk ];
+	u8 *pbyPcmScratch      = new u8[ uPcmChunk ];
+	if( ( ! pbyCompressScratch ) || ( ! pbyPcmScratch ) )
+	{
+		DEVPRINTF( "[ FAUDIO ] Error %u: new[] failed for stream scratch !!!\n", __LINE__ );
+		delete[] pbyCompressScratch;
+		delete[] pbyPcmScratch;
+		FDX8_SAFE_RELEASE( poDSBuffer );
+		ffile_Close( poStream->ohFile );
+		poStream->ohFile = FFILE_INVALID_HANDLE;
+		return NULL;
+	}
+
+	// Zero the ring buffer so playback starts silent until the first refill.
+	{
+		LPVOID pData1 = NULL, pData2 = NULL;
+		DWORD  dwBytes1 = 0, dwBytes2 = 0;
+
+		if( SUCCEEDED( poDSBuffer->Lock( 0, 0, &pData1, &dwBytes1, &pData2, &dwBytes2, DSBLOCK_ENTIREBUFFER ) ) )
+		{
+			fang_MemZero( pData1, dwBytes1 );
+			if( pData2 && dwBytes2 )
+			{
+				fang_MemZero( pData2, dwBytes2 );
+			}
+			poDSBuffer->Unlock( pData1, dwBytes1, pData2, dwBytes2 );
+		}
+	}
+
+	// poAudioStream was wired in faudio_Install; keep the CFAudioStream::m_uData back-pointer current.
+	poStream->poAudioStream->m_uData = (u32)poStream;
+
+	poStream->poDSBuffer             = poDSBuffer;
+	poStream->pbyCompressScratch     = pbyCompressScratch;
+	poStream->pbyPcmScratch          = pbyPcmScratch;
+	poStream->uCompressChunkBytes    = uCompressChunk;
+	poStream->uPcmChunkBytes         = uPcmChunk;
+	poStream->uBufferSize            = uBufferSize;
+	poStream->uWritePos              = 0;
+	poStream->uPlayPosLast           = 0;
+	poStream->uBytesPerSecPCM        = uBytesPerSec;
+	poStream->uDataStart             = sizeof( FDX8Data_WvsFile_Header_t );
+	poStream->uDataBytes             = oHeader.nNumBytes;
+	poStream->uBytesReadCompressed   = 0;
+	poStream->oWavFormat             = oHeader.WavFormat;
+	poStream->fFrequencyInHz         = oHeader.fFreqHz;
+	poStream->fLengthInSeconds       = oHeader.fSecs;
+	poStream->fSecondsPlayed         = 0.0f;
+	poStream->fSecondsToPlay         = oHeader.fSecs;
+	poStream->fVolume                = 1.0f;
+	poStream->fPanLeftRight          = 0.0f;
+	poStream->fFrequencyFactor       = 1.0f;
+	poStream->bIsActive              = TRUE;
+	poStream->bIsLooping             = FALSE;
+	poStream->bIgnoreInPauseMode     = FALSE;
+	poStream->bTreatAsSfx            = ( bWillBeUsedForMusic ) ? FALSE : TRUE;
+	poStream->bEOF                   = FALSE;
+	poStream->uStateChanges          = ( _STREAM_STATE_CHANGE_VOLUME | _STREAM_STATE_CHANGE_PAN | _STREAM_STATE_CHANGE_FREQUENCY );
+	poStream->oeState                = FAUDIO_STREAM_STATE_STOPPED;
+	poStream->ePauseLevel            = FAUDIO_PAUSE_LEVEL_1;
+	poStream->pEndOfPlayCallback     = NULL;
+
+	fclib_strncpyz( poStream->szName, pszName, FAUDIO_MAX_ASSET_NAME_LENGTH + 1 );
+
+	_bSkipStreamsWorkDelay = FALSE;
+
+	return poStream->poAudioStream;
+
+} // CFAudioStream::Create
+
+void CFAudioStream::Destroy( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	if( ! poStream->bIsActive )
+	{
+		return;
+	}
+
+	if( FAUDIO_STREAM_STATE_PLAYING == poStream->oeState )
+	{
+		if( poStream->pEndOfPlayCallback )
+		{
+			poStream->pEndOfPlayCallback( poStream->poAudioStream );
+		}
+
+		if( poStream->poDSBuffer )
+		{
+			poStream->poDSBuffer->Stop();
+		}
+	}
+
+	if( poStream->poDSBuffer )
+	{
+		// Drop any pending STOP so the work loop won't double-fire the callback.
+		poStream->uStateChanges &= ~( _STREAM_STATE_CHANGE_STOP | _STREAM_STATE_CHANGE_PLAY | _STREAM_STATE_CHANGE_PAUSE | _STREAM_STATE_CHANGE_UNPAUSE );
+		FDX8_SAFE_RELEASE( poStream->poDSBuffer );
+	}
+
+	if( FFILE_INVALID_HANDLE != poStream->ohFile )
+	{
+		ffile_Close( poStream->ohFile );
+		poStream->ohFile = FFILE_INVALID_HANDLE;
+	}
+
+	delete[] poStream->pbyCompressScratch;
+	delete[] poStream->pbyPcmScratch;
+	poStream->pbyCompressScratch = NULL;
+	poStream->pbyPcmScratch      = NULL;
+
+	poStream->bIsActive  = FALSE;
+	poStream->oeState    = FAUDIO_STREAM_STATE_NONE;
+	poStream->szName[0]  = 0;
+
+} // CFAudioStream::Destroy
+
+void CFAudioStream::DestroyAll( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	for( u32 uIndex = 0; uIndex < _uMaxStreams; ++uIndex )
+	{
+		_Stream_t *poStream = &( _paoStreams[ uIndex ] );
+
+		if( ! poStream->bIsActive )
+		{
+			continue;
+		}
+
+		poStream->poAudioStream->Destroy();
+	}
+
+} // CFAudioStream::DestroyAll
+
+void CFAudioStream::SetVolume( f32 fVolume )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	FASSERT_MSG( FMATH_IS_UNIT_FLOAT( fVolume ), "[ FAUDIO ] Error: Invalid fVolume !!!" );
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	if( ( FAUDIO_STREAM_STATE_ERROR    == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_NONE     == poStream->oeState ) )
+	{
+		return;
+	}
+
+	if( fVolume != poStream->fVolume )
+	{
+		poStream->uStateChanges |= _STREAM_STATE_CHANGE_VOLUME;
+		poStream->fVolume        = fVolume;
+		_bSkipStreamsWorkDelay   = FALSE;
+	}
+
+} // CFAudioStream::SetVolume
+
+void CFAudioStream::SetPan( f32 fPanLeftRight )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	FASSERT_MSG( FMATH_IS_BIPOLAR_UNIT_FLOAT( fPanLeftRight ), "[ FAUDIO ] Error: Invalid fPanLeftRight !!!" );
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	if( ( FAUDIO_STREAM_STATE_ERROR == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_NONE  == poStream->oeState ) )
+	{
+		return;
+	}
+
+	if( fPanLeftRight != poStream->fPanLeftRight )
+	{
+		poStream->uStateChanges |= _STREAM_STATE_CHANGE_PAN;
+		poStream->fPanLeftRight  = fPanLeftRight;
+		_bSkipStreamsWorkDelay   = FALSE;
+	}
+
+} // CFAudioStream::SetPan
+
+void CFAudioStream::SetEndOfPlayCallback( FAudio_StreamEndOfPlayCallback_t *pEndOfPlayCallback )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	if( ( FAUDIO_STREAM_STATE_ERROR == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_NONE  == poStream->oeState ) )
+	{
+		return;
+	}
+
+	poStream->pEndOfPlayCallback = pEndOfPlayCallback;
+
+} // CFAudioStream::SetEndOfPlayCallback
+
+void CFAudioStream::SetFrequencyFactor( f32 fFrequencyFactor )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	FASSERT_MSG( ( 0.0f <= fFrequencyFactor ), "[ FAUDIO ] Error: Invalid fFrequencyFactor !!!" );
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	if( ( FAUDIO_STREAM_STATE_ERROR == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_NONE  == poStream->oeState ) )
+	{
+		return;
+	}
+
+	if( fFrequencyFactor != poStream->fFrequencyFactor )
+	{
+		poStream->uStateChanges   |= _STREAM_STATE_CHANGE_FREQUENCY;
+		poStream->fFrequencyFactor = fFrequencyFactor;
+		_bSkipStreamsWorkDelay     = FALSE;
+	}
+
+} // CFAudioStream::SetFrequencyFactor
+
+void CFAudioStream::Play( u32 uLoops /* = 1 */ )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	if( ( FAUDIO_STREAM_STATE_PLAYING  == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_ERROR    == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_NONE     == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_CREATING == poStream->oeState ) )
+	{
+		return;
+	}
+
+	// Rewind and reset bookkeeping for a fresh (or re-) play.
+	_StreamSeekToStart( poStream );
+	if( FAUDIO_STREAM_STATE_ERROR == poStream->oeState )
+	{
+		return;
+	}
+
+	poStream->fSecondsPlayed = 0.0f;
+	poStream->uWritePos      = 0;
+	poStream->uPlayPosLast   = 0;
+
+	if( uLoops )
+	{
+		poStream->bIsLooping     = ( 1 < uLoops );
+		poStream->fSecondsToPlay = ( poStream->fLengthInSeconds * (f32)uLoops );
+	}
+	else
+	{
+		poStream->bIsLooping     = TRUE;
+		poStream->fSecondsToPlay = FAUDIO_UNLIMITED_SECONDS;
+	}
+
+	poStream->oeState        = FAUDIO_STREAM_STATE_PLAYING;
+	poStream->uStateChanges &= ( ~ ( _STREAM_STATE_CHANGE_STOP | _STREAM_STATE_CHANGE_PAUSE | _STREAM_STATE_CHANGE_UNPAUSE ) );
+	poStream->uStateChanges |= ( _STREAM_STATE_CHANGE_PLAY | _STREAM_STATE_CHANGE_VOLUME | _STREAM_STATE_CHANGE_PAN | _STREAM_STATE_CHANGE_FREQUENCY );
+
+	// Prime the ring buffer with the first stretch of audio so Play() has data.
+	_StreamApplyChanges( poStream );
+	if( poStream->poDSBuffer )
+	{
+		poStream->poDSBuffer->Play( 0, 0, DSBPLAY_LOOPING );
+	}
+
+	_StreamRefill( poStream );
+
+	_bSkipStreamsWorkDelay = FALSE;
+
+} // CFAudioStream::Play
+
+void CFAudioStream::Pause( BOOL bEnabled )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	if( ( FAUDIO_STREAM_STATE_STOPPED  == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_ERROR    == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_NONE     == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_CREATING == poStream->oeState ) )
+	{
+		return;
+	}
+
+	if( bEnabled )
+	{
+		if( FAUDIO_STREAM_STATE_PLAYING == poStream->oeState )
+		{
+			poStream->oeState        = FAUDIO_STREAM_STATE_PAUSED;
+			poStream->uStateChanges &= ( ~ ( _STREAM_STATE_CHANGE_PLAY | _STREAM_STATE_CHANGE_UNPAUSE ) );
+			poStream->uStateChanges |= _STREAM_STATE_CHANGE_PAUSE;
+			_bSkipStreamsWorkDelay   = FALSE;
+		}
+	}
+	else
+	{
+		if( FAUDIO_STREAM_STATE_PAUSED == poStream->oeState )
+		{
+			poStream->oeState        = FAUDIO_STREAM_STATE_PLAYING;
+			poStream->uStateChanges &= ( ~ ( _STREAM_STATE_CHANGE_PLAY | _STREAM_STATE_CHANGE_PAUSE ) );
+			poStream->uStateChanges |= _STREAM_STATE_CHANGE_UNPAUSE;
+			_bSkipStreamsWorkDelay   = FALSE;
+		}
+	}
+
+} // CFAudioStream::Pause
+
+void CFAudioStream::Stop( BOOL bAfterCurrentLoop )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	if( ( FAUDIO_STREAM_STATE_STOPPED  == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_ERROR    == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_NONE     == poStream->oeState ) ||
+		( FAUDIO_STREAM_STATE_CREATING == poStream->oeState ) )
+	{
+		return;
+	}
+
+	poStream->bIsLooping = FALSE;
+
+	if( ! bAfterCurrentLoop )
+	{
+		_StreamFinish( poStream );
+		_bSkipStreamsWorkDelay = FALSE;
+	}
+	else
+	{
+		// Let the current loop finish, then stop.
+		poStream->fSecondsToPlay = ( ( poStream->fLengthInSeconds * (f32)( (u32)( poStream->fSecondsPlayed / poStream->fLengthInSeconds ) ) ) + poStream->fLengthInSeconds );
+	}
+
+} // CFAudioStream::Stop
+
+FAudio_StreamState_e CFAudioStream::GetState( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return FAUDIO_STREAM_STATE_ERROR;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	return poStream->oeState;
+
+} // CFAudioStream::GetState
+
+f32 CFAudioStream::GetSecondsPlayed( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return 0.0f;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	return poStream->fSecondsPlayed;
+
+} // CFAudioStream::GetSecondsPlayed
+
+f32 CFAudioStream::GetSecondsToPlay( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return 0.0f;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	return poStream->fSecondsToPlay;
+
+} // CFAudioStream::GetSecondsToPlay
+
+FAudio_PauseLevel_e CFAudioStream::SetGlobalPauseLevel( FAudio_PauseLevel_e eNewPauseLevel )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return FAUDIO_PAUSE_LEVEL_NONE;
+	}
+
+	FAudio_PauseLevel_e eOldPauseLevel = _ePauseLevelStreams;
+
+	for( u32 uIndex = 0; uIndex < _uMaxStreams; ++uIndex )
+	{
+		_Stream_t *poStream = &( _paoStreams[ uIndex ] );
+
+		if( ! poStream->bIsActive )
+		{
+			continue;
+		}
+
+		if( poStream->ePauseLevel <= eNewPauseLevel )
+		{
+			poStream->poAudioStream->Pause( TRUE );
+			poStream->bIgnoreInPauseMode = TRUE;
+		}
+		else if( poStream->bIgnoreInPauseMode )
+		{
+			poStream->poAudioStream->Pause( FALSE );
+			poStream->bIgnoreInPauseMode = FALSE;
+		}
+	}
+
+	_ePauseLevelStreams = eNewPauseLevel;
+
+	return eOldPauseLevel;
+
+} // CFAudioStream::SetGlobalPauseLevel
+
+FAudio_PauseLevel_e CFAudioStream::GetGlobalPauseLevel( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return FAUDIO_PAUSE_LEVEL_NONE;
+	}
+
+	return ( _ePauseLevelStreams );
+
+} // CFAudioStream::GetGlobalPauseLevel
+
+FAudio_PauseLevel_e CFAudioStream::GetPauseLevel( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return FAUDIO_PAUSE_LEVEL_NONE;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	return poStream->ePauseLevel;
+
+} // CFAudioStream::GetPauseLevel
+
+void CFAudioStream::SetPauseLevel( FAudio_PauseLevel_e eNewPauseLevel )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	poStream->ePauseLevel = eNewPauseLevel;
+
+} // CFAudioStream::SetPauseLevel
+
+u32 CFAudioStream::GetNumActive( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return 0;
+	}
+
+	u32 uCount = 0;
+
+	for( u32 uIndex = 0; uIndex < _uMaxStreams; ++uIndex )
+	{
+		if( _paoStreams[ uIndex ].bIsActive )
+		{
+			++uCount;
+		}
+	}
+
+	return uCount;
+
+} // CFAudioStream::GetNumActive
+
+cchar *CFAudioStream::GetName( void )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return NULL;
+	}
+
+	_Stream_t *poStream = (_Stream_t *)m_uData;
+
+	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
+
+	return poStream->szName;
+
+} // CFAudioStream::GetName
+
+cchar *CFAudioStream::GetName( u32 uIndex )
+{
+	if( ! FAudio_bModuleInstalled )
+	{
+		return NULL;
+	}
+
+	u32 uTemp, uCount = 0;
+
+	for( uTemp = 0; uTemp < _uMaxStreams; ++uTemp )
+	{
+		if( _paoStreams[ uTemp ].bIsActive )
+		{
+			if( uCount == uIndex )
+			{
+				return _paoStreams[ uTemp ].szName;
+			}
+			++uCount;
+		}
+	}
+
 	return NULL;
-}
 
-void CFAudioStream::Destroy( void ) {
-}
-
-void CFAudioStream::DestroyAll( void ) {
-}
-
-void CFAudioStream::SetVolume( f32 fVolume ) {
-}
-
-void CFAudioStream::SetPan( f32 fPanLeftRight ) {
-}
-
-void CFAudioStream::SetEndOfPlayCallback( FAudio_StreamEndOfPlayCallback_t *pEndOfPlayCallback ) {
-}
-
-void CFAudioStream::SetFrequencyFactor( f32 fFrequencyFactor ) {
-}
-
-void CFAudioStream::Play( u32 uLoops /* = 1 */ ) {
-}
-
-void CFAudioStream::Pause( BOOL bEnabled ) {
-}
-
-void CFAudioStream::Stop( BOOL bAfterCurrentLoop ) {
-}
-
-FAudio_StreamState_e CFAudioStream::GetState( void ) {
-	return FAUDIO_STREAM_STATE_ERROR;
-}
-
-CFAudioStream *CFAudioStream::GetStream( u32 uStreamIdx ) {
-	return NULL;
-}
-
-f32 CFAudioStream::GetSecondsPlayed( void ) {
-	return 0.0f;
-}
-
-f32 CFAudioStream::GetSecondsToPlay( void ) {
-	return 0.0f;
-}
-
-FAudio_PauseLevel_e CFAudioStream::SetGlobalPauseLevel( FAudio_PauseLevel_e eNewPauseLevel ) {
-	return eNewPauseLevel;
-}
-
-FAudio_PauseLevel_e CFAudioStream::GetGlobalPauseLevel( void ) {
-	return FAUDIO_PAUSE_LEVEL_NONE;
-}
-
-u32 CFAudioStream::GetNumActive( void ) {
-	return 0;
-}
-
-cchar *CFAudioStream::GetName( void ) {
-	return NULL;
-}
-
-cchar *CFAudioStream::GetName( u32 uIndex ) {
-	return NULL;
-}
+} // CFAudioStream::GetName

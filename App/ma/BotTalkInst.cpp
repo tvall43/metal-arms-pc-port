@@ -388,20 +388,15 @@ void CBotTalkInst::Work() {
 			case BOT_TALK_CSV_ACTION_TYPE_STREAM:
 			{
 				// It's a streamed audio clip.
-#if FANG_PLATFORM_WIN
-				if( pCurBTA->m_uData2 ) {
-					//causes a stutter, but atleast it works
-					cchar *pszWAVName = (cchar *)pCurBTA->m_uData2;
-					PlaySound( pszWAVName, 0, SND_FILENAME );
-				}
-#else
+				// Windows previously used winmm PlaySound() with a path-stripped stem,
+				// which never resolved the .wvs asset and played at a fixed system volume.
+				// CFAudioStream now streams dialog on Windows like Xbox.
 				level_PlayStreamingSpeech((cchar*)pCurBTA->m_uData2, 1.0f, 1);
 				if ( level_GetStreamingSpeechAudioStream() )
 				{
 					SetWaitingForStreamLoad(TRUE);
 					pCurBTA->m_uData3 = (u32)level_GetStreamingSpeechAudioStream();
 				}
-#endif
 
 				break;
 			}
@@ -946,21 +941,12 @@ void CTalkInst::Work() {
 			case BOT_TALK_CSV_ACTION_TYPE_STREAM:
 			{
 				// It's a streamed audio clip.
-#if FANG_PLATFORM_WIN
-				if( pCurBTA->m_uData2 ) 
-				{
-					//causes a stutter, but atleast it works
-					cchar *pszWAVName = (cchar *)pCurBTA->m_uData2;
-					PlaySound( pszWAVName, 0, SND_FILENAME );
-				}
-#else
 				level_PlayStreamingSpeech((cchar*)pCurBTA->m_uData2, 1.0f, 1);
 				if ( level_GetStreamingSpeechAudioStream() )
 				{
 					SetWaitingForStreamLoad(TRUE);
 					pCurBTA->m_uData3 = (u32)level_GetStreamingSpeechAudioStream();
 				}
-#endif
 				break;
 			} 
 			default:
