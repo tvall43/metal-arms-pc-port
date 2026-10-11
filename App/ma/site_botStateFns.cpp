@@ -741,10 +741,31 @@ void CBotSiteWeapon::_Do_Possessed(void)
 		m_fControls_AimDown =m_fControls_AimDown;
 		FMATH_BIPOLAR_CLAMPMAX(m_fControls_AimDown,1.0f);
 
+		// Mouse aim (Big E's house turrets, rat gun when possessed, etc):
+		// m_fYawAdjust/m_fPitchAdjust are targeting-assistance bias, not
+		// mouse. Fold the per-frame mouse delta in with the same rad/pixel
+		// scales the on-foot mount aim uses. Positive mouse X = turn right
+		// (yaw up); positive mouse Y = look down (pitch up), invert flips Y.
+		static const f32 _SITE_MOUSE_YAW_RAD_PER_PIXEL   = 0.0050f;
+		static const f32 _SITE_MOUSE_PITCH_RAD_PER_PIXEL = 0.0045f;
+		f32 fMouseYawDelta   = 0.0f;
+		f32 fMousePitchDelta = 0.0f;
+		if( m_nPossessionPlayerIndex >= 0 )
+		{
+			f32 fMouseDX = Player_aPlayer[m_nPossessionPlayerIndex].m_fMouseLookDX;
+			f32 fMouseDY = Player_aPlayer[m_nPossessionPlayerIndex].m_fMouseLookDY;
+			if( Player_aPlayer[m_nPossessionPlayerIndex].GetInvertLook() )
+			{
+				fMouseDY = -fMouseDY;
+			}
+			fMouseYawDelta   = fMouseDX * _SITE_MOUSE_YAW_RAD_PER_PIXEL;
+			fMousePitchDelta = fMouseDY * _SITE_MOUSE_PITCH_RAD_PER_PIXEL;
+		}
+
 		f32 fYawVelocity = m_pData->m_fMaxYawVelocityPossess * m_fControls_RotateCW;
-		f32 fYawDelta = fYawVelocity * FLoop_fPreviousLoopSecs +Player_aPlayer[ m_nPossessionPlayerIndex ].m_fYawAdjust;
+		f32 fYawDelta = fYawVelocity * FLoop_fPreviousLoopSecs + Player_aPlayer[ m_nPossessionPlayerIndex ].m_fYawAdjust + fMouseYawDelta;
 		f32 fPitchVelocity = m_pData->m_fMaxPitchVelocityPossess * m_fControls_AimDown;
-		f32 fPitchDelta = fPitchVelocity * FLoop_fPreviousLoopSecs + Player_aPlayer[ m_nPossessionPlayerIndex ].m_fPitchAdjust;
+		f32 fPitchDelta = fPitchVelocity * FLoop_fPreviousLoopSecs + Player_aPlayer[ m_nPossessionPlayerIndex ].m_fPitchAdjust + fMousePitchDelta;
 		m_pData->m_fYawWS += fYawDelta;
 		while(m_pData->m_fYawWS-m_pData->m_fYawAdjustWS2MS > FMATH_PI)
 			m_pData->m_fYawWS -= (FMATH_2PI);

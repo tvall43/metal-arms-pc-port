@@ -2285,13 +2285,17 @@ void CTether::_Work_PossessMode_PoweringUpBot( void ) {
 
 		m_nPossessMode = POSSESSMODE_NORMAL;
 
-		// NKM
-		CBot *pBot = m_pWeaponTether->GetOwner();
+		// NKM: the weapon tether can already be NULL here (killed while
+		// powering up, or the weapon was destroyed). Guard it -- every
+		// other m_pWeaponTether use in this file checks first.
+		if( m_pWeaponTether && m_pWeaponTether->GetOwner() ) {
+			CBot *pBot = m_pWeaponTether->GetOwner();
 
-		if( pBot->TypeBits() & (ENTITY_BIT_BOTGLITCH | ENTITY_BIT_KRUNK) ) {
-			pBot->BreakIntoPieces( -1.0f );
-		} else {
-			m_pWeaponTether->GetOwner()->ImmobilizeBot();
+			if( pBot->TypeBits() & (ENTITY_BIT_BOTGLITCH | ENTITY_BIT_KRUNK) ) {
+				pBot->BreakIntoPieces( -1.0f );
+			} else {
+				pBot->ImmobilizeBot();
+			}
 		}
 
 		// Destroy the cable...
