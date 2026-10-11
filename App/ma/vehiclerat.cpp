@@ -1043,6 +1043,7 @@ void CVehicleRat::_ClearDataMembers( void )
 	m_pGunnerBot = NULL;
 	m_fSteeringPosition = 0.0f;
 	m_fRawSteeringPosition = 0.0f;
+	m_fDriverCamYawOffset = 0.0f;
 	m_qGroundNormal.Identity();
 	m_fFlipOverTime = 0.0f;
 	m_fCollCylinderRadius_WS = 10.0f;   //adjust these if the size of the model changes
@@ -3110,6 +3111,7 @@ void CVehicleRat::UpdateDriverCamera( void )
 {
 	if( m_DriverCameraTrans.IsCameraInactive() )
 	{
+		m_fDriverCamYawOffset = 0.0f;
 		return;
 	}
 
@@ -3150,6 +3152,7 @@ void CVehicleRat::UpdateDriverCamera( void )
 	// Scale matches the gunner cam: ~50 pixels/frame = full stick.
 	#define _DRIVERCAM_MOUSE_PIXELS_PER_FULL_STICK 50.0f
 	#define _DRIVERCAM_MOUSE_YAW_RAD_PER_PIXEL     0.0050f
+	#define _DRIVERCAM_YAW_RECENTRE_PER_SEC        0.60f		// rad/s toward 0 when idle (~full 180-deg orbit in ~5s)
 	{
 		s32 nPlayer = m_DriverCameraTrans.GetPlayerIndex();
 		if( nPlayer >= 0 )
@@ -3160,7 +3163,20 @@ void CVehicleRat::UpdateDriverCamera( void )
 			{
 				fMouseDY = -fMouseDY;
 			}
-			m_DriverCamera.SetYawOffset( fMouseDX * _DRIVERCAM_MOUSE_YAW_RAD_PER_PIXEL );
+			// Accumulate, do not set: a per-frame set from the instantaneous delta
+			// zeros the moment motion stops and the camera slerps home before the
+			// player can steer or get a useful look. Decay only on idle frames so
+			// the orbit sticks while the mouse is moving.
+			m_fDriverCamYawOffset += fMouseDX * _DRIVERCAM_MOUSE_YAW_RAD_PER_PIXEL;
+			if( fMouseDX == 0.0f )
+			{
+				f32 fDecay = _DRIVERCAM_YAW_RECENTRE_PER_SEC * FLoop_fPreviousLoopSecs;
+				if( m_fDriverCamYawOffset > fDecay ) m_fDriverCamYawOffset -= fDecay;
+				else if( m_fDriverCamYawOffset < -fDecay ) m_fDriverCamYawOffset += fDecay;
+				else m_fDriverCamYawOffset = 0.0f;
+			}
+			FMATH_CLAMP( m_fDriverCamYawOffset, -FMATH_PI, FMATH_PI );
+			m_DriverCamera.SetYawOffset( m_fDriverCamYawOffset );
 			// mouse down (+dy) raises the cam like a negative stick AimDown;
 			// bypass the stick dead zone so every pixel counts.
 			fAim -= fMouseDY / _DRIVERCAM_MOUSE_PIXELS_PER_FULL_STICK;
@@ -5847,6 +5863,7 @@ void CVehicleRat::RecycleVehicle( CFMtx43A &rNewLocation,
 	}
 	m_fSteeringPosition = 0.0f;
 	m_fRawSteeringPosition = 0.0f;
+	m_fDriverCamYawOffset = 0.0f;
 	m_qGroundNormal.Identity();
 	m_fFlipOverTime = 0.0f;
 	m_fTimeSinceLastContact = 0.0f;
