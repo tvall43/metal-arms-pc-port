@@ -147,6 +147,7 @@ private:
 		u32 uPoolCannonsBalls;
 		f32 fRoundsPerSec;
 		f32 fOORoundsPerSec;
+		f32 fRetailExtra02;
 		FExplosion_GroupHandle_t hExplLaunchGroup;
 		FExplosion_GroupHandle_t hExplDetonateGroup;
 		f32 fMinCannonballVelocityXZ;

@@ -185,6 +185,10 @@ BOOL CZombieBossGame::Create( void )
 	pEntity = CEntity::Find( "mozer01" );
 	if (!pEntity)
 	{
+		pEntity = CEntity::Find( "diemozer" );
+	}
+	if (!pEntity)
+	{
 		DEVPRINTF( "CZombieBossGame::Create() Cannot find 'target' entity '%s'.\n", "mozer01"  );
 		goto _ExitWithError;
 	}

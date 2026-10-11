@@ -250,6 +250,9 @@ const FGameData_TableEntry_t CBotAAGun::m_aBotInfoVocab_Mortar[] = {
 //	f32 fOORoundsPerSec;
 	FGAMEDATA_VOCAB_F32_BOUND_XOOX( F32_DATATABLE_1, F32_DATATABLE_60 ),
 
+//	f32 fRetailExtra02;
+	FGAMEDATA_VOCAB_F32_BOUND( F32_DATATABLE_0, F32_DATATABLE_60 ),
+
 //	cchar *pszLaunchExplosion;
 	FGAMEDATA_VOCAB_EXPLODE_GROUP,
 
