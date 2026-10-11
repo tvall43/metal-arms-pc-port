@@ -480,7 +480,11 @@ BOOL CBotMiner::ClassHierarchyBuild( void ) {
 
 	// Load the sound effects bank for this bot...
 	if( !fresload_Load( FSNDFX_RESTYPE, BotMiner_pszSoundEffectBank) ) {
-		DEVPRINTF( "CBotMiner::ClassHierarchyBuild(): Could not load sound effect bank '%s'\n", BotMiner_pszSoundEffectBank);
+		// Retail Xbox has no 'Miner' .sfb (leak-era name). Closest weight-class bank.
+		DEVPRINTF( "CBotMiner::ClassHierarchyBuild(): Could not load sound effect bank '%s', trying 'bots_med'\n", BotMiner_pszSoundEffectBank);
+		if( !fresload_Load( FSNDFX_RESTYPE, "bots_med" ) ) {
+			DEVPRINTF( "CBotMiner::ClassHierarchyBuild(): Could not load fallback bank 'bots_med'\n" );
+		}
 	}
 
 	// Build parent class...

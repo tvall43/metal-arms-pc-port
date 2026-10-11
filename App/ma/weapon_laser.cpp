@@ -323,6 +323,12 @@ BOOL CWeaponLaser::InitSystem( void ) {
 		return FALSE;
 	}
 
+	// TEMP: resolved SFX handles from w_laser.csv (0 = name not in any loaded bank yet)
+	for( i = 0; i < EUK_COUNT_LASER; i++ ) {
+		DEVPRINTF( "[ma] TEMP laser u=%u fireSfx=%u\n", (unsigned)i,
+			(unsigned)m_aUserProps[i].hFiringSound );
+	}
+
 	// Do this for each EUK level...
 	for( i=0; i<EUK_COUNT_LASER; i++ ) {
 		if(i != 2)

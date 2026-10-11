@@ -2775,6 +2775,10 @@ static void _InitAndPlayFirstMusic( void ) {
 	
 	// start the first streaming music file, if any
 	pszFirstFile = level_GetSteamingAudioFilename( 0, bTreatAsMusic );
+	DEVPRINTF( "[ma] TEMP first music ptr=%p tableValid=%d entries=%u\n",
+		(const void *)pszFirstFile,
+		(int)(Level_hStreamingAudioTable != FGAMEDATA_INVALID_TABLE_HANDLE),
+		(unsigned)Level_nNumStreamingAudioEntries );
 	if( pszFirstFile ) {
 		FASSERT( fclib_strlen( pszFirstFile ) <= _MAX_MUSIC_CHARS );
 		fclib_strcpy( _LMData.szDefaultTrack, pszFirstFile );
@@ -2948,15 +2952,28 @@ static void _MusicWork( void ) {
 	for( i=0; i < _STREAM_COUNT; i++ ) {
 		if( _aStreamingAudioInfo[i].pAudioStream ) {
 
+			FAudio_StreamState_e eSt = _aStreamingAudioInfo[i].pAudioStream->GetState();
 			if( _aStreamingAudioInfo[i].bWaitForCreate ) {
-				if( _aStreamingAudioInfo[i].pAudioStream->GetState() == FAUDIO_STREAM_STATE_STOPPED ) {
+				// TEMP: log every frame while waiting so we see stuck states
+				DEVPRINTF( "[ma] TEMP poll wait i=%u state=%d name=%s vol=%.3f\n",
+					(unsigned)i, (int)eSt, _aStreamingAudioInfo[i].szFilename,
+					_aStreamingAudioInfo[i].fVolume );
+				if( eSt == FAUDIO_STREAM_STATE_STOPPED ) {
 					_aStreamingAudioInfo[i].pAudioStream->SetVolume( _aStreamingAudioInfo[i].fVolume );		
 					_aStreamingAudioInfo[i].pAudioStream->Play( _aStreamingAudioInfo[i].nNumLoops );
-					_aStreamingAudioInfo[i].bWaitForCreate = FALSE;	
+					// Only stop waiting if Play actually left STOPPED (seek/DS failure leaves ERROR).
+					eSt = _aStreamingAudioInfo[i].pAudioStream->GetState();
+					DEVPRINTF( "[ma] TEMP poll after Play i=%u state=%d\n",
+						(unsigned)i, (int)eSt );
+					if( eSt != FAUDIO_STREAM_STATE_STOPPED ) {
+						_aStreamingAudioInfo[i].bWaitForCreate = FALSE;
+					}
 				}
 			} else {
 				// wait to be done playing
-				if( _aStreamingAudioInfo[i].pAudioStream->GetState() == FAUDIO_STREAM_STATE_STOPPED ) {
+				if( eSt == FAUDIO_STREAM_STATE_STOPPED || eSt == FAUDIO_STREAM_STATE_ERROR ) {
+					DEVPRINTF( "[ma] TEMP poll destroy i=%u state=%d name=%s\n",
+						(unsigned)i, (int)eSt, _aStreamingAudioInfo[i].szFilename );
 					_aStreamingAudioInfo[i].pAudioStream->Destroy();
 					_aStreamingAudioInfo[i].pAudioStream = NULL;
 				}

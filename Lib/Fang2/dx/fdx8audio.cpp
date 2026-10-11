@@ -4170,6 +4170,8 @@ static void _StreamSeekToStart( _Stream_t *poStream )
 
 	if( FFILE_ERROR_RET == ffile_Seek( poStream->ohFile, (s32)poStream->uDataStart, FFILE_SEEK_SET ) )
 	{
+		DEVPRINTF( "[ma] TEMP stream seek FAIL ohFile=%d off=%u\n",
+			(int)poStream->ohFile, (unsigned)poStream->uDataStart );
 		poStream->oeState = FAUDIO_STREAM_STATE_ERROR;
 		return;
 	}
@@ -4863,8 +4865,19 @@ void CFAudioStream::SetFrequencyFactor( f32 fFrequencyFactor )
 
 void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 {
+	// TEMP log BEFORE any early-out so we can see why Play never reaches DS.
+	{
+		_Stream_t *pDiag = (_Stream_t *)m_uData;
+		DEVPRINTF( "[ma] TEMP stream Play enter active=%d state=%d loops=%u ohFile=%d\n",
+			pDiag ? (int)pDiag->bIsActive : -1,
+			pDiag ? (int)pDiag->oeState : -1,
+			(unsigned)uLoops,
+			pDiag ? (int)pDiag->ohFile : -1 );
+	}
+
 	if( ! FAudio_bModuleInstalled )
 	{
+		DEVPRINTF( "[ma] TEMP stream Play early-out: module not installed\n" );
 		return;
 	}
 
@@ -4877,6 +4890,7 @@ void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 		( FAUDIO_STREAM_STATE_NONE     == poStream->oeState ) ||
 		( FAUDIO_STREAM_STATE_CREATING == poStream->oeState ) )
 	{
+		DEVPRINTF( "[ma] TEMP stream Play early-out: bad state %d\n", (int)poStream->oeState );
 		return;
 	}
 
@@ -4884,6 +4898,8 @@ void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 	_StreamSeekToStart( poStream );
 	if( FAUDIO_STREAM_STATE_ERROR == poStream->oeState )
 	{
+		DEVPRINTF( "[ma] TEMP stream Play early-out: seek failed ohFile=%d dataStart=%u\n",
+			(int)poStream->ohFile, (unsigned)poStream->uDataStart );
 		return;
 	}
 
