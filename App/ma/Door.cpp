@@ -2204,7 +2204,7 @@ BOOL CDoorEntity::BotCheckCallback(CFWorldTracker *pTracker, FVisVolume_t *pVolu
 		}
 		if (pBot->IsSleeping() ||
 			pBot->IsDeadOrDying() ||
-			(!pBot->IsPlayerBot() && !pBot->AIBrain()->GetAIMover()->IsFollowingPath()))
+			(!pBot->IsPlayerBot() && (!pBot->AIBrain() || !pBot->AIBrain()->GetAIMover() || !pBot->AIBrain()->GetAIMover()->IsFollowingPath())))
 		{
 			return(TRUE);
 		}

@@ -5269,16 +5269,18 @@ BOOL CBattleStage::Load( LevelEvent_e eEvent ) {
 		}
 		m_pGlitchStartPoint = (CESphere *) pEntity;
 
-		// Find the escorts
-		if( !( pEntity = CSpyVsSpy::FindEntity( _BATTLE_ESCORT1, ENTITY_BIT_BOTGRUNT ) ) ) {
-			goto _ExitWithError;
+		// Find the escorts. Retail 1.20 removed escort01/escort02 from the
+		// world (verified in the XBE string table and the compiled battle
+		// setup, which looks up three doors instead). Treat as optional.
+		m_pEscortGrunt1 = (CBotGrunt *) CSpyVsSpy::FindEntity( _BATTLE_ESCORT1, ENTITY_BIT_BOTGRUNT );
+		if( !m_pEscortGrunt1 ) {
+			DEVPRINTF( "CBattleStage::Load(): escort '%s' not present (retail data); continuing without.\n", _BATTLE_ESCORT1 );
 		}
-		m_pEscortGrunt1 = (CBotGrunt *) pEntity;
 
-		if( !( pEntity = CSpyVsSpy::FindEntity( _BATTLE_ESCORT2, ENTITY_BIT_BOTGRUNT ) ) ) {
-			goto _ExitWithError;
+		m_pEscortGrunt2 = (CBotGrunt *) CSpyVsSpy::FindEntity( _BATTLE_ESCORT2, ENTITY_BIT_BOTGRUNT );
+		if( !m_pEscortGrunt2 ) {
+			DEVPRINTF( "CBattleStage::Load(): escort '%s' not present (retail data); continuing without.\n", _BATTLE_ESCORT2 );
 		}
-		m_pEscortGrunt2 = (CBotGrunt *) pEntity;
 
 		// Find the battle door
 		if( !( pEntity = CSpyVsSpy::FindEntity( _BATTLE_DOOR, ENTITY_BIT_DOOR ) ) ) {
@@ -5286,12 +5288,13 @@ BOOL CBattleStage::Load( LevelEvent_e eEvent ) {
 		}
 		m_pBattleDoor = (CDoorEntity *) pEntity;
 
-		// Find the reprogram point that we will run to
-		if( !( pEntity = CSpyVsSpy::FindEntity( _BATTLE_REPROGRAM_POINT, ENTITY_BIT_SPHERE ) ) ) {
-			goto _ExitWithError;
+		// Find the reprogram point that we will run to. Optional in retail.
+		if( ( pEntity = CSpyVsSpy::FindEntity( _BATTLE_REPROGRAM_POINT, ENTITY_BIT_SPHERE ) ) ) {
+			m_ProgramPoint = pEntity->MtxToWorld()->m_vPos;
+		} else {
+			DEVPRINTF( "CBattleStage::Load(): reprogram point '%s' not present (retail data); continuing without.\n", _BATTLE_REPROGRAM_POINT );
+			m_ProgramPoint.Zero();
 		}
-
-		m_ProgramPoint = pEntity->MtxToWorld()->m_vPos;
 
 	} else if( eEvent == LEVEL_EVENT_PRE_ENTITY_FIXUP ) {
 
@@ -5395,6 +5398,10 @@ void CBattleStage::_SetupFighterBot( CBot *pBot ) {
 }
 
 void CBattleStage::_MakeEscortDumb( CBot *pBot ) {
+	if( !pBot || !pBot->AIBrain() ) {
+		return;
+	}
+
 	ai_TurnOffPerceptor( pBot->AIBrain(), AI_PERCEPTOR_EYES );
 	ai_TurnOffPerceptor( pBot->AIBrain(), AI_PERCEPTOR_EARS );
 	ai_TurnOffPerceptor( pBot->AIBrain(), AI_PERCEPTOR_TOUCH );
@@ -5459,7 +5466,9 @@ void CBattleStage::_WalkToDoorWork( void ) {
 			// The door is now forced open when you win.
 //			m_pBattleDoor->ForceGotoPos( 1, CDoorEntity::GOTOREASON_UNKNOWN );
 
-			ai_AssignGoal_FaceIt( CSpyVsSpy::GetGlitch()->AIBrain(), CFVec3A::m_Null, m_pEscortGrunt1->Guid(), 100, 0, 0 );
+			if( m_pEscortGrunt1 ) {
+				ai_AssignGoal_FaceIt( CSpyVsSpy::GetGlitch()->AIBrain(), CFVec3A::m_Null, m_pEscortGrunt1->Guid(), 100, 0, 0 );
+			}
 		}
 	} else {
 		m_fDoorDelay -= FLoop_fPreviousLoopSecs;
@@ -6131,7 +6140,10 @@ void CSpyVsSpy::UnloadLevel( void ) {
 		return;
 	}
 
-	if( ( CSpyVsSpy::GetGlitch()->m_nPossessionPlayerIndex != -1 ) && 
+	// Glitch may not exist yet if load failed partway (e.g. missing level
+	// entity); the error path calls UnloadLevel before SetupGlitchPointer.
+	if( CSpyVsSpy::GetGlitch() &&
+		( CSpyVsSpy::GetGlitch()->m_nPossessionPlayerIndex != -1 ) && 
 		!CHud2::GetHudForPlayer( CSpyVsSpy::GetGlitch()->m_nPossessionPlayerIndex )->TransmissionMsg_IsDonePlaying() ) {
 		CHud2::GetHudForPlayer( CSpyVsSpy::GetGlitch()->m_nPossessionPlayerIndex )->TransmissionMsg_Stop();
 	}
