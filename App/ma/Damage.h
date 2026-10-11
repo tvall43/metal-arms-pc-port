@@ -671,6 +671,16 @@ public:
 	static CDamageProfile *FindDamageProfile( cchar *pszProfileName, BOOL bReturnValidPointerIfNotFound=TRUE, BOOL bDisplayErrorIfNotFound=TRUE );
 	static CArmorProfile *FindArmorProfile( cchar *pszProfileName, BOOL bReturnValidPointerIfNotFound=TRUE, BOOL bDisplayErrorIfNotFound=TRUE );
 
+	// [ma] log_e: TRUE only if pProfile is m_DamageProfileNone or falls inside
+	// m_pDamageProfileArray.  A CArmorProfile* (e.g. m_ArmorProfileInfinite)
+	// stored in a CDamageProfile* field fails this test.
+	static BOOL IsValidDamageProfile( const CDamageProfile *pProfile );
+
+	// [ma] log_e: crash-safe name accessor for diagnostic logs.  Returns
+	// "(null)"/"(bad)"/"(noname)" instead of reading m_pszName from a
+	// pointer that is not actually a CDamageProfile.
+	static cchar *SafeProfileName( const CDamageProfile *pProfile );
+
 	static void Work( void );
 
 	static f32 ComputeRadialIntensity_Rumble( f32 fDist, const CDamageProfile *pDamageProfile, f32 fNormIntensity=1.0f );

@@ -71,6 +71,45 @@ CDamageProfile CDamage::m_DamageProfileNone;
 CArmorProfile CDamage::m_ArmorProfileNone;
 CArmorProfile CDamage::m_ArmorProfileInfinite;
 
+// [ma] log_e: TRUE only if pProfile is m_DamageProfileNone or inside the
+// loaded damage-profile array.  Rejects CArmorProfile* values (e.g.
+// m_ArmorProfileInfinite) that land in a CDamageProfile* field.
+BOOL CDamage::IsValidDamageProfile( const CDamageProfile *pProfile )
+{
+	if( !pProfile )
+	{
+		return FALSE;
+	}
+	if( pProfile == &m_DamageProfileNone )
+	{
+		return TRUE;
+	}
+	if( m_pDamageProfileArray &&
+		pProfile >= m_pDamageProfileArray &&
+		pProfile < m_pDamageProfileArray + m_nDamageProfileCount )
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
+
+
+// [ma] log_e: crash-safe name accessor for TEMP logs -- returns "(null)"/"(bad)"/"(noname)"
+// instead of reading m_pszName from a pointer that is not actually a CDamageProfile
+// (which would crash %s when the read lands in m_aBlastPoint BSS).
+cchar *CDamage::SafeProfileName( const CDamageProfile *pProfile )
+{
+	if( !pProfile )
+	{
+		return "(null)";
+	}
+	if( !IsValidDamageProfile( pProfile ) )
+	{
+		return "(bad)";
+	}
+	return pProfile->m_pszName ? pProfile->m_pszName : "(noname)";
+}
+
 LastEntityDamage_t CDamage::m_LastEntityDamaged = {
 	NULL,
 	DAMAGE_HITPOINT_TYPE_PROJECTILE,
@@ -1163,7 +1202,19 @@ BOOL CDamageForm::_PrepareForSubmission( f32 fDuration ) {
 
 	if( m_pDamageProfile == NULL ) {
 		return FALSE;
-	} else {
+	}
+
+	// [ma] log_e: reject forms whose profile pointer is not a real CDamageProfile.
+	// A CArmorProfile* (e.g. m_ArmorProfileInfinite at 00ad3afc) stored here
+	// passes the NULL check but has no m_pszName at the damage-profile offset;
+	// reading it in _InflictDamage_Impact's TEMP log crashes %s in msvcrt.
+	if( !CDamage::IsValidDamageProfile( m_pDamageProfile ) ) {
+		DEVPRINTF( "[ma] TEMP r20 bad profile rejected form=%p profile=%p locale=%u deliv=%u\r\n",
+			this, m_pDamageProfile, (unsigned)m_nDamageLocale, (unsigned)m_nDamageDelivery );
+		return FALSE;
+	}
+
+	{
 		switch( m_nDamageDelivery ) {
 		case CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY:
 			if( m_pDamageeEntity == NULL ) {
@@ -1619,7 +1670,7 @@ void CDamageForm::_InflictDamage_Impact( CEntity *pEntity ) {
 		if( s_nTEMPImp <= 16 || ( s_nTEMPImp % 120 ) == 0 ) {
 			DEVPRINTF( "[ma] TEMP r17 dmg impact f=%u cnt=%u damagee=%p profile=%p name=%s norm=%g innerHP=%g intensity=%g d=(%g,%g,%g) imp=%g rum=%g\n",
 				(unsigned)FVid_nFrameCounter, s_nTEMPImp, pEntity,
-				m_pDamageProfile, ( m_pDamageProfile && m_pDamageProfile->m_pszName ) ? m_pDamageProfile->m_pszName : "(null)",
+				m_pDamageProfile, CDamage::SafeProfileName( m_pDamageProfile ),
 				m_fNormIntensity, m_pDamageProfile->m_HitpointRange.m_fInnerValue,
 				m_fNormIntensity * m_pDamageProfile->m_HitpointRange.m_fInnerValue,
 				_DamageData.m_afDeltaHitpoints[0], _DamageData.m_afDeltaHitpoints[1], _DamageData.m_afDeltaHitpoints[2],
