@@ -191,7 +191,10 @@ void fang_Init( void ) {
 	Fang_ConfigDefs.nText_MaxCharsPerFrame = 500; //RAFHACK -- Bump up later, after FTEXT system implemented!
 	Fang_ConfigDefs.nText_MaxCharsPerPrintf = 160;
 
-	Fang_ConfigDefs.nPadio_MaxSamplesPerSec = 125;
+	// 250Hz: matches Xbox USB report rate. The previous 125 was clamped
+	// down to 90 by fdx8padio's ceiling anyway, which made pad input
+	// measurably laggier than the raw-input mouse path.
+	Fang_ConfigDefs.nPadio_MaxSamplesPerSec = 250;
 	
 	Fang_ConfigDefs.nFile_MaxSimultaneousFilesOpen = 32;
 

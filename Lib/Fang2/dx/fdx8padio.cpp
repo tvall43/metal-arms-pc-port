@@ -37,7 +37,12 @@
 #define _OO_AXIS_RANGE_MAX					( 1.0f / ( (f32)( _AXIS_RANGE_MAX ) ) )
 
 #define _SLOWEST_SAMPLING_RATE_SUPPORTED	10
-#define _FASTEST_SAMPLING_RATE_SUPPORTED	90
+// 250Hz = Xbox USB report rate. The stock 90Hz clamp (from the GC-era
+// fpadio) left every pad sample up to 11ms stale before the double-buffer
+// swap even ran; on Wine/XInput that compounds into visible aim lag vs
+// the raw-input mouse path. Raise the ceiling so the config default
+// (125) and any override can actually reach USB rate.
+#define _FASTEST_SAMPLING_RATE_SUPPORTED	250
 
 #define _DEADZONE_STICKS					0.2f
 #define _OO_ONE_MINUS_DEADZONE				( 1.0f / ( 1.0f - _DEADZONE_STICKS ) )
