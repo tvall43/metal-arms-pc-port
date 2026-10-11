@@ -4501,7 +4501,14 @@ CFAudioStream *CFAudioStream::Create( cchar *pszName, BOOL bWillBeUsedForMusic/*
 
 	char szTemp[ FAUDIO_MAX_ASSET_NAME_LENGTH + 128 ];
 
-	fclib_strcpy( szTemp, Fang_ConfigDefs.pszFile_GameRootPathName );
+	// Game root may be unset (Windows port historically never assigned it).
+	// Fall back to a bare name so ffile_Open still finds a loose .wvs
+	// relative to the process CWD rather than strcpy'ing a NULL source.
+	szTemp[0] = '\0';
+	if( Fang_ConfigDefs.pszFile_GameRootPathName )
+	{
+		fclib_strcpy( szTemp, Fang_ConfigDefs.pszFile_GameRootPathName );
+	}
 	fclib_strcat( szTemp, pszName );
 	fclib_strcat( szTemp, ".wvs" );
 

@@ -252,6 +252,7 @@ static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
 // ---------------------------------------------------------------------------
 
 static char _szMasterFile[512]	= "";
+static char _szGameRootPath[512]	= "";  // dir of master file, trailing slash; loose .wvs live here
 static char _szLevelFile[256]	= "";
 static char _szScreenshotDir[512]	= "";
 static u32  _nScreenWidth			= 640;
@@ -754,6 +755,25 @@ static void _GameloopMinimizeFunction( void )
 static BOOL _RunGame( void )
 {
 	{
+		// Derive the game root (directory of the master file, trailing slash)
+		// for loose assets that sit beside the .mst on disc - notably the
+		// streaming .wvs files. Xbox set this from the DVD root; the Windows
+		// port never assigned it, so CFAudioStream::Create() strcpy'd a NULL
+		// source and crashed on the first title-screen music Create.
+		strncpy( _szGameRootPath, _szMasterFile, sizeof(_szGameRootPath) - 1 );
+		_szGameRootPath[sizeof(_szGameRootPath) - 1] = '\0';
+		{
+			char *pLast = strrchr( _szGameRootPath, '\\' );
+			char *pFwd  = strrchr( _szGameRootPath, '/' );
+			if ( pFwd && ( !pLast || pFwd > pLast ) ) pLast = pFwd;
+			if ( pLast ) {
+				*(pLast+1) = '\0';
+			} else {
+				_szGameRootPath[0] = '\0';
+			}
+		}
+		_Trace( "[ma] game root   : %s\n", _szGameRootPath );
+
 		char szDir[512] = "";
 		strncpy( szDir, _szMasterFile, sizeof(szDir) - 1 );
 		char *pSlash = strrchr( szDir, '\\' );
@@ -779,6 +799,8 @@ static BOOL _RunGame( void )
 	// (App/ma/win/ma_winDlg.cpp, CMa_winDlg::OnInitDialog / OnButtonRun).
 	Fang_ConfigDefs.nRes_HeapBytes			= (64) * 1024 * 1024;
 	Fang_ConfigDefs.pszFile_MasterFilePathName	= _szMasterFile;
+	// Must be after fang_Init(): it NULLs every config pointer on entry.
+	Fang_ConfigDefs.pszFile_GameRootPathName	= _szGameRootPath;
 	Fang_ConfigDefs.pszMovie_BasePathName		= _szMoviePath;
 	Fang_ConfigDefs.pFang_FcnPrintf			= _FangPrintf;
 	Fang_ConfigDefs.nAudio_MaxSoundBytes		= (1024 * (36 * 1024));
