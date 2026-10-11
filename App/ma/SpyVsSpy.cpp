@@ -6729,10 +6729,10 @@ BOOL CSpyVsSpy::_LoadLevelCSV( void ) {
 		goto _ExitWithError;
 	}
 
-	hTable = fgamedata_GetFirstTableHandle( hHandle, "info" );
+	hTable = fgamedata_GetFirstTableHandle( hHandle, "ddr" );
 
-	if( hHandle == FGAMEDATA_INVALID_TABLE_HANDLE ) {
-		DEVPRINTF( "CSpyVsSpy::_LoadLevelCSV(): Could not find \"info\" table in CSV.\n" );
+	if( hTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
+		DEVPRINTF( "CSpyVsSpy::_LoadLevelCSV(): Could not find \"ddr\" table in CSV.\n" );
 		goto _ExitWithError;
 	}
 

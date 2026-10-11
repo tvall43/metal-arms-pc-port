@@ -71,20 +71,21 @@ void BuilderHelp_InterpretTable(InterpretTableDataSpec *paItableDataSpec, u32 uN
 				{
 					if ( !fclib_stricmp( CEntityParser::m_pszTableName, paItableDataSpec[i].pszTag ) )
 					{	
-						cchar *pszValue;
-						CEntityParser::Interpret_String(&pszValue);
-
-						if(!fclib_stricmp(pszValue, "TRUE") || !fclib_stricmp(pszValue, "ON") || !fclib_stricmp(pszValue, "YES") || !fclib_stricmp(pszValue, "1"))
+						cchar *pszValue = NULL;
+						if( CEntityParser::Interpret_String(&pszValue) && pszValue )
 						{
-							*(paItableDataSpec[i].data.pBool) = TRUE;
-						}
-						else if(!fclib_stricmp(pszValue, "FALSE") || !fclib_stricmp(pszValue, "OFF") || !fclib_stricmp(pszValue, "NO") || !fclib_stricmp(pszValue, "0"))
-						{
-							*(paItableDataSpec[i].data.pBool) = FALSE;
-						}
-						else
-						{
-							DEVPRINTF("CAIBuilder::InterpretTable() : Invalid value of '%s' for '%s' table. Use (ON, OFF).\n", pszValue, paItableDataSpec[i].pszTag);
+							if(!fclib_stricmp(pszValue, "TRUE") || !fclib_stricmp(pszValue, "ON") || !fclib_stricmp(pszValue, "YES") || !fclib_stricmp(pszValue, "1"))
+							{
+								*(paItableDataSpec[i].data.pBool) = TRUE;
+							}
+							else if(!fclib_stricmp(pszValue, "FALSE") || !fclib_stricmp(pszValue, "OFF") || !fclib_stricmp(pszValue, "NO") || !fclib_stricmp(pszValue, "0"))
+							{
+								*(paItableDataSpec[i].data.pBool) = FALSE;
+							}
+							else
+							{
+								DEVPRINTF("CAIBuilder::InterpretTable() : Invalid value of '%s' for '%s' table. Use (ON, OFF).\n", pszValue, paItableDataSpec[i].pszTag);
+							}
 						}
 						bDidInterpret = TRUE;
 					}
@@ -94,20 +95,22 @@ void BuilderHelp_InterpretTable(InterpretTableDataSpec *paItableDataSpec, u32 uN
 				{
 					if ( !fclib_stricmp( CEntityParser::m_pszTableName, paItableDataSpec[i].pszTag ) )
 					{
-						cchar *pszValue;
+						cchar *pszValue = NULL;
 						BOOL bValidEnum = FALSE;
-						CEntityParser::Interpret_String(&pszValue);
-						FASSERT(paItableDataSpec[i].uNumEnumTags > 0);
-						for (j = 0; j < (u32)(paItableDataSpec[i].uNumEnumTags-1) && !bValidEnum; j++)
+						if( CEntityParser::Interpret_String(&pszValue) && pszValue )
 						{
-							if(!fclib_stricmp(pszValue, paItableDataSpec[i].paBuilderHelp_EnumTagSpec[j].pszEnumTag))
+							FASSERT(paItableDataSpec[i].uNumEnumTags > 0);
+							for (j = 0; j < (u32)(paItableDataSpec[i].uNumEnumTags-1) && !bValidEnum; j++)
 							{
-								*(paItableDataSpec[i].data.pEnum) = paItableDataSpec[i].paBuilderHelp_EnumTagSpec[j].nValue;
-								bValidEnum = TRUE;
+								if(!fclib_stricmp(pszValue, paItableDataSpec[i].paBuilderHelp_EnumTagSpec[j].pszEnumTag))
+								{
+									*(paItableDataSpec[i].data.pEnum) = paItableDataSpec[i].paBuilderHelp_EnumTagSpec[j].nValue;
+									bValidEnum = TRUE;
+								}
 							}
 						}
 
-						if (!bValidEnum)
+						if (!bValidEnum && pszValue)
 						{
 							DEVPRINTF(paItableDataSpec[i].paBuilderHelp_EnumTagSpec[paItableDataSpec[i].uNumEnumTags-1].pszEnumTag, pszValue);
 						}
