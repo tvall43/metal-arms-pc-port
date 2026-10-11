@@ -4682,6 +4682,11 @@ CFAudioStream *CFAudioStream::Create( cchar *pszName, BOOL bWillBeUsedForMusic/*
 
 	_bSkipStreamsWorkDelay = FALSE;
 
+	{
+		DEVPRINTF( "[ma] TEMP Create OK '%s' stream=%p obj=%p state=%d active=%d\n",
+			poStream->szName, (void *)poStream, (void *)poStream->poAudioStream,
+			(int)poStream->oeState, (int)poStream->bIsActive );
+	}
 	return poStream->poAudioStream;
 
 } // CFAudioStream::Create
@@ -5031,6 +5036,16 @@ FAudio_StreamState_e CFAudioStream::GetState( void )
 
 	FASSERT_MSG( poStream->bIsActive, "[ FAUDIO ] Error: Invalid stream !!!" );
 
+	{
+		static u32 s_uLastState = 0xffffffffu;
+		u32 uSt = (u32)poStream->oeState;
+		if( uSt != s_uLastState )
+		{
+			DEVPRINTF( "[ma] TEMP GetState change obj=%p stream=%p state=%u active=%d name=%s\n",
+				(void *)this, (void *)poStream, uSt, (int)poStream->bIsActive, poStream->szName );
+			s_uLastState = uSt;
+		}
+	}
 	return poStream->oeState;
 
 } // CFAudioStream::GetState

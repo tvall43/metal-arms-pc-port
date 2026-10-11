@@ -2491,6 +2491,8 @@ int level_StartStream( cchar *pszFilename,
 
 	_aStreamingAudioInfo[i].pAudioStream = CFAudioStream::Create( pszFilename, bTreatAsMusicStream );
 	if( !_aStreamingAudioInfo[i].pAudioStream ) {
+		DEVPRINTF( "[ma] TEMP StartStream Create FAILED '%s' slot=%u\n",
+			pszFilename, (unsigned)i );
 		return -1;
 	}
 	// copy the loops, vol, & name for later
@@ -2672,6 +2674,12 @@ BOOL level_PlaySfxStream( cchar *pszName, f32 fVolLevel, BOOL bFadeIn ) {
 			fclib_strncpy( _LMData.szNewMusic, pszName, _MAX_MUSIC_CHARS );
 			_LMData.szNewMusic[_MAX_MUSIC_CHARS] = 0;
 		}
+		DEVPRINTF( "[ma] TEMP PlaySfxStream '%s' vol=%.3f new='%s' cur='%s' nState=%d\n",
+			pszName, fVolLevel, _LMData.szNewMusic, _LMData.szCurrentMusic,
+			(int)_LMData.nMusicState );
+		DEVPRINTF( "[ma] TEMP PlaySfxStream '%s' vol=%.3f new='%s' cur='%s' state=%d\n",
+			pszName, fVolLevel, _LMData.szNewMusic, _LMData.szCurrentMusic,
+			(int)_LMData.nMusicState );
 
 		_LMData.fMaxMusicVolume = fVolLevel;
 		_LMData.bPlayMusicWithFadeIn = bFadeIn;
@@ -2806,6 +2814,8 @@ static void _MusicWork( void ) {
 
 		case _LEVEL_MUSIC_STATE_START_TRACK:
 			FASSERT( _LMData.szNewMusic[0] );
+			DEVPRINTF( "[ma] TEMP music START_TRACK '%s' vol=%.3f\n",
+				_LMData.szNewMusic, _LMData.fMusicVolume );
 						
 			if( _LMData.bPlayMusicWithFadeIn ) {
 				_LMData.fMusicVolume = 0.0f;

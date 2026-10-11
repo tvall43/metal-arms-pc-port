@@ -327,6 +327,21 @@ BOOL CWeaponLaser::InitSystem( void ) {
 	for( i = 0; i < EUK_COUNT_LASER; i++ ) {
 		DEVPRINTF( "[ma] TEMP laser u=%u fireSfx=%u\n", (unsigned)i,
 			(unsigned)m_aUserProps[i].hFiringSound );
+		// Retail weapons.sfb renamed the fire SFX; w_laser.csv still says LaserFire.
+		if( FSNDFX_INVALID_FX_HANDLE == m_aUserProps[i].hFiringSound ) {
+			static const char *_apszFireAliases[] = {
+				"Fire Laser EUK1", "Fire Laser EUK2", "GruntLaser", "LaserFire"
+			};
+			for( u32 uAlias = 0; uAlias < 4; uAlias++ ) {
+				FSndFx_FxHandle_t hTry = fsndfx_GetFxHandle( _apszFireAliases[uAlias] );
+				if( FSNDFX_INVALID_FX_HANDLE != hTry ) {
+					m_aUserProps[i].hFiringSound = hTry;
+					DEVPRINTF( "[ma] TEMP laser u=%u remapped fireSfx to '%s'=%u\n",
+						(unsigned)i, _apszFireAliases[uAlias], (unsigned)hTry );
+					break;
+				}
+			}
+		}
 	}
 
 	// Do this for each EUK level...
