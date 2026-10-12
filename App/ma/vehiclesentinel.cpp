@@ -1007,7 +1007,20 @@ void CVehicleSentinel::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKil
 				ExplosionSpawnParams.Pos_WS = pImpact->ImpactPoint;
 				ExplosionSpawnParams.UnitDir = pImpact->UnitFaceNormal;
 				ExplosionSpawnParams.uSurfaceType = CGColl::GetSurfaceType( pImpact );
-				ExplosionSpawnParams.pDamageProfile = NULL;
+
+				// Retail (XBE FUN_0012fbd0) passes the vehicle's weapon damage profile here,
+				// not NULL.  With NULL the blast falls back to the 'sentinel' explosion
+				// definition's profile name from xset_veh.csv ('SentinelCannon'), which does
+				// not exist in damage.csv, so it resolves to m_DamageProfileNone and the
+				// cannon damages nothing.  Entities with 'DamageOnly=SentinelCannonPC'
+				// (frontie, bridge1, bridge2 in wewccomm) additionally require this exact
+				// profile pointer (eboomer.cpp:595).  Retail selects primary-PC (+0x58) when
+				// possessed and primary-NPC (+0x5c) when not (XBE 0x0012fc41).
+				if( pSentinel->m_nPossessionPlayerIndex < 0 ) {
+					ExplosionSpawnParams.pDamageProfile = pSentinel->m_pBotInfo_Vehicle->pPrimaryWeaponDamageProfileNPC;
+				} else {
+					ExplosionSpawnParams.pDamageProfile = pSentinel->m_pBotInfo_Vehicle->pPrimaryWeaponDamageProfile;
+				}
 				ExplosionSpawnParams.pDamager = &pTracerDef->Damager;
 
 				CExplosion2::SpawnExplosion( hSpawner, pSentinel->m_hShellExplosion, &ExplosionSpawnParams );
@@ -1221,7 +1234,11 @@ void CVehicleSentinel::_UpdateMachineGun( void )
 					{
 						pDamageForm->m_nDamageLocale = CDamageForm::DAMAGE_LOCALE_IMPACT;
 						pDamageForm->m_nDamageDelivery = CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY;
-						pDamageForm->m_pDamageProfile = m_pBotInfo_Vehicle->pSecondaryWeaponDamageProfile;
+						// retail (XBE 0x0013039a) picks secondary-PC/secondary-NPC by possession
+						if( m_nPossessionPlayerIndex < 0 )
+							pDamageForm->m_pDamageProfile = m_pBotInfo_Vehicle->pSecondaryWeaponDamageProfileNPC;
+						else
+							pDamageForm->m_pDamageProfile = m_pBotInfo_Vehicle->pSecondaryWeaponDamageProfile;
 						pDamageForm->m_Damager.pWeapon = NULL;
 						pDamageForm->m_Damager.pBot = this;
 						pDamageForm->m_Damager.nDamagerPlayerIndex = m_nPossessionPlayerIndex;

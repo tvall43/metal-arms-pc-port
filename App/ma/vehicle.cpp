@@ -2372,7 +2372,9 @@ const FGameData_TableEntry_t CVehicle::m_aBotInfoVocab_Vehicle[] = {
 
 	FGAMEDATA_VOCAB_DAMAGE,	// pRammingDamageProfile
 	FGAMEDATA_VOCAB_DAMAGE,	// pPrimaryWeaponDamageProfile
+	FGAMEDATA_VOCAB_DAMAGE,	// pPrimaryWeaponDamageProfileNPC
 	FGAMEDATA_VOCAB_DAMAGE,	// pSecondaryWeaponDamageProfile
+	FGAMEDATA_VOCAB_DAMAGE,	// pSecondaryWeaponDamageProfileNPC
 
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0

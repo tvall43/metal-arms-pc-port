@@ -2843,7 +2843,11 @@ void CVehicleLoader::_CauseCrushDamage( CBot* pBot ) {
 		pDamageForm->m_pDamageeEntity	= pBot;
 		pDamageForm->m_nDamageLocale	= CDamageForm::DAMAGE_LOCALE_AMBIENT;
 		pDamageForm->m_nDamageDelivery	= CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY;
-		pDamageForm->m_pDamageProfile	= m_pBotInfo_Vehicle->pSecondaryWeaponDamageProfile;
+		// retail (XBE 0x0011aae1) picks secondary-PC/secondary-NPC by possession
+		if( m_nPossessionPlayerIndex < 0 )
+			pDamageForm->m_pDamageProfile	= m_pBotInfo_Vehicle->pSecondaryWeaponDamageProfileNPC;
+		else
+			pDamageForm->m_pDamageProfile	= m_pBotInfo_Vehicle->pSecondaryWeaponDamageProfile;
 		pDamageForm->m_Damager.pBot		= this;
 		pDamageForm->m_Damager.nDamagerPlayerIndex = m_nPossessionPlayerIndex;
 
@@ -3545,7 +3549,11 @@ void CVehicleLoader::_WeaponWork( void ) {
 					if( pDamageForm ) {
 						pDamageForm->m_nDamageLocale	= CDamageForm::DAMAGE_LOCALE_IMPACT;
 						pDamageForm->m_nDamageDelivery	= CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY;
-						pDamageForm->m_pDamageProfile	= m_pBotInfo_Vehicle->pPrimaryWeaponDamageProfile;
+						// retail (XBE 0x0011fa8b) picks primary-PC/primary-NPC by possession
+						if( m_nPossessionPlayerIndex < 0 )
+							pDamageForm->m_pDamageProfile	= m_pBotInfo_Vehicle->pPrimaryWeaponDamageProfileNPC;
+						else
+							pDamageForm->m_pDamageProfile	= m_pBotInfo_Vehicle->pPrimaryWeaponDamageProfile;
 						pDamageForm->m_Damager.pWeapon	= NULL;
 						pDamageForm->m_Damager.pBot		= this;
 						pDamageForm->m_Damager.nDamagerPlayerIndex = m_nPossessionPlayerIndex;

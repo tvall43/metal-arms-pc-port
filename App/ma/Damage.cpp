@@ -1459,6 +1459,20 @@ void CDamageForm::_Work_ProfileRadius( void ) {
 		fworld_FindTrackersIntersectingSphere( &Sphere, FWORLD_TRACKERTYPE_MESH, _FindTrackersCallback_Blast, 0, NULL, NULL, MESHTYPES_ENTITY, 0x7fffffffffffffff );
 		fworld_FindTrackersIntersectingSphere( &Sphere, FWORLD_TRACKERTYPE_USER, _FindTrackersCallback_Blast, 0, NULL, NULL, MESHTYPES_ENTITY, 0x7fffffffffffffff );
 
+		// [ma] Round-22: the blast path had no probe at all (cannon evidence was
+		// missing by construction).  Profile/epicenter/radius + targets found.
+		{
+			static u32 s_nTEMPBlast = 0;
+			s_nTEMPBlast++;
+			if( s_nTEMPBlast <= 16 || ( s_nTEMPBlast % 120 ) == 0 ) {
+				DEVPRINTF( "[ma] TEMP r22 blast work f=%u cnt=%u form=%p profile=%p name=%s epi=(%g,%g,%g) radius=%g found=%d\r\n",
+					(unsigned)FVid_nFrameCounter, s_nTEMPBlast, this,
+					m_pDamageProfile, CDamage::SafeProfileName( m_pDamageProfile ),
+					m_Epicenter_WS.x, m_Epicenter_WS.y, m_Epicenter_WS.z,
+					m_fLargestOuterRadius, (int)( m_uEntityDamageQueueCount - nCurrentQueueCount ) );
+			}
+		}
+
 		while( m_uEntityDamageQueueCount > nCurrentQueueCount ) {
 			--m_uEntityDamageQueueCount;
 			_InflictDamage_Blast( m_apEntityDamageQueue[m_uEntityDamageQueueCount] );
@@ -1612,6 +1626,21 @@ BOOL CDamageForm::_FindTrackersCallback_Blast( CFWorldTracker *pTracker, FVisVol
 
 	if( ((CEntity *)pTracker->m_pUser)->IsInvincible() ) {
 		// Not a damageable entity...
+		// [ma] Round-22: this skip was silent, so a blast against an infinite-armor
+		// target left no trace.  Throttled like the other TEMP probes.
+		{
+			static u32 s_nTEMPBlastSkip = 0;
+			s_nTEMPBlastSkip++;
+			if( s_nTEMPBlastSkip <= 16 || ( s_nTEMPBlastSkip % 120 ) == 0 ) {
+				CEntity *pE = (CEntity *)pTracker->m_pUser;
+				cchar *pszEType = "-";
+				u64 nLeaf = pE->LeafTypeBit(); u32 nBit = 0; while( nLeaf >>= 1 ) nBit++;
+				if( nBit < 61 ) pszEType = CEntity::m_apszEntityType[ nBit ];
+				DEVPRINTF( "[ma] TEMP r22 blast skip-invincible f=%u cnt=%u damagee=%p name=%s etype=%s epos=(%g,%g,%g)\r\n",
+					(unsigned)FVid_nFrameCounter, s_nTEMPBlastSkip, pE, pE->Name(), pszEType,
+					pE->MtxToWorld()->m_vPos.x, pE->MtxToWorld()->m_vPos.y, pE->MtxToWorld()->m_vPos.z );
+			}
+		}
 		return TRUE;
 	}
 

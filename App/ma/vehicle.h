@@ -268,8 +268,10 @@ public:
 		CArmorProfile *pOccupantRacingArmorProfile;		// Armor profile assigned to vehicle occupants when racing
 		cchar *pszDamageProfile;						// name of Damage profile used when vehicle hits with non bumpers
 		CDamageProfile *pRammingDamageProfile;			// Damage profile used when vehicle rams with bumpers
-		CDamageProfile *pPrimaryWeaponDamageProfile;	// Damage profile for vehicle's primary weapon
-		CDamageProfile *pSecondaryWeaponDamageProfile;	// Damage profile for vehicle's secondary weapon
+		CDamageProfile *pPrimaryWeaponDamageProfile;		// primary weapon damage profile, player-driven  (retail BotInfo_Vehicle+0x58)
+		CDamageProfile *pPrimaryWeaponDamageProfileNPC;	// primary weapon damage profile, AI-driven      (retail +0x5c)
+		CDamageProfile *pSecondaryWeaponDamageProfile;	// secondary weapon damage profile, player-driven (retail +0x60)
+		CDamageProfile *pSecondaryWeaponDamageProfileNPC;	// secondary weapon damage profile, AI-driven    (retail +0x64)
 	} BotInfo_Vehicle_t;
 
 	typedef struct
