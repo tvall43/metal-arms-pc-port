@@ -20,6 +20,14 @@
 #include "faudio.h"
 
 
+// Mix knobs, declared in faudio.h and owned by the generic layer so both
+// backends see them. WinMain sets them from ma_win.ini before fang_Startup(),
+// so they must not require the module to be installed; fdx8audio reads them
+// on every SetVolume and every radius change.
+f32 FAudio_f2DVolumeScale       = FAUDIO_DEFAULT_2D_VOLUME_SCALE;
+f32 FAudio_fMinDistanceFraction = FAUDIO_DEFAULT_MIN_DISTANCE_FRACTION;
+
+
 f32 faudio_SetSfxMasterVol( f32 fNewVol ) {
 	f32 fPrevious = FAudio_fMasterSfxUnitVol;
 	

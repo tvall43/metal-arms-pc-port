@@ -25,6 +25,7 @@
 
 #include "../gameloop.h"
 #include "../gamepad.h"	// Gamepad_fMouseSensitivity
+#include "faudio.h"		// FAudio_f2DVolumeScale, FAudio_fMinDistanceFraction
 #include "fpadio.h"		// fpadio_SetSynthKeyOverrides, FPADIO_INPUT_*
 #include "Settings.h"
 #include "floop.h"
@@ -35,6 +36,7 @@
 #include <commdlg.h>
 #include <shlobj.h>
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -140,6 +142,10 @@ static void _OpenLog( void )
 	if( GetModuleFileName( NULL, szExe, MAX_PATH ) ) {
 		_Trace( "[ma] WinMain, exe = %s\n", szExe );
 	}
+	_Trace( "[ma] audio mix   : Volume2D=%.3f (%.1f dB) MinDistanceFraction=%.3f\n",
+		FAudio_f2DVolumeScale,
+		20.0f * (float)log10( (double)( FAudio_f2DVolumeScale > 0.0001f ? FAudio_f2DVolumeScale : 0.0001f ) ),
+		FAudio_fMinDistanceFraction );
 }
 
 // Also used by compat/mfc.cpp to report the game thread's lifecycle, which has
@@ -383,6 +389,22 @@ static void _LoadConfig( void )
 	_bFullscreen   = oSettings.ReadCustomInt( "Video", "Fullscreen", 0 ) ? TRUE : FALSE;
 	_bLogFileEnabled = oSettings.ReadCustomInt( "Debug", "LogFile", _LOGFILE_DEFAULT ) ? TRUE : FALSE;
 
+	// [Audio] mix tuning. Whether a mix sounds right is judged by ear, not read
+	// off the code, so both knobs that decide the 2D-vs-3D balance are editable
+	// here rather than baked into fdx8audio -- see faudio.h for what each one
+	// means. _SaveConfig writes them back so they show up in the file.
+	{
+		f32 f2D  = oSettings.ReadCustomFloat( "Audio", "Volume2D", FAUDIO_DEFAULT_2D_VOLUME_SCALE );
+		f32 fMin = oSettings.ReadCustomFloat( "Audio", "MinDistanceFraction", FAUDIO_DEFAULT_MIN_DISTANCE_FRACTION );
+		// Clamp: 0 silences every 2D sound, a fat-fingered 10 would blast.
+		if( f2D  < 0.0f )  { f2D  = 0.0f; }
+		if( f2D  > 1.0f )  { f2D  = 1.0f; }
+		if( fMin < 0.05f ) { fMin = 0.05f; }
+		if( fMin > 1.0f )  { fMin = 1.0f; }
+		FAudio_f2DVolumeScale       = f2D;
+		FAudio_fMinDistanceFraction = fMin;
+	}
+
 	// Mouse look sensitivity (phase 1): scales only the mouse-look deltas in
 	// CPlayer::Work, not the sticks. Clamp to a sane band so a typo cannot
 	// freeze or rocket the view.
@@ -444,6 +466,8 @@ static void _SaveConfig( void )
 	oSettings.WriteCustomInt( "Video", "ColorBits", _nColorBits );
 	oSettings.WriteCustomInt( "Video", "Fullscreen", _bFullscreen ? 1 : 0 );
 	oSettings.WriteCustomInt( "Debug", "LogFile", _bLogFileEnabled ? 1 : 0 );
+	oSettings.WriteCustomFloat( "Audio", "Volume2D", FAudio_f2DVolumeScale );
+	oSettings.WriteCustomFloat( "Audio", "MinDistanceFraction", FAudio_fMinDistanceFraction );
 }
 
 // ---------------------------------------------------------------------------

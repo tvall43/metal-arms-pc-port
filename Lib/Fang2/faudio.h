@@ -32,6 +32,25 @@
 #define FAUDIO_MIN_RADIUS					( 0.0001f )
 #define FAUDIO_INVALID_HANDLE				( NULL )
 
+// [ma] Mix tuning. What the right balance sounds like is a judgement made by
+// ear, so both knobs are mutable values the launch side fills in from
+// ma_win.ini [Audio] (see WinMain _LoadConfig) instead of being compile-time
+// constants that need a rebuild per experiment.
+//
+// Volume2D: multiplier on every 2D emitter's authored volume, applied in
+//     CFAudioEmitter::SetVolume. DirectSound gives a 2D buffer no distance
+//     rolloff at all, so it plays at authored * master while a 3D one falls
+//     off with distance. 0.1f is the leak's -20dB hack, 1.0f is no
+//     attenuation (ed33047's mistake: 2D then dominated the mix).
+// MinDistanceFraction: fraction of an emitter's own fRadiusOuter used as its
+//     DirectSound 3D minimum (full-volume) distance; beyond that the model is
+//     1/d, and the 1.0 foot default put a 90ft dialog emitter at -40dB.
+extern f32 FAudio_f2DVolumeScale;
+extern f32 FAudio_fMinDistanceFraction;
+
+#define FAUDIO_DEFAULT_2D_VOLUME_SCALE			( 0.3f )
+#define FAUDIO_DEFAULT_MIN_DISTANCE_FRACTION	( 0.25f )
+
 typedef enum {
 	FAUDIO_NO_ERROR	=	0,
 	FAUDIO_ERROR	=	-1

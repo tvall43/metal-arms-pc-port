@@ -292,19 +292,12 @@ static _RealEmitter_t _aoRealEmitters3D[ _DSOUND_REAL_EMITTERS_MAX_3D ];
 static FLinkRoot_t _oRealEmittersListFree3D;
 static FLinkRoot_t _oRealEmittersListActive3D;
 
-// Port tuning: fraction of an emitter's own fRadiusOuter that is used as its
-// DirectSound 3D minimum (full-volume) distance.  See the Radius block in
-// _ApplyRealEmittersChanges() for why the default of 1 foot is wrong here.
-#define _FAUDIO_EMITTER_MIN_DISTANCE_FRACTION		(0.25f)
+// Port tuning: the 3D minimum-distance fraction and the 2D volume scale both
+// live in faudio.h as FAudio_fMinDistanceFraction / FAudio_f2DVolumeScale, so
+// WinMain can set them from ma_win.ini [Audio]. See the Radius block in
+// _ApplyRealEmittersChanges() for why the 1 foot default is wrong here.
 
-// Port tuning: attenuation applied to every 2D emitter's authored volume.
-// 0.1f is -20dB. DirectSound applies no distance rolloff to a 2D buffer at
-// all, so without this the HUD/beeps, player-owned weapon fire and dialog sit
-// far above the world/AI 3D side (and above Bink cutscene audio). The leak
-// carried this line in CFAudioEmitter::SetVolume; it was dropped in ed33047
-// while chasing the quiet-SFX bug and has to come back now that log_l's
-// min-distance fix has the 3D side playing at its authored level.
-#define _FAUDIO_2D_VOLUME_SCALE					(0.1f)
+// (2D volume scale: FAudio_f2DVolumeScale, same story -- see faudio.h.)
 
 static DS3DBUFFER _oDSEmitterAttributes;
 static DSBUFFERDESC _oBufferDescription;
@@ -3143,7 +3136,7 @@ void CFAudioEmitter::SetVolume( f32 fVolume )
 	// often SetVolume is called.
 	if( ! ( poVirtualEmitter->uProperties & _EMITTER_PROPERTIES_3D ) )
 	{
-		fVolume *= _FAUDIO_2D_VOLUME_SCALE;
+		fVolume *= FAudio_f2DVolumeScale;
 	}
 	//
 	////
@@ -4099,7 +4092,7 @@ void _ApplyRealEmittersChanges( FLinkRoot_t *poVirtualEmittersListActive ) {
 						// sound is full volume through the near quarter of its radius,
 						// then falls off to 0.25 at flMaxDistance, where the buffer's
 						// DSBCAPS_MUTE3DATMAXDISTANCE takes over.
-						_oDSEmitterAttributes.flMinDistance = _FAUDIO_EMITTER_MIN_DISTANCE_FRACTION * poVirtualEmitter->fRadiusOuter;
+						_oDSEmitterAttributes.flMinDistance = FAudio_fMinDistanceFraction * poVirtualEmitter->fRadiusOuter;
 						if( _oDSEmitterAttributes.flMinDistance < DS3D_DEFAULTMINDISTANCE )
 						{
 							_oDSEmitterAttributes.flMinDistance = DS3D_DEFAULTMINDISTANCE;
