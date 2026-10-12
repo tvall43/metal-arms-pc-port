@@ -56,13 +56,17 @@ static char _szMoviePath[512] = "MOVIES\\";
 // lines -- startup status, the crash dump, and engine lines that look like
 // errors (_FangPrintf). Debug volume goes to ma_win_log.txt beside the
 // executable instead: each line to an unredirected Wine console is a console
-// round-trip, which is what made loads crawl. The file is gated on the
-// Debug/LogFile ini flag -- default on while the port is still being debugged;
-// flip _LOGFILE_DEFAULT to 0 (or set LogFile=0 in ma_win.ini) once it runs
-// well enough to not need it. The crash handler flushes both.
+// round-trip, which is what made loads crawl.
+//
+// The file is gated on the Debug/LogFile ini flag, read before the launch
+// dialog and re-applied after it, so the dialog's "Debug log file" checkbox
+// wins for the session. Default OFF: a normal launch writes nothing, and the
+// engine's output is then the error-looking lines on stdout only. Tick the
+// box for a run you intend to read. The crash handler flushes whichever is
+// open.
 static FILE *_pLogFile = NULL;
 static BOOL _bLogFileEnabled = FALSE;
-#define _LOGFILE_DEFAULT 1
+#define _LOGFILE_DEFAULT 0
 
 static void _TraceV( const char *pszFormat, va_list Args )
 {
@@ -89,28 +93,52 @@ static void _Trace( const char *pszFormat, ... )
 	}
 }
 
-static void _OpenLog( void )
+// <exe dir>\ma_win_log.txt -- beside the executable, like every other file
+// this port writes, so nothing lands in the Windows directory.
+static void _LogFileBuildPath( char *pszOut, int nOutLen )
 {
+	pszOut[0] = '\0';
 	char szExe[MAX_PATH] = "";
 	DWORD nLen = GetModuleFileName( NULL, szExe, MAX_PATH );
 	if ( nLen == 0 || nLen >= MAX_PATH ) return;
 
-	char szLog[MAX_PATH] = "";
-	memcpy( szLog, szExe, nLen + 1 );
-	char *pSlash = strrchr( szLog, '\\' );
-	if ( pSlash ) { *(pSlash+1) = '\0'; } else { szLog[0] = '\0'; }
-	strncat( szLog, "ma_win_log.txt", MAX_PATH - strlen(szLog) - 1 );
+	memcpy( pszOut, szExe, nLen + 1 );
+	char *pSlash = strrchr( pszOut, '\\' );
+	if ( pSlash ) { *(pSlash+1) = '\0'; } else { pszOut[0] = '\0'; }
+	strncat( pszOut, "ma_win_log.txt", nOutLen - strlen(pszOut) - 1 );
+}
 
-	if( _bLogFileEnabled ) {
-		_pLogFile = fopen( szLog, "w" );
+// Open or close the file log so it matches _bLogFileEnabled. Split out of
+// _OpenLog because the launch dialog changes the flag after WinMain's first
+// call: tick the box and the file opens for that session, untick and it closes.
+static void _ApplyLogFileState( void )
+{
+	if( _bLogFileEnabled && !_pLogFile ) {
+		char szLog[MAX_PATH];
+		_LogFileBuildPath( szLog, MAX_PATH );
+		if( szLog[0] ) {
+			_pLogFile = fopen( szLog, "w" );
+			if( _pLogFile ) {
+				_Trace( "[ma] log file    : %s\n", szLog );
+			}
+		}
 	}
+	else if( !_bLogFileEnabled && _pLogFile ) {
+		fclose( _pLogFile );
+		_pLogFile = NULL;
+	}
+}
 
+static void _OpenLog( void )
+{
 	// First lines of the run. These used to print before _LoadConfig ran (and
 	// before the file could open), which is why _OpenLog moved after the config
 	// read in WinMain.
-	_Trace( "[ma] WinMain, exe = %s\n", szExe );
-	if( _pLogFile ) {
-		_Trace( "[ma] log file    : %s\n", szLog );
+	_ApplyLogFileState();
+
+	char szExe[MAX_PATH] = "";
+	if( GetModuleFileName( NULL, szExe, MAX_PATH ) ) {
+		_Trace( "[ma] WinMain, exe = %s\n", szExe );
 	}
 }
 
@@ -273,6 +301,7 @@ static BOOL _bFullscreen		= FALSE;
 #define _ID_BROWSE_SSHOT	1010
 #define _ID_STATUS			1009
 #define _ID_FULLSCREEN		1011
+#define _ID_DEBUGLOG		1012
 
 static HWND _hwndStatus = NULL;
 
@@ -414,6 +443,7 @@ static void _SaveConfig( void )
 	oSettings.WriteCustomInt( "Video", "Height", _nScreenHeight );
 	oSettings.WriteCustomInt( "Video", "ColorBits", _nColorBits );
 	oSettings.WriteCustomInt( "Video", "Fullscreen", _bFullscreen ? 1 : 0 );
+	oSettings.WriteCustomInt( "Debug", "LogFile", _bLogFileEnabled ? 1 : 0 );
 }
 
 // ---------------------------------------------------------------------------
@@ -540,6 +570,11 @@ static void _ReadControls( HWND hwndDlg )
 	HWND hwndFS = GetDlgItem( hwndDlg, _ID_FULLSCREEN );
 	if( hwndFS ) {
 		_bFullscreen = ( SendMessage( hwndFS, BM_GETCHECK, 0, 0 ) == BST_CHECKED );
+	}
+
+	HWND hwndLog = GetDlgItem( hwndDlg, _ID_DEBUGLOG );
+	if( hwndLog ) {
+		_bLogFileEnabled = ( SendMessage( hwndLog, BM_GETCHECK, 0, 0 ) == BST_CHECKED );
 	}
 }
 
@@ -681,6 +716,17 @@ static void _CreateDialogControls( HWND hwndDlg )
 			if( aBits[i] == _nColorBits ) {
 				SendMessage( hwnd, CB_SETCURSEL, i, 0 );
 			}
+		}
+	}
+	{
+		// Debug log: the file beside the exe (see _LOGFILE_DEFAULT). The saved
+		// Debug/LogFile value seeds it; the choice is re-applied right after the
+		// dialog closes, so ticking it here turns logging on for this session.
+		HWND hwnd = CreateWindowEx( 0, "BUTTON", "Debug log file",
+			WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
+			nCtrlX + 112, nY + 2, 130, 20, hwndDlg, (HMENU)(INT_PTR)_ID_DEBUGLOG, _hInstance, NULL );
+		if( hwnd ) {
+			SendMessage( hwnd, BM_SETCHECK, _bLogFileEnabled ? BST_CHECKED : BST_UNCHECKED, 0 );
 		}
 	}
 	nY += 32;
@@ -1009,6 +1055,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		CoUninitialize();
 		return 0;
 	}
+
+	// The launch dialog can change Debug/LogFile; _OpenLog above ran before it.
+	_ApplyLogFileState();
 
 	if( !_RunGame() ) {
 		CoUninitialize();

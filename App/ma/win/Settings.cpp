@@ -19,6 +19,8 @@
 #include "StdAfx.h"
 #include "Settings.h"
 
+#include <string.h>
+
 static CSettings _Settings;
 static int _nRefCount = 0;
 static CString _sSettingsFilename;
@@ -39,7 +41,32 @@ CSettings::~CSettings() {
 // set the name of settings file, this needs to be done, before any calls to GetCurrent(),
 // and should happen only once
 void CSettings::SetSettingsFilename( cchar *pszSettingsFilenameOnly ) {
+	// Win32 resolves a bare filename against the Windows directory, so passing
+	// "ma_win.ini" through unchanged landed the settings file in C:\Windows:
+	// fine under Wine (that is just ~/.wine/drive_c/windows) but wrong, and
+	// usually unwritable for a normal user, on a real Windows install. Anchor
+	// it to the executable's own directory so it sits beside the exe like
+	// every other file this port writes. A name the caller already made
+	// absolute (drive letter or leading slash) is left alone.
 	_sSettingsFilename = pszSettingsFilenameOnly;
+
+	if( pszSettingsFilenameOnly && pszSettingsFilenameOnly[0] &&
+		( NULL == strchr( pszSettingsFilenameOnly, ':' ) ) &&
+		( ( '\\' != pszSettingsFilenameOnly[0] ) && ( '/' != pszSettingsFilenameOnly[0] ) ) )
+	{
+		char szFull[ MAX_PATH ];
+		DWORD nLen = GetModuleFileNameA( NULL, szFull, MAX_PATH );
+		if( nLen && ( nLen < MAX_PATH ) ) {
+			char *pSlash = strrchr( szFull, '\\' );
+			if( !pSlash ) pSlash = strrchr( szFull, '/' );
+			if( pSlash &&
+				( ( ( (size_t)( pSlash + 1 ) - (size_t)szFull ) + strlen( pszSettingsFilenameOnly ) ) < MAX_PATH ) )
+			{
+				strcpy( pSlash + 1, pszSettingsFilenameOnly );
+				_sSettingsFilename = szFull;
+			}
+		}
+	}
 }
 
 void CSettings::SetApplicationName( cchar *pszAppName ) {
