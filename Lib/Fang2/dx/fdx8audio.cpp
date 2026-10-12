@@ -297,6 +297,15 @@ static FLinkRoot_t _oRealEmittersListActive3D;
 // _ApplyRealEmittersChanges() for why the default of 1 foot is wrong here.
 #define _FAUDIO_EMITTER_MIN_DISTANCE_FRACTION		(0.25f)
 
+// Port tuning: attenuation applied to every 2D emitter's authored volume.
+// 0.1f is -20dB. DirectSound applies no distance rolloff to a 2D buffer at
+// all, so without this the HUD/beeps, player-owned weapon fire and dialog sit
+// far above the world/AI 3D side (and above Bink cutscene audio). The leak
+// carried this line in CFAudioEmitter::SetVolume; it was dropped in ed33047
+// while chasing the quiet-SFX bug and has to come back now that log_l's
+// min-distance fix has the 3D side playing at its authored level.
+#define _FAUDIO_2D_VOLUME_SCALE					(0.1f)
+
 static DS3DBUFFER _oDSEmitterAttributes;
 static DSBUFFERDESC _oBufferDescription;
 
@@ -3127,10 +3136,15 @@ void CFAudioEmitter::SetVolume( f32 fVolume )
 	FASSERT(flinklist_IsLinkInList(poVirtualEmitter->paoVirtualEmittersListActive, flinklist_GetLinkPointer(poVirtualEmitter->paoVirtualEmittersListActive, poVirtualEmitter)));
 #endif
 
-// Windows 2D "loudness" hack (fVolume *= 0.1f) removed: it drove player-owned
-// weapons, possessed-bot SFX, HUD transmissions and all dialog ~20dB below
-// world/AI 3D sounds and below Bink cutscene audio.  Authored CSV fVolume2D
-// plus the master SFX volume are the intended mix controls.
+	// Hack to attenuate 2D sounds, which are much louder than 3D: a 2D buffer
+	// gets no DirectSound distance rolloff, so it plays at authored volume times
+	// master while a 3D one falls off with distance. Scaled on the caller's
+	// value here, before the change test below, so it never compounds however
+	// often SetVolume is called.
+	if( ! ( poVirtualEmitter->uProperties & _EMITTER_PROPERTIES_3D ) )
+	{
+		fVolume *= _FAUDIO_2D_VOLUME_SCALE;
+	}
 	//
 	////
 
