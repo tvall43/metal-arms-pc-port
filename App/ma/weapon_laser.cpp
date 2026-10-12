@@ -325,7 +325,7 @@ BOOL CWeaponLaser::InitSystem( void ) {
 
 	// TEMP: resolved SFX handles from w_laser.csv (0 = name not in any loaded bank yet)
 	for( i = 0; i < EUK_COUNT_LASER; i++ ) {
-		DEVPRINTF( "[ma] TEMP laser u=%u fireSfx=%u\n", (unsigned)i,
+		MA_AUDIO_TEMP( "[ma] TEMP laser u=%u fireSfx=%u\n", (unsigned)i,
 			(unsigned)m_aUserProps[i].hFiringSound );
 		// Retail weapons.sfb renamed the fire SFX; w_laser.csv still says LaserFire.
 		if( FSNDFX_INVALID_FX_HANDLE == m_aUserProps[i].hFiringSound ) {
@@ -336,7 +336,7 @@ BOOL CWeaponLaser::InitSystem( void ) {
 				FSndFx_FxHandle_t hTry = fsndfx_GetFxHandle( _apszFireAliases[uAlias] );
 				if( FSNDFX_INVALID_FX_HANDLE != hTry ) {
 					m_aUserProps[i].hFiringSound = hTry;
-					DEVPRINTF( "[ma] TEMP laser u=%u remapped fireSfx to '%s'=%u\n",
+					MA_AUDIO_TEMP( "[ma] TEMP laser u=%u remapped fireSfx to '%s'=%u\n",
 						(unsigned)i, _apszFireAliases[uAlias], (unsigned)hTry );
 					break;
 				}

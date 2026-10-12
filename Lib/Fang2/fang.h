@@ -400,6 +400,25 @@ typedef void FangFcnPrintf_t( cchar *pszFormat, FANG_VA_LIST Args );
 
 
 //------------------------------------------------------------------------------------------------
+// [ma] Audio TEMP diagnostics.
+//
+// Probes added while hunting the music bug (log_k) and the quiet-world-SFX bug
+// (log_l): emitter create/allocate, stream Play/GetState, master + duck state,
+// bot talk SFX resolution, music track transitions.  The audio work is
+// verified, so they are compiled out; flip MA_ENABLE_AUDIO_TEMP to 1 to bring
+// the whole set back without touching the call sites.
+#define MA_ENABLE_AUDIO_TEMP		0
+
+#if MA_ENABLE_AUDIO_TEMP
+	#define MA_AUDIO_TEMP			DEVPRINTF
+#else
+	#define MA_AUDIO_TEMP			1 ? (void)0 : (void)fang_DevPrintf
+#endif
+
+
+
+
+//------------------------------------------------------------------------------------------------
 // FASSERT definitions:
 
 #if FANG_ENABLE_FASSERT

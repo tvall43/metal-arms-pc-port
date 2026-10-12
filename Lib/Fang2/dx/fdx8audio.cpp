@@ -1379,7 +1379,7 @@ void faudio_Work( void )
 				}
 			}
 
-			DEVPRINTF( "[ma] TEMP audio state masterSfx=%.3f masterMusic=%.3f duck=%.3f active2D=%u active3D=%u virtFree=%d\n",
+			MA_AUDIO_TEMP( "[ma] TEMP audio state masterSfx=%.3f masterMusic=%.3f duck=%.3f active2D=%u active3D=%u virtFree=%d\n",
 				FAudio_fMasterSfxUnitVol, FAudio_fMasterMusicUnitVol, _fDuckingFactor,
 				uActive2D, uActive3D, (int)_oVirtualEmittersListFree.nCount );
 		}
@@ -1714,7 +1714,7 @@ void faudio_Work( void )
 
 							{
 								FDataWvbFile_Wave_t *poTmpWave = (FDataWvbFile_Wave_t *)poVirtualEmitter->oWaveHandle;
-								DEVPRINTF( "[ma] TEMP emit2D NEW '%s' duck=%.3f master=%.3f\n",
+								MA_AUDIO_TEMP( "[ma] TEMP emit2D NEW '%s' duck=%.3f master=%.3f\n",
 									poTmpWave->szName, poVirtualEmitter->fVolumeDucked, FAudio_fMasterSfxUnitVol );
 							}
 							poVirtualEmitter->uStateChanges |= ( _EMITTER_STATE_CHANGE_PLAY | _EMITTER_STATE_CHANGE_VOLUME | _EMITTER_STATE_CHANGE_FREQUENCY | _EMITTER_STATE_CHANGE_PAN );
@@ -1922,7 +1922,7 @@ void faudio_Work( void )
 										_oTempVec3A.Sub( poVirtualEmitter->poVirtualListenerCurrent->poXfmCurrentOrientation_WS->m_MtxF.m_vPos );
 										fTmpDist = _oTempVec3A.Mag();
 									}
-									DEVPRINTF( "[ma] TEMP emit3D NEW '%s' dist=%.1f rOut=%.1f rIn=%.2f duck=%.3f master=%.3f\n",
+									MA_AUDIO_TEMP( "[ma] TEMP emit3D NEW '%s' dist=%.1f rOut=%.1f rIn=%.2f duck=%.3f master=%.3f\n",
 										poTmpWave->szName, fTmpDist, poVirtualEmitter->fRadiusOuter,
 										poVirtualEmitter->fRadiusInner, poVirtualEmitter->fVolumeDucked, FAudio_fMasterSfxUnitVol );
 								}
@@ -2749,7 +2749,7 @@ CFAudioEmitter *CFAudioEmitter::Create2D( FAudio_WaveHandle_t oWaveHandle, u8 uP
 
 		{
 			FDataWvbFile_Wave_t *poTmpWave = (FDataWvbFile_Wave_t *)poVirtualEmitter->oWaveHandle;
-			DEVPRINTF( "[ma] TEMP emitVIRT 2D '%s'\n", poTmpWave->szName );
+			MA_AUDIO_TEMP( "[ma] TEMP emitVIRT 2D '%s'\n", poTmpWave->szName );
 		}
 		return poVirtualEmitter->poAudioEmitter;
 	}
@@ -2757,7 +2757,7 @@ CFAudioEmitter *CFAudioEmitter::Create2D( FAudio_WaveHandle_t oWaveHandle, u8 uP
 	{
 		if( _uEmittersCreateErrors2D )
 		{
-			DEVPRINTF( "[ma] TEMP emitter pool EMPTY 2D free=%d max=%u\n", (int)_oVirtualEmittersListFree.nCount, _uMaxVirtualEmitters );
+			MA_AUDIO_TEMP( "[ma] TEMP emitter pool EMPTY 2D free=%d max=%u\n", (int)_oVirtualEmittersListFree.nCount, _uMaxVirtualEmitters );
 			DEVPRINTF( "[ FAUDIO ] Error %u: CFAudioEmitter::Create2D() failed !!!\n", __LINE__ );
 			--_uEmittersCreateErrors2D;
 			if( ! _uEmittersCreateErrors2D )
@@ -2860,7 +2860,7 @@ CFAudioEmitter *CFAudioEmitter::Create3D( FAudio_WaveHandle_t oWaveHandle, u8 uP
 
 		{
 			FDataWvbFile_Wave_t *poTmpWave = (FDataWvbFile_Wave_t *)poVirtualEmitter->oWaveHandle;
-			DEVPRINTF( "[ma] TEMP emitVIRT 3D '%s' rOut=%.1f\n", poTmpWave->szName, poVirtualEmitter->fRadiusOuter );
+			MA_AUDIO_TEMP( "[ma] TEMP emitVIRT 3D '%s' rOut=%.1f\n", poTmpWave->szName, poVirtualEmitter->fRadiusOuter );
 		}
 		return poVirtualEmitter->poAudioEmitter;
 	}
@@ -2868,7 +2868,7 @@ CFAudioEmitter *CFAudioEmitter::Create3D( FAudio_WaveHandle_t oWaveHandle, u8 uP
 	{
 		if( _uEmittersCreateErrors3D )
 		{
-			DEVPRINTF( "[ma] TEMP emitter pool EMPTY 3D free=%d max=%u\n", (int)_oVirtualEmittersListFree.nCount, _uMaxVirtualEmitters );
+			MA_AUDIO_TEMP( "[ma] TEMP emitter pool EMPTY 3D free=%d max=%u\n", (int)_oVirtualEmittersListFree.nCount, _uMaxVirtualEmitters );
 			DEVPRINTF( "[ FAUDIO ] Error %u: CFAudioEmitter::Create3D() failed !!!\n", __LINE__ );
 			--_uEmittersCreateErrors3D;
 			if( ! _uEmittersCreateErrors3D )
@@ -4250,7 +4250,7 @@ static void _StreamSeekToStart( _Stream_t *poStream )
 
 	if( FFILE_ERROR_RET == ffile_Seek( poStream->ohFile, (s32)poStream->uDataStart, FFILE_SEEK_SET ) )
 	{
-		DEVPRINTF( "[ma] TEMP stream seek FAIL ohFile=%d off=%u\n",
+		MA_AUDIO_TEMP( "[ma] TEMP stream seek FAIL ohFile=%d off=%u\n",
 			(int)poStream->ohFile, (unsigned)poStream->uDataStart );
 		poStream->oeState = FAUDIO_STREAM_STATE_ERROR;
 		return;
@@ -4763,7 +4763,7 @@ CFAudioStream *CFAudioStream::Create( cchar *pszName, BOOL bWillBeUsedForMusic/*
 	_bSkipStreamsWorkDelay = FALSE;
 
 	{
-		DEVPRINTF( "[ma] TEMP Create OK '%s' stream=%p obj=%p state=%d active=%d\n",
+		MA_AUDIO_TEMP( "[ma] TEMP Create OK '%s' stream=%p obj=%p state=%d active=%d\n",
 			poStream->szName, (void *)poStream, (void *)poStream->poAudioStream,
 			(int)poStream->oeState, (int)poStream->bIsActive );
 	}
@@ -4953,7 +4953,7 @@ void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 	// TEMP log BEFORE any early-out so we can see why Play never reaches DS.
 	{
 		_Stream_t *pDiag = (_Stream_t *)m_uData;
-		DEVPRINTF( "[ma] TEMP stream Play enter active=%d state=%d loops=%u ohFile=%d\n",
+		MA_AUDIO_TEMP( "[ma] TEMP stream Play enter active=%d state=%d loops=%u ohFile=%d\n",
 			pDiag ? (int)pDiag->bIsActive : -1,
 			pDiag ? (int)pDiag->oeState : -1,
 			(unsigned)uLoops,
@@ -4962,7 +4962,7 @@ void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 
 	if( ! FAudio_bModuleInstalled )
 	{
-		DEVPRINTF( "[ma] TEMP stream Play early-out: module not installed\n" );
+		MA_AUDIO_TEMP( "[ma] TEMP stream Play early-out: module not installed\n" );
 		return;
 	}
 
@@ -4975,7 +4975,7 @@ void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 		( FAUDIO_STREAM_STATE_NONE     == poStream->oeState ) ||
 		( FAUDIO_STREAM_STATE_CREATING == poStream->oeState ) )
 	{
-		DEVPRINTF( "[ma] TEMP stream Play early-out: bad state %d\n", (int)poStream->oeState );
+		MA_AUDIO_TEMP( "[ma] TEMP stream Play early-out: bad state %d\n", (int)poStream->oeState );
 		return;
 	}
 
@@ -4983,7 +4983,7 @@ void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 	_StreamSeekToStart( poStream );
 	if( FAUDIO_STREAM_STATE_ERROR == poStream->oeState )
 	{
-		DEVPRINTF( "[ma] TEMP stream Play early-out: seek failed ohFile=%d dataStart=%u\n",
+		MA_AUDIO_TEMP( "[ma] TEMP stream Play early-out: seek failed ohFile=%d dataStart=%u\n",
 			(int)poStream->ohFile, (unsigned)poStream->uDataStart );
 		return;
 	}
@@ -5121,7 +5121,7 @@ FAudio_StreamState_e CFAudioStream::GetState( void )
 		u32 uSt = (u32)poStream->oeState;
 		if( uSt != s_uLastState )
 		{
-			DEVPRINTF( "[ma] TEMP GetState change obj=%p stream=%p state=%u active=%d name=%s\n",
+			MA_AUDIO_TEMP( "[ma] TEMP GetState change obj=%p stream=%p state=%u active=%d name=%s\n",
 				(void *)this, (void *)poStream, uSt, (int)poStream->bIsActive, poStream->szName );
 			s_uLastState = uSt;
 		}

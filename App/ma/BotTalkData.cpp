@@ -263,7 +263,7 @@ BOOL CBotTalkData::LoadFromFile( cchar *pszFileName ) {
 			pCurBTA->m_uData2 = (u32)gstring_Main.AddString( pszFXName );
 
 			if( hFXHandle == FSNDFX_INVALID_FX_HANDLE ) {
-				DEVPRINTF("CBotTalkData::LoadFromFile() : Info in file '%s', sound effect '%s' not loadable yet (resolved at play time).\n", pszFileName, pszFXName);
+				MA_AUDIO_TEMP("CBotTalkData::LoadFromFile() : Info in file '%s', sound effect '%s' not loadable yet (resolved at play time).\n", pszFileName, pszFXName);
 			}
 			break;
 

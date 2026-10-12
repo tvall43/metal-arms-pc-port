@@ -32,7 +32,7 @@ f32 faudio_SetSfxMasterVol( f32 fNewVol ) {
 		// TEMP: only on a sizeable step, so a per-frame screen fade prints a
 		// handful of lines instead of flooding the log.
 		if( ( 0.1f <= ( fNewVol - fPrevious ) ) || ( 0.1f <= ( fPrevious - fNewVol ) ) ) {
-			DEVPRINTF( "[ma] TEMP SetSfxMasterVol %.3f -> %.3f (music=%.3f)\n",
+			MA_AUDIO_TEMP( "[ma] TEMP SetSfxMasterVol %.3f -> %.3f (music=%.3f)\n",
 				fPrevious, fNewVol, FAudio_fMasterMusicUnitVol );
 		}
 	}
@@ -111,7 +111,7 @@ FAudio_WaveHandle_t faudio_GetWaveHandle( FAudio_BankHandle_t oBankHandle, cchar
 		}
 	}
 
-	DEVPRINTF( "[ma] TEMP wave NOT FOUND bank='%s' name='%s'\n", poBank->szName, pszName );
+	MA_AUDIO_TEMP( "[ma] TEMP wave NOT FOUND bank='%s' name='%s'\n", poBank->szName, pszName );
 	return FAUDIO_INVALID_HANDLE;
 } // faudio_GetWaveHandle
 

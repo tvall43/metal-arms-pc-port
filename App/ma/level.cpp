@@ -2491,7 +2491,7 @@ int level_StartStream( cchar *pszFilename,
 
 	_aStreamingAudioInfo[i].pAudioStream = CFAudioStream::Create( pszFilename, bTreatAsMusicStream );
 	if( !_aStreamingAudioInfo[i].pAudioStream ) {
-		DEVPRINTF( "[ma] TEMP StartStream Create FAILED '%s' slot=%u\n",
+		MA_AUDIO_TEMP( "[ma] TEMP StartStream Create FAILED '%s' slot=%u\n",
 			pszFilename, (unsigned)i );
 		return -1;
 	}
@@ -2579,7 +2579,7 @@ void level_RestartAllStreams( void ) {
 // Plays the specified streaming file from the streaming SPEECH channel.
 // If the channel is already playing a track, that track is aborted.
 void level_PlayStreamingSpeech( cchar *pszName, f32 fMaxVol, u32 nLoopCount/*=1*/ ) {
-	DEVPRINTF( "[ma] TEMP streaming speech '%s' vol=%.2f loops=%u\n", pszName ? pszName : "(null)", fMaxVol, nLoopCount );
+	MA_AUDIO_TEMP( "[ma] TEMP streaming speech '%s' vol=%.2f loops=%u\n", pszName ? pszName : "(null)", fMaxVol, nLoopCount );
 	_StopStream( _STREAM_SPEECH );
 	level_StartStream( pszName, nLoopCount, fMaxVol, _STREAM_SPEECH, FALSE );
 }
@@ -2675,10 +2675,10 @@ BOOL level_PlaySfxStream( cchar *pszName, f32 fVolLevel, BOOL bFadeIn ) {
 			fclib_strncpy( _LMData.szNewMusic, pszName, _MAX_MUSIC_CHARS );
 			_LMData.szNewMusic[_MAX_MUSIC_CHARS] = 0;
 		}
-		DEVPRINTF( "[ma] TEMP PlaySfxStream '%s' vol=%.3f new='%s' cur='%s' nState=%d\n",
+		MA_AUDIO_TEMP( "[ma] TEMP PlaySfxStream '%s' vol=%.3f new='%s' cur='%s' nState=%d\n",
 			pszName, fVolLevel, _LMData.szNewMusic, _LMData.szCurrentMusic,
 			(int)_LMData.nMusicState );
-		DEVPRINTF( "[ma] TEMP PlaySfxStream '%s' vol=%.3f new='%s' cur='%s' state=%d\n",
+		MA_AUDIO_TEMP( "[ma] TEMP PlaySfxStream '%s' vol=%.3f new='%s' cur='%s' state=%d\n",
 			pszName, fVolLevel, _LMData.szNewMusic, _LMData.szCurrentMusic,
 			(int)_LMData.nMusicState );
 
@@ -2784,7 +2784,7 @@ static void _InitAndPlayFirstMusic( void ) {
 	
 	// start the first streaming music file, if any
 	pszFirstFile = level_GetSteamingAudioFilename( 0, bTreatAsMusic );
-	DEVPRINTF( "[ma] TEMP first music ptr=%p tableValid=%d entries=%u\n",
+	MA_AUDIO_TEMP( "[ma] TEMP first music ptr=%p tableValid=%d entries=%u\n",
 		(const void *)pszFirstFile,
 		(int)(Level_hStreamingAudioTable != FGAMEDATA_INVALID_TABLE_HANDLE),
 		(unsigned)Level_nNumStreamingAudioEntries );
@@ -2815,7 +2815,7 @@ static void _MusicWork( void ) {
 
 		case _LEVEL_MUSIC_STATE_START_TRACK:
 			FASSERT( _LMData.szNewMusic[0] );
-			DEVPRINTF( "[ma] TEMP music START_TRACK '%s' vol=%.3f\n",
+			MA_AUDIO_TEMP( "[ma] TEMP music START_TRACK '%s' vol=%.3f\n",
 				_LMData.szNewMusic, _LMData.fMusicVolume );
 						
 			if( _LMData.bPlayMusicWithFadeIn ) {
@@ -2966,7 +2966,7 @@ static void _MusicWork( void ) {
 			FAudio_StreamState_e eSt = _aStreamingAudioInfo[i].pAudioStream->GetState();
 			if( _aStreamingAudioInfo[i].bWaitForCreate ) {
 				// TEMP: log every frame while waiting so we see stuck states
-				DEVPRINTF( "[ma] TEMP poll wait i=%u state=%d name=%s vol=%.3f\n",
+				MA_AUDIO_TEMP( "[ma] TEMP poll wait i=%u state=%d name=%s vol=%.3f\n",
 					(unsigned)i, (int)eSt, _aStreamingAudioInfo[i].szFilename,
 					_aStreamingAudioInfo[i].fVolume );
 				if( eSt == FAUDIO_STREAM_STATE_STOPPED ) {
@@ -2974,7 +2974,7 @@ static void _MusicWork( void ) {
 					_aStreamingAudioInfo[i].pAudioStream->Play( _aStreamingAudioInfo[i].nNumLoops );
 					// Only stop waiting if Play actually left STOPPED (seek/DS failure leaves ERROR).
 					eSt = _aStreamingAudioInfo[i].pAudioStream->GetState();
-					DEVPRINTF( "[ma] TEMP poll after Play i=%u state=%d\n",
+					MA_AUDIO_TEMP( "[ma] TEMP poll after Play i=%u state=%d\n",
 						(unsigned)i, (int)eSt );
 					if( eSt != FAUDIO_STREAM_STATE_STOPPED ) {
 						_aStreamingAudioInfo[i].bWaitForCreate = FALSE;
@@ -2983,7 +2983,7 @@ static void _MusicWork( void ) {
 			} else {
 				// wait to be done playing
 				if( eSt == FAUDIO_STREAM_STATE_STOPPED || eSt == FAUDIO_STREAM_STATE_ERROR ) {
-					DEVPRINTF( "[ma] TEMP poll destroy i=%u state=%d name=%s\n",
+					MA_AUDIO_TEMP( "[ma] TEMP poll destroy i=%u state=%d name=%s\n",
 						(unsigned)i, (int)eSt, _aStreamingAudioInfo[i].szFilename );
 					_aStreamingAudioInfo[i].pAudioStream->Destroy();
 					_aStreamingAudioInfo[i].pAudioStream = NULL;
