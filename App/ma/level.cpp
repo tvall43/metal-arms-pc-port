@@ -2579,6 +2579,7 @@ void level_RestartAllStreams( void ) {
 // Plays the specified streaming file from the streaming SPEECH channel.
 // If the channel is already playing a track, that track is aborted.
 void level_PlayStreamingSpeech( cchar *pszName, f32 fMaxVol, u32 nLoopCount/*=1*/ ) {
+	DEVPRINTF( "[ma] TEMP streaming speech '%s' vol=%.2f loops=%u\n", pszName ? pszName : "(null)", fMaxVol, nLoopCount );
 	_StopStream( _STREAM_SPEECH );
 	level_StartStream( pszName, nLoopCount, fMaxVol, _STREAM_SPEECH, FALSE );
 }

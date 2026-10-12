@@ -329,6 +329,7 @@ void CBotTalkInst::Work() {
 			{
 				// It's a sound clip.
 				FAudio_WaveHandle_t hWave = (FAudio_WaveHandle_t)( pCurBTA->m_uData2 );
+				DEVPRINTF( "[ma] TEMP talkSOUND hWave=%u rOut=%.0f\n", (u32)hWave, m_fRadius );
 
 				BOOL bDuckable = ( ( m_uFlags & BOTTALKINSTFLAG_DUCK_AUDIO_WHEN_PLAYING ) == 0 );
 
@@ -356,6 +357,14 @@ void CBotTalkInst::Work() {
 				}
 
 				FSndFx_FxHandle_t hFXHandle = (FSndFx_FxHandle_t)pCurBTA->m_uData2;
+				// m_uData2 holds the FX *name*; resolve it now that the banks are up.
+				cchar *pszFXName = (cchar *)pCurBTA->m_uData2;
+				hFXHandle = fsndfx_GetFxHandle( pszFXName );
+				if( hFXHandle == FSNDFX_INVALID_FX_HANDLE ) {
+					DEVPRINTF( "[ma] TEMP talkSFX MISS '%s'\n", pszFXName );
+				} else {
+					DEVPRINTF( "[ma] TEMP talkSFX '%s' rOut=%.0f\n", pszFXName, m_fRadius );
+				}
 				BOOL bDuckable = ( ( m_uFlags & BOTTALKINSTFLAG_DUCK_AUDIO_WHEN_PLAYING ) == 0 );
 				
 				if( m_uFlags & BOTTALKINSTFLAG_FORCE_2D_AUDIO ||
@@ -391,6 +400,7 @@ void CBotTalkInst::Work() {
 				// Windows previously used winmm PlaySound() with a path-stripped stem,
 				// which never resolved the .wvs asset and played at a fixed system volume.
 				// CFAudioStream now streams dialog on Windows like Xbox.
+				DEVPRINTF( "[ma] TEMP talkSTREAM '%s'\n", (cchar *)pCurBTA->m_uData2 );
 				level_PlayStreamingSpeech((cchar*)pCurBTA->m_uData2, 1.0f, 1);
 				if ( level_GetStreamingSpeechAudioStream() )
 				{
@@ -900,6 +910,7 @@ void CTalkInst::Work() {
 			{
 				// It's a sound clip.
 				FAudio_WaveHandle_t hWave = (FAudio_WaveHandle_t)( pCurBTA->m_uData2 );
+				DEVPRINTF( "[ma] TEMP talkSOUND hWave=%u rOut=%.0f\n", (u32)hWave, m_fRadius );
 
 				BOOL bDuckable = ( ( m_uFlags & BOTTALKINSTFLAG_DUCK_AUDIO_WHEN_PLAYING ) == 0 );
 
@@ -921,6 +932,14 @@ void CTalkInst::Work() {
 			case BOT_TALK_CSV_ACTION_TYPE_SFX:
 			{
 				FSndFx_FxHandle_t hFXHandle = (FSndFx_FxHandle_t)pCurBTA->m_uData2;
+				// m_uData2 holds the FX *name*; resolve it now that the banks are up.
+				cchar *pszFXName = (cchar *)pCurBTA->m_uData2;
+				hFXHandle = fsndfx_GetFxHandle( pszFXName );
+				if( hFXHandle == FSNDFX_INVALID_FX_HANDLE ) {
+					DEVPRINTF( "[ma] TEMP talkSFX MISS '%s'\n", pszFXName );
+				} else {
+					DEVPRINTF( "[ma] TEMP talkSFX '%s' rOut=%.0f\n", pszFXName, m_fRadius );
+				}
 				BOOL bDuckable = ( ( m_uFlags & BOTTALKINSTFLAG_DUCK_AUDIO_WHEN_PLAYING ) == 0 );
 
 				if( m_uFlags & BOTTALKINSTFLAG_FORCE_2D_AUDIO ||
@@ -941,6 +960,7 @@ void CTalkInst::Work() {
 			case BOT_TALK_CSV_ACTION_TYPE_STREAM:
 			{
 				// It's a streamed audio clip.
+				DEVPRINTF( "[ma] TEMP talkSTREAM '%s'\n", (cchar *)pCurBTA->m_uData2 );
 				level_PlayStreamingSpeech((cchar*)pCurBTA->m_uData2, 1.0f, 1);
 				if ( level_GetStreamingSpeechAudioStream() )
 				{

@@ -292,6 +292,11 @@ static _RealEmitter_t _aoRealEmitters3D[ _DSOUND_REAL_EMITTERS_MAX_3D ];
 static FLinkRoot_t _oRealEmittersListFree3D;
 static FLinkRoot_t _oRealEmittersListActive3D;
 
+// Port tuning: fraction of an emitter's own fRadiusOuter that is used as its
+// DirectSound 3D minimum (full-volume) distance.  See the Radius block in
+// _ApplyRealEmittersChanges() for why the default of 1 foot is wrong here.
+#define _FAUDIO_EMITTER_MIN_DISTANCE_FRACTION		(0.25f)
+
 static DS3DBUFFER _oDSEmitterAttributes;
 static DSBUFFERDESC _oBufferDescription;
 
@@ -2742,6 +2747,10 @@ CFAudioEmitter *CFAudioEmitter::Create2D( FAudio_WaveHandle_t oWaveHandle, u8 uP
 
 		flinklist_AddTail( poVirtualEmitter->paoVirtualEmittersListActive, poVirtualEmitter );
 
+		{
+			FDataWvbFile_Wave_t *poTmpWave = (FDataWvbFile_Wave_t *)poVirtualEmitter->oWaveHandle;
+			DEVPRINTF( "[ma] TEMP emitVIRT 2D '%s'\n", poTmpWave->szName );
+		}
 		return poVirtualEmitter->poAudioEmitter;
 	}
 	else
@@ -2849,6 +2858,10 @@ CFAudioEmitter *CFAudioEmitter::Create3D( FAudio_WaveHandle_t oWaveHandle, u8 uP
 
 		flinklist_AddTail( poVirtualEmitter->paoVirtualEmittersListActive, poVirtualEmitter );
 
+		{
+			FDataWvbFile_Wave_t *poTmpWave = (FDataWvbFile_Wave_t *)poVirtualEmitter->oWaveHandle;
+			DEVPRINTF( "[ma] TEMP emitVIRT 3D '%s' rOut=%.1f\n", poTmpWave->szName, poVirtualEmitter->fRadiusOuter );
+		}
 		return poVirtualEmitter->poAudioEmitter;
 	}
 	else
@@ -4060,7 +4073,23 @@ void _ApplyRealEmittersChanges( FLinkRoot_t *poVirtualEmittersListActive ) {
 						_oDSEmitterAttributes.vVelocity.z = _oTempVec3A_Velocity.z;
 
 						// Radius, Doppler.						
-//						_oDSEmitterAttributes.flMinDistance = poVirtualEmitter->fRadiusInner;
+						// DirectSound attenuates a 3D buffer with an inverse distance
+						// model: once distance > flMinDistance the gain is
+						// flMinDistance / distance (MSDN: full volume at 1 unit, half at
+						// 2, a quarter at 4).  flMinDistance therefore used to sit at
+						// DS3D_DEFAULTMINDISTANCE (1 foot), which put every world sound
+						// 20-40dB down at the distances this game plays at (15-150 feet):
+						// bot dialog, enemy gunfire and footsteps were all inaudible while
+						// the 2D player-owned sounds, which get no attenuation at all,
+						// were loud.  Scale it from the emitter's own audible radius so a
+						// sound is full volume through the near quarter of its radius,
+						// then falls off to 0.25 at flMaxDistance, where the buffer's
+						// DSBCAPS_MUTE3DATMAXDISTANCE takes over.
+						_oDSEmitterAttributes.flMinDistance = _FAUDIO_EMITTER_MIN_DISTANCE_FRACTION * poVirtualEmitter->fRadiusOuter;
+						if( _oDSEmitterAttributes.flMinDistance < DS3D_DEFAULTMINDISTANCE )
+						{
+							_oDSEmitterAttributes.flMinDistance = DS3D_DEFAULTMINDISTANCE;
+						}
 						_oDSEmitterAttributes.flMaxDistance = poVirtualEmitter->fRadiusOuter;
 
 						if( poVirtualEmitter->poRealEmitter->poDS3DBuffer ) {

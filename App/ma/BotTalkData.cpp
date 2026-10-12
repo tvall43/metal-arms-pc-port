@@ -254,10 +254,17 @@ BOOL CBotTalkData::LoadFromFile( cchar *pszFileName ) {
 			pszFXName = (cchar *)(pCurBTA->m_uData2);
 			hFXHandle = fsndfx_GetFxHandle(pszFXName);
 
+			// Keep the FX *name* in m_uData2 rather than the handle resolved here.
+			// Talk tables are read during level_Load(), which runs before every
+			// sound bank those talks reference is loaded (level 1 talk needs the
+			// Buddy bank, which level 1 never loads), so a handle baked in now is
+			// permanently wrong and the line plays dead.  BotTalkInst resolves the
+			// name at play time instead, when the bank is really there.
+			pCurBTA->m_uData2 = (u32)gstring_Main.AddString( pszFXName );
+
 			if( hFXHandle == FSNDFX_INVALID_FX_HANDLE ) {
-				DEVPRINTF("CBotTalkData::LoadFromFile() : Error in file '%s', Could not load sound effect '%s'.\n", pszFileName, pszFXName);
+				DEVPRINTF("CBotTalkData::LoadFromFile() : Info in file '%s', sound effect '%s' not loadable yet (resolved at play time).\n", pszFileName, pszFXName);
 			}
-			pCurBTA->m_uData2 = (u32)(hFXHandle);
 			break;
 
 		default:
