@@ -453,9 +453,13 @@ BOOL CEntityBuilder::InterpretTable( void ) {
 		// They are specifying a specific goodie in the bag.
 		FGameData_VarType_e eType;
 
-		if( (fgamedata_GetNumFields( CEntityParser::m_hTable ) < 4) || (fgamedata_GetNumFields( CEntityParser::m_hTable ) > 5) ) {
+		// Retail accepts 4..6 fields (XBE FUN_000ea6a0: if(nf<4)return; if(6<nf)return;).
+		// Field 5 (when present) is an extra token ("safe"); field 4 is the optional
+		// angvel type. The leak capped at >5, which rejected valid 6-field tables
+		// (e.g. prison2's "chip" goodie) so the goodie never reached AddGoodie.
+		if( (fgamedata_GetNumFields( CEntityParser::m_hTable ) < 4) || (fgamedata_GetNumFields( CEntityParser::m_hTable ) > 6) ) {
 			CEntityParser::Error_Prefix();
-			DEVPRINTF( "Error in 'goodie' table.  Need 5 params.\n" );
+			DEVPRINTF( "Error in 'goodie' table.  Need 4-6 params.\n" );
 			CEntityParser::Error_Dashes();
 			return TRUE;
 		}
@@ -535,6 +539,23 @@ BOOL CEntityBuilder::InterpretTable( void ) {
 				DEVPRINTF( "Error in angular velocity field of 'goodie' command. Unknown type '%s'.\n", pszAngVelType );
 				CEntityParser::Error_Dashes();
 				return TRUE;
+			}
+		}
+
+		// Retail also allows a 6th field (index 5), an extra token such as "safe"
+		// (XBE reads field 5 and passes it to AddGoodie). We surface a valid
+		// none/random token here; any other value (e.g. "safe") keeps the default
+		// angvel, which matches retail's behaviour of ignoring an unknown token.
+		if( fgamedata_GetNumFields( CEntityParser::m_hTable ) == 6 ) {
+			cchar *pszField5;
+			pszField5 = (cchar *)fgamedata_GetPtrToFieldData( CEntityParser::m_hTable, 5, eType );
+			if( eType == FGAMEDATA_VAR_TYPE_STRING ) {
+				if( fclib_stricmp( pszField5, "none" ) == 0 ) {
+					eAngVelType = GOODIEBAGANGVELTYPE_NONE;
+				} else if( fclib_stricmp( pszField5, "random" ) == 0 ) {
+					eAngVelType = GOODIEBAGANGVELTYPE_RANDOM;
+				}
+				// else: retail "safe"-style token -> keep default (NONE).
 			}
 		}
 		//
@@ -2072,6 +2093,16 @@ BOOL CEntity::ClassHierarchyBuild( void ) {
 		FMATH_SETBITMASK( m_nEntityFlags, ENTITY_FLAG_BUILDPARENT_IS_INDEX );
 	}
 
+	// [ma] TEMP r23: goodie-bag creation probe (does this entity carry goodies?).
+	{
+		static u32 s_nTEMPBag = 0;
+		s_nTEMPBag++;
+		if( s_nTEMPBag <= 32 || ( s_nTEMPBag % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r23 bag build cnt=%u name=%s goodies=%u\n",
+				s_nTEMPBag, Name() ? Name() : "-", (unsigned)pBuilder->m_oGoodieBag.NumGoodies() );
+		}
+	}
+
 	if( pBuilder->m_oGoodieBag.NumGoodies() != 0 ) {
 		m_pGoodieBag = fnew CGoodieBag;
 		if( m_pGoodieBag == NULL ) {
@@ -2350,6 +2381,18 @@ void CEntity::InformAIOfDamageResult( const CDamageResult *pDamageResult ) {
 
 // Called to kill the entity ?
 void CEntity::Die( BOOL bSpawnDeathEffects/*=TRUE*/, BOOL bSpawnGoodies ) {
+	// [ma] TEMP r23: goodie release probe (bag present + goodie count at death).
+	{
+		static u32 s_nTEMPRelease = 0;
+		s_nTEMPRelease++;
+		if( s_nTEMPRelease <= 32 || ( s_nTEMPRelease % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r23 release cnt=%u name=%s spawnGoodies=%d bag=%s goodies=%u\n",
+				s_nTEMPRelease, Name() ? Name() : "-", (int)bSpawnGoodies,
+				m_pGoodieBag ? "yes" : "no",
+				(unsigned)( m_pGoodieBag ? m_pGoodieBag->NumGoodies() : 0 ) );
+		}
+	}
+
 	if( bSpawnGoodies && (m_pGoodieBag != NULL) ) {
 		m_pGoodieBag->ReleaseIntoWorld( this );
 	}
