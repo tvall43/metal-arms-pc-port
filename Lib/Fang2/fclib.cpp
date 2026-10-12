@@ -50,16 +50,24 @@ char *fclib_strncpy( char *pszDest, cchar *pszSrc,int nNumChars ) {
 	return pszOrigDest;	
 }
 
-// Same as fclib_strncpy(), but always appends a null-terminator after nNumChars
-// have been copied. pszDest must be large enough to hold nNumChars+1 characters.
+// Same as fclib_strncpy(), but always leaves pszDest null-terminated.
+// Writes at most nNumChars bytes total, so passing sizeof(pszDest) is safe.
+// The old version copied up to nNumChars characters and then wrote the
+// terminator at index nNumChars - one byte past the buffer. That byte was
+// CFAudioStream::_Stream_t::oeState (the field sits right after szName[12]),
+// so Create() stored FAUDIO_STREAM_STATE_STOPPED and this call immediately
+// reset it to NONE, which kept every stream out of Play().
 char *fclib_strncpyz( char *pszDest, cchar *pszSrc, int nNumChars ) {
 	char *pszOrigDest = pszDest;
 
-	while( *pszSrc && nNumChars ) {
+	if( nNumChars <= 0 ) {
+		return pszOrigDest;
+	}
+
+	while( *pszSrc && ( 1 < nNumChars ) ) {
 		*pszDest++ = *pszSrc++;
 		nNumChars--;
 	}
-	nNumChars++;
 	while( nNumChars ) {
 		*pszDest++ = 0;
 		nNumChars--;

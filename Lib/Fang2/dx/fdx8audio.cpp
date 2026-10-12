@@ -1353,6 +1353,35 @@ void faudio_Work( void )
 	//
 	////
 
+	//// TEMP: periodic audio state snapshot (tells us if a master volume or the
+	//// duck factor is what makes world SFX inaudible).
+	{
+		static f32 _fTmpAudioStateDiag = 0.0f;
+
+		_fTmpAudioStateDiag += FLoop_fRealPreviousLoopSecs;
+		if( 2.0f <= _fTmpAudioStateDiag )
+		{
+			u32 uActive2D = 0, uActive3D = 0, uList;
+
+			_fTmpAudioStateDiag = 0.0f;
+
+			if( _paoVirtualEmittersListActive2D )
+			{
+				for( uList = 0; uList < _uMaxPriorityLevels; ++uList )
+				{
+					uActive2D += _paoVirtualEmittersListActive2D[ uList ].nCount;
+					uActive3D += _paoVirtualEmittersListActive3D[ uList ].nCount;
+				}
+			}
+
+			DEVPRINTF( "[ma] TEMP audio state masterSfx=%.3f masterMusic=%.3f duck=%.3f active2D=%u active3D=%u virtFree=%d\n",
+				FAudio_fMasterSfxUnitVol, FAudio_fMasterMusicUnitVol, _fDuckingFactor,
+				uActive2D, uActive3D, (int)_oVirtualEmittersListFree.nCount );
+		}
+	}
+	//
+	////
+
 	u32 uIndex;
 
 	//// Emitters and listeners work.
@@ -1677,6 +1706,12 @@ void faudio_Work( void )
 
 							flinklist_AddTail( &_oRealEmittersListActive2D, poRealEmitter );
 							poVirtualEmitter->poRealEmitter  = poRealEmitter;
+
+							{
+								FDataWvbFile_Wave_t *poTmpWave = (FDataWvbFile_Wave_t *)poVirtualEmitter->oWaveHandle;
+								DEVPRINTF( "[ma] TEMP emit2D NEW '%s' duck=%.3f master=%.3f\n",
+									poTmpWave->szName, poVirtualEmitter->fVolumeDucked, FAudio_fMasterSfxUnitVol );
+							}
 							poVirtualEmitter->uStateChanges |= ( _EMITTER_STATE_CHANGE_PLAY | _EMITTER_STATE_CHANGE_VOLUME | _EMITTER_STATE_CHANGE_FREQUENCY | _EMITTER_STATE_CHANGE_PAN );
 							++( _paoRealEmittersLimits[ uPriority ].uPlaying );
 						}
@@ -1872,6 +1907,20 @@ void faudio_Work( void )
 
 								flinklist_AddTail( &_oRealEmittersListActive3D, poRealEmitter );
 								poVirtualEmitter->poRealEmitter  = poRealEmitter;
+
+								{
+									FDataWvbFile_Wave_t *poTmpWave = (FDataWvbFile_Wave_t *)poVirtualEmitter->oWaveHandle;
+									f32 fTmpDist = -1.0f;
+									if( poVirtualEmitter->poVirtualListenerCurrent )
+									{
+										_oTempVec3A = *( poVirtualEmitter->poVecCurrentPosition_WS );
+										_oTempVec3A.Sub( poVirtualEmitter->poVirtualListenerCurrent->poXfmCurrentOrientation_WS->m_MtxF.m_vPos );
+										fTmpDist = _oTempVec3A.Mag();
+									}
+									DEVPRINTF( "[ma] TEMP emit3D NEW '%s' dist=%.1f rOut=%.1f rIn=%.2f duck=%.3f master=%.3f\n",
+										poTmpWave->szName, fTmpDist, poVirtualEmitter->fRadiusOuter,
+										poVirtualEmitter->fRadiusInner, poVirtualEmitter->fVolumeDucked, FAudio_fMasterSfxUnitVol );
+								}
 //								poVirtualEmitter->uStateChanges |= ( _EMITTER_STATE_CHANGE_PLAY | _EMITTER_STATE_CHANGE_VOLUME | _EMITTER_STATE_CHANGE_FREQUENCY | _EMITTER_STATE_CHANGE_POSITION | _EMITTER_STATE_CHANGE_RADIUS | _EMITTER_STATE_CHANGE_DOPPLER | _EMITTER_STATE_CHANGE_REVERB );
 								poVirtualEmitter->uStateChanges |= ( _EMITTER_STATE_CHANGE_PLAY | _EMITTER_STATE_CHANGE_VOLUME | _EMITTER_STATE_CHANGE_FREQUENCY | _EMITTER_STATE_CHANGE_POSITION | _EMITTER_STATE_CHANGE_DOPPLER | _EMITTER_STATE_CHANGE_REVERB );
 								++( _paoRealEmittersLimits[ uPriority ].uPlaying );
@@ -2699,6 +2748,7 @@ CFAudioEmitter *CFAudioEmitter::Create2D( FAudio_WaveHandle_t oWaveHandle, u8 uP
 	{
 		if( _uEmittersCreateErrors2D )
 		{
+			DEVPRINTF( "[ma] TEMP emitter pool EMPTY 2D free=%d max=%u\n", (int)_oVirtualEmittersListFree.nCount, _uMaxVirtualEmitters );
 			DEVPRINTF( "[ FAUDIO ] Error %u: CFAudioEmitter::Create2D() failed !!!\n", __LINE__ );
 			--_uEmittersCreateErrors2D;
 			if( ! _uEmittersCreateErrors2D )
@@ -2805,6 +2855,7 @@ CFAudioEmitter *CFAudioEmitter::Create3D( FAudio_WaveHandle_t oWaveHandle, u8 uP
 	{
 		if( _uEmittersCreateErrors3D )
 		{
+			DEVPRINTF( "[ma] TEMP emitter pool EMPTY 3D free=%d max=%u\n", (int)_oVirtualEmittersListFree.nCount, _uMaxVirtualEmitters );
 			DEVPRINTF( "[ FAUDIO ] Error %u: CFAudioEmitter::Create3D() failed !!!\n", __LINE__ );
 			--_uEmittersCreateErrors3D;
 			if( ! _uEmittersCreateErrors3D )
