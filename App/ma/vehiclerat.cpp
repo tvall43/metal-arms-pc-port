@@ -2514,6 +2514,7 @@ void CVehicleRat::MoveVehicle( void )
 	f32 fVelForward;
 	f32 fUnitVelForward;
 	f32 fSteeringPos, fDeltaSteering, fMaxDeltaSteering;
+	f32 fDbgDot = 999.0f, fDbgDotRight = 999.0f; s32 nSteerBranch = -1;
 	BOOL bGunnerIsDriving = FALSE;
 
 // exception handler debug test
@@ -2665,6 +2666,7 @@ void CVehicleRat::MoveVehicle( void )
 	{
 		// compute steering change requested by driver
 		fSteeringPos = m_fControls_RotateCW;
+		nSteerBranch = 0;
 
 		// Mouse steering: IJKL works because it writes bipolar values into
 		// Gamepad_aapSample, which CPlayer::Work copies into m_fControls_RotateCW
@@ -2697,6 +2699,7 @@ void CVehicleRat::MoveVehicle( void )
 	else
 	{
 		// ai controls
+		nSteerBranch = 1;
 		if( m_fThrottle != 0.0f )
 		{
 			CFVec3A vFrontXZ = m_MtxToWorld.m_vFront;
@@ -2714,6 +2717,7 @@ void CVehicleRat::MoveVehicle( void )
 				{
 					f32 fDot = vUnitControlsBot_XlatNormSpeedXZ_WS.Dot( vFrontXZ );
 					f32 fDotRight = vUnitControlsBot_XlatNormSpeedXZ_WS.Dot( vRightXZ );
+					fDbgDot = fDot; fDbgDotRight = fDotRight;
 					if( fDot < 0.0f )
 					{
 						// Target point is behind the vehicle.
@@ -2805,21 +2809,32 @@ void CVehicleRat::MoveVehicle( void )
 	}
 
 	{
-		static u32 s_uR27RC = 0;
-		if( ( ++s_uR27RC % 300 ) == 1 )
+		static u32 s_uR28SC = 0;
+		if( ( ++s_uR28SC % 30 ) == 1 )
 		{
-			DEVPRINTF( "[ma] TEMP r27 ratctl veh=%s thr=%.2f rev=%d mx=%.2f ctrl=(%.3f,%.3f) front=(%.3f,%.3f) vel=(%.2f,%.2f) steer=%.2f\n",
+			DEVPRINTF( "[ma] TEMP r28 ratctl veh=%s br=%d thr=%.2f rev=%d rot=%.3f mouse=%.2f fspos=%.3f fdelta=%.3f fmaxd=%.4f raw=%.3f pos=%.3f hum=%d st=%d dposs=%d dot=%.3f dotr=%.3f ctrl=(%.3f,%.3f) front=(%.3f,%.3f) vel=(%.2f,%.2f)\n",
 					( Name() ) ? Name() : "noname",
+					(int) nSteerBranch,
 					(double) m_fThrottle,
 					( m_nControlsBot_Buttons & CBotControl::BUTTONFLAG_SPECIAL2 ) ? 1 : 0,
-					(double) GetMaxUnitSpeed(),
+					(double) m_fControls_RotateCW,
+					(double) m_fMouseSteerPos,
+					(double) fSteeringPos,
+					(double) fDeltaSteering,
+					(double) fMaxDeltaSteering,
+					(double) m_fRawSteeringPosition,
+					(double) m_fSteeringPosition,
+					(int) m_bControls_Human,
+					(int) m_eRatState,
+					m_pDriverBot ? m_pDriverBot->m_nPossessionPlayerIndex : -1,
+					(double) fDbgDot,
+					(double) fDbgDotRight,
 					(double) m_ControlsBot_XlatNormSpeedXZ_WS.x,
 					(double) m_ControlsBot_XlatNormSpeedXZ_WS.z,
 					(double) m_MtxToWorld.m_vFront.x,
 					(double) m_MtxToWorld.m_vFront.z,
 					(double) m_PhysObj.GetVelocity()->x,
-					(double) m_PhysObj.GetVelocity()->z,
-					(double) m_fSteeringPosition );
+					(double) m_PhysObj.GetVelocity()->z );
 		}
 	}
 

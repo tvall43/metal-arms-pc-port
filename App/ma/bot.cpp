@@ -3399,6 +3399,10 @@ void CBot::SetControls( CEntityControl *pControl ) {
 		m_bControls_Human = FALSE;
 	}
 
+	DEVPRINTF( "[ma] TEMP r28 setctl bot=%s type=%d poss=%d\n",
+			Name() ? Name() : "noname",
+			(int) ( pControl ? pControl->Type() : -1 ),
+			(int) m_nPossessionPlayerIndex );
 	ZeroControls();
 }
 
