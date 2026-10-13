@@ -8522,8 +8522,9 @@ void CBot::ForceQuickDataPortUnPlug( void ) {
 	pOrigBot->m_nPossessionPlayerIndex = m_nPossessionPlayerIndex;
 	pPlayer->EnableEntityControl();
 
-	if( (pOrigBot->TypeBits() & (ENTITY_BIT_BOTGLITCH | ENTITY_BIT_KRUNK) ) && !IsPossessedByConsole() ) {
-		// put glitch back together
+	if( (pOrigBot->TypeBits() & (ENTITY_BIT_BOTGLITCH | ENTITY_BIT_KRUNK) ) && !IsPossessedByConsole() && pOrigBot->IsInPieces() ) {
+		// put glitch back together (only if the body actually dropped --
+		// BreakIntoPieces(-1) breaks a STANDING body permanently)
 		pOrigBot->BreakIntoPieces( -1.0f );
 	} else {
 		pOrigBot->MobilizeBot();
@@ -8633,8 +8634,9 @@ void CBot::_Work_UnplugTether( void ) {
 			pOrigBot->m_nPossessionPlayerIndex = m_nPossessionPlayerIndex;
 			pPlayer->EnableEntityControl();
 			
-			if( (pOrigBot->TypeBits() & (ENTITY_BIT_BOTGLITCH | ENTITY_BIT_KRUNK)) && !IsPossessedByConsole() ) {
-				// put glitch back together
+			if( (pOrigBot->TypeBits() & (ENTITY_BIT_BOTGLITCH | ENTITY_BIT_KRUNK)) && !IsPossessedByConsole() && pOrigBot->IsInPieces() ) {
+				// put glitch back together (only if the body actually dropped --
+				// BreakIntoPieces(-1) breaks a STANDING body permanently)
 				pOrigBot->BreakIntoPieces( -1.0f );
 			} else {
 				pOrigBot->MobilizeBot();

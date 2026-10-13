@@ -2287,10 +2287,21 @@ void CTether::_Work_PossessMode_PoweringUpBot( void ) {
 
 		// NKM: the weapon tether can already be NULL here (killed while
 		// powering up, or the weapon was destroyed). Guard it -- every
-		// other m_pWeaponTether use in this file checks first.
-		if( m_pWeaponTether && m_pWeaponTether->GetOwner() ) {
-			CBot *pBot = m_pWeaponTether->GetOwner();
-
+		// other m_pWeaponTether use in this file checks first.  Recover
+		// the owner from the possessing player so Glitch's body still
+		// drops into pieces: a skipped drop leaves a standing body that
+		// the unplug path then breaks permanently.
+		CBot *pBot = NULL;
+		if( m_pWeaponTether ) {
+			pBot = m_pWeaponTether->GetOwner();
+		}
+		if( pBot == NULL ) {
+			s32 nPlayerIndex = m_pTargetBot->m_nPossessionPlayerIndex;
+			if( nPlayerIndex >= 0 ) {
+				pBot = (CBot *)Player_aPlayer[nPlayerIndex].m_pEntityOrig;
+			}
+		}
+		if( pBot ) {
 			if( pBot->TypeBits() & (ENTITY_BIT_BOTGLITCH | ENTITY_BIT_KRUNK) ) {
 				pBot->BreakIntoPieces( -1.0f );
 			} else {
