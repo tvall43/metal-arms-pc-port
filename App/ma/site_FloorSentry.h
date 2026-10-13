@@ -47,7 +47,12 @@ public:
 		f32 fExplosionDamage;
 		f32 fFlameDamage;
 
-		cchar *pszDamageProfile;			// Damage profile string (references a damage profile in damage.csv)
+		FParticle_DefHandle_t hSpewSmoke;	// Retail field22: smoke particle (SpewSmoke)
+		f32 fRetailOO23;					// Retail field23: OO-only float (stores 1/x)
+		f32 fRetailOO24;					// Retail field24: OO-only float (stores 1/x)
+		f32 fRetailPercent25;				// Retail field25: percent->unit float
+
+		cchar *pszDamageProfile;			// Retail field26: damage profile string (SentryFloorGun/_P in damage.csv)
 
 		f32 fSoundRadius;					// Distance sound from this weapon travels
 

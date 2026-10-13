@@ -213,7 +213,31 @@ const FGameData_TableEntry_t CFloorSentry::m_aSpewPropVocab[] =
 		F32_DATATABLE_0,
 		F32_DATATABLE_1,
 
-		// pszDamageProfile:
+		// hSpewSmoke (retail field22: particle handle, SpewSmoke):
+		FGAMEDATA_VOCAB_PARTICLE,
+
+		// fRetailOO23 (retail field23: OO-only float, stores 1/x):
+		FGAMEDATA_VAR_TYPE_FLOAT|
+		FGAMEDATA_FLAGS_FLOAT_OO_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
+		sizeof( f32 ),
+		F32_DATATABLE_Pt001,
+		F32_DATATABLE_30,
+
+		// fRetailOO24 (retail field24: OO-only float, stores 1/x):
+		FGAMEDATA_VAR_TYPE_FLOAT|
+		FGAMEDATA_FLAGS_FLOAT_OO_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
+		sizeof( f32 ),
+		F32_DATATABLE_Pt001,
+		F32_DATATABLE_30,
+
+		// fRetailPercent25 (retail field25: percent->unit float):
+		FGAMEDATA_VAR_TYPE_FLOAT|
+		FGAMEDATA_FLAGS_FLOAT_PERCENT_TO_UNIT_FLOAT | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
+		sizeof( f32 ),
+		F32_DATATABLE_0,
+		F32_DATATABLE_100,
+
+		// pszDamageProfile (retail field26: SentryFloorGun/SentryFloorGun_P):
 		FGAMEDATA_VAR_TYPE_STRING|
 		FGAMEDATA_FLAGS_STRING_PTR_TO_MAIN_STR_TBL,
 		sizeof( char * ),
@@ -552,6 +576,13 @@ BOOL CFloorSentry::InitSystem( void )
 	m_aRocketDamageProfile[0] = CDamage::FindDamageProfile( m_aRocketProps[0].pszDamageProfile );
 	m_aSpewDamageProfile[1]	= CDamage::FindDamageProfile( m_aSpewProps[1].pszDamageProfile );
 	m_aRocketDamageProfile[1] = CDamage::FindDamageProfile( m_aRocketProps[1].pszDamageProfile );
+
+	// [ma] TEMP r30: resolved floor-sentry damage profiles (spew was field22 'SpewSmoke' -> None).
+	DEVPRINTF( "[ma] TEMP r30 floorsentry profile spew0=%s rocket0=%s spew1=%s rocket1=%s\n",
+		m_aSpewDamageProfile[0] ? m_aSpewDamageProfile[0]->m_pszName : "-",
+		m_aRocketDamageProfile[0] ? m_aRocketDamageProfile[0]->m_pszName : "-",
+		m_aSpewDamageProfile[1] ? m_aSpewDamageProfile[1]->m_pszName : "-",
+		m_aRocketDamageProfile[1] ? m_aRocketDamageProfile[1]->m_pszName : "-" );
 
 	_SetSmokeTrailAttributes();
 
