@@ -511,6 +511,18 @@ BOOL CAICarMover::MoveToward(const CFVec3A& vGoto, f32* pfVelAlgnmnt/* = NULL*/)
 	CVehicleRat *pThisRAT = (CVehicleRat*) m_pEntity;
 	FASSERT( pThisRAT );
 
+	{
+		static u32 s_uR26MV = 0;
+		if( ( ++s_uR26MV % 300 ) == 1 )
+		{
+			DEVPRINTF( "[ma] TEMP r26 CarMove veh=%s goto=(%.0f,%.0f) pos=(%.0f,%.0f) spd=%.1f\n",
+					( pThisRAT->Name() ) ? pThisRAT->Name() : "noname",
+					(double) vGoto.x, (double) vGoto.z,
+					(double) pThisRAT->MtxToWorld()->m_vPos.x, (double) pThisRAT->MtxToWorld()->m_vPos.z,
+					(double) m_fSpeedXZ );
+		}
+	}
+
 	// flip vehicle rightside up if necessary and appropriate
 	if( pThisRAT->GetDriverBot() && level_IsRacingLevel() && pThisRAT->IsUpsideDown() )
 	{

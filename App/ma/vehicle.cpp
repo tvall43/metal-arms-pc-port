@@ -28,6 +28,8 @@
 #include "gamecam.h"
 #include "botpart.h"
 #include "Ai/AIBrainMan.h"
+#include "Ai/AIBrain.h"
+#include "Ai/AIMover.h"
 #include "Ai/AIGroup.h"
 #include "MeshTypes.h"
 #include "SplitScreen.h"
@@ -281,6 +283,13 @@ void CVehicle::DriverEnter( CBot *pDriverBot, cchar *pszAttachPointBoneName /* =
 		return;
 	}
 
+	DEVPRINTF( "[ma] TEMP r26 DriverEnter veh=%s drv=%s ownctl=%p moverctl=%p poss=%d\n",
+			( Name() ) ? Name() : "noname",
+			( pDriverBot->Name() ) ? pDriverBot->Name() : "noname",
+			(void*) Controls(),
+			(void*) ( ( AIBrain() && AIBrain()->GetAIMover() ) ? AIBrain()->GetAIMover()->m_Controls.GetEntityControl() : NULL ),
+			(int) pDriverBot->m_nPossessionPlayerIndex );
+
 	// attach bot to vehicle
 //	pDriverBot->Attach_ToParent_WS( this, pszAttachPointBoneName );
 	pDriverBot->Attach_ToParent_WithGlue_WS( this, pszAttachPointBoneName );
@@ -379,6 +388,12 @@ void CVehicle::DriverExit( CBot *pDriverBot )
 	{
 		return;
 	}
+
+	DEVPRINTF( "[ma] TEMP r26 DriverExit veh=%s drv=%s ownctl=%p poss=%d\n",
+			( Name() ) ? Name() : "noname",
+			( pDriverBot->Name() ) ? pDriverBot->Name() : "noname",
+			(void*) Controls(),
+			(int) pDriverBot->m_nPossessionPlayerIndex );
 
 	UnSetVehicleReticle( pDriverBot );
 

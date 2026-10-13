@@ -1221,6 +1221,11 @@ BOOL aibrainman_Activate(CAIBrain* pBrain)
 					}
 					DEVPRINTF("Note! AIBrainman taking control of entity: %s\n", pszName);
 				}
+			if( pBrain->GetAIMover()->GetEntity()->TypeBits() & ENTITY_BIT_VEHICLE )
+			{
+				DEVPRINTF( "[ma] TEMP r26 brainman rewire veh=%s\n",
+						( pBrain->GetAIMover()->GetEntity()->Name() ) ? pBrain->GetAIMover()->GetEntity()->Name() : "noname" );
+			}
 				pBrain->GetAIMover()->GetEntity()->SetControls( pBrain->GetAIMover()->m_Controls.GetEntityControl());
 			}
 			return TRUE;  //
@@ -1253,6 +1258,11 @@ BOOL aibrainman_Deactivate(CAIBrain* pBrain, BOOL bClearBrain /*= TRUE*/)
 		}
 		if (pBrain->GetAIMover()->m_Controls.GetEntityControl() == pBrain->GetAIMover()->GetEntity()->Controls())
 		{
+			if( pBrain->GetAIMover()->GetEntity()->TypeBits() & ENTITY_BIT_VEHICLE )
+			{
+				DEVPRINTF( "[ma] TEMP r26 brainman unwire veh=%s\n",
+						( pBrain->GetAIMover()->GetEntity()->Name() ) ? pBrain->GetAIMover()->GetEntity()->Name() : "noname" );
+			}
 			pBrain->GetAIMover()->GetEntity()->SetControls(NULL);
 		}
 		_pPendingDeactivates->PushHead(pBrain);

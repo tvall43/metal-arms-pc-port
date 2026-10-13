@@ -2656,6 +2656,23 @@ BOOL DoRuleSet_Rat0(u32 uControl, void* pParam1, void* pParam2)
 		}
 	}
 
+	{
+		static u32 s_uR26Rat0HB = 0;
+		if( ( ++s_uR26Rat0HB % 300 ) == 1 )
+		{
+			u8 uQSlotR26 = 0xff;
+			u32 uQStatR26 = 0;
+			if( pT->FindRequestSlotInUse( CGroundCombat::SEARCHREASON_NEWATTACKPOS, &uQSlotR26 ) )
+			{
+				uQStatR26 = pT->m_aSearchQuery[ uQSlotR26 ].GetStatus();
+			}
+			DEVPRINTF( "[ma] TEMP r26 Rat0HB veh=%s state=%s pt=%d slot=%d stat=0x%x\n",
+					( pVehicle && pVehicle->Name() ) ? pVehicle->Name() : "noveh",
+					_pszRat0State[ eRat0RuleSetState ],
+					(int) uVehicleSplinePoint, (int) uQSlotR26, (unsigned) uQStatR26 );
+		}
+	}
+
 	switch( eRat0RuleSetState )
 	{
 		//---------------------------------------------------------------------
@@ -2783,6 +2800,12 @@ BOOL DoRuleSet_Rat0(u32 uControl, void* pParam1, void* pParam2)
 			}
 			bResult = pT->RequestSearch( vTargetPoint, CGroundCombat::SEARCHREASON_NEWATTACKPOS, 20.0f /* fudge distance */ );
 //			FASSERT( bResult );
+			DEVPRINTF( "[ma] TEMP r26 Rat0Req veh=%s pt=%d/%d res=%d cantmove=%d cmove=%d maxdist=%d\n",
+					( pVehicle && pVehicle->Name() ) ? pVehicle->Name() : "noveh",
+					(int) uVehicleSplinePoint, (int) pVehicleSpline->PointCount(), (int) bResult,
+					( pT->m_uAttackFlags & CGroundCombat::FLAG_COMBAT_CANT_MOVE_BOT ) ? 1 : 0,
+					( _pWD->pMover && _pWD->pMover->CanMove() ) ? 1 : 0,
+					(int) _pWD->uMaxDistFromOrigin );
 			if( bResult )
 			{
 				eRat0RuleSetState = RAT0_RuleSet_STATE_REQUEST_PATH_WAITING; 
@@ -2804,6 +2827,9 @@ BOOL DoRuleSet_Rat0(u32 uControl, void* pParam1, void* pParam2)
 			if( pT->IsSearchDone( CGroundCombat::SEARCHREASON_NEWATTACKPOS, &uAttackPtSlot ) )
 			{
 				// pathfinder found a path for us, start following it
+				DEVPRINTF( "[ma] TEMP r26 Rat0Follow veh=%s pt=%d slot=%d\n",
+						( pVehicle && pVehicle->Name() ) ? pVehicle->Name() : "noveh",
+						(int) uVehicleSplinePoint, (int) uAttackPtSlot );
 				pT->Attack_AssignPath( uAttackPtSlot );
 				nRequestPathRetryCount = 0;
 				eRat0RuleSetState = RAT0_RuleSet_STATE_FOLLOWING_PATH; 
@@ -2813,7 +2839,10 @@ BOOL DoRuleSet_Rat0(u32 uControl, void* pParam1, void* pParam2)
 			{
 				if( pT->m_aSearchQuery[ uAttackPtSlot ].GetStatus() & CSearchQuery::SEARCHSTATUS_FAILED_REASON_BAD_END )
 				{
-					DEVPRINTF( "AI: DoRuleSet_Rat0 Search failed due to bad end.\n" );
+									DEVPRINTF( "[ma] TEMP r26 Rat0SearchFail veh=%s stat=0x%x\n",
+						( pVehicle && pVehicle->Name() ) ? pVehicle->Name() : "noveh",
+						(unsigned) pT->m_aSearchQuery[ uAttackPtSlot ].GetStatus() );
+DEVPRINTF( "AI: DoRuleSet_Rat0 Search failed due to bad end.\n" );
 				}
 				if( pT->m_aSearchQuery[ uAttackPtSlot ].GetStatus() & CSearchQuery::SEARCHSTATUS_FAILED_REASON_BAD_START )
 				{

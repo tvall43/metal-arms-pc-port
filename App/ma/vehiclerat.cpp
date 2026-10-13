@@ -1332,6 +1332,17 @@ void CVehicleRat::_UpdateWaterEffects( void )
 //-----------------------------------------------------------------------------
 void CVehicleRat::_UpdateRatState( void )
 {
+	{
+		static u32 s_uR26Rat = 0;
+		if( ( ++s_uR26Rat % 600 ) == 1 )
+		{
+			DEVPRINTF( "[ma] TEMP r26 RatState veh=%s st=%d drv=%s ownctl=%p\n",
+					( Name() ) ? Name() : "noname", (int) m_eRatState,
+					( m_pDriverBot && m_pDriverBot->Name() ) ? m_pDriverBot->Name() : "nodrv",
+					(void*) Controls() );
+		}
+	}
+
 	switch( m_eRatState )
 	{
 		//---------------------------------------------------------------------
