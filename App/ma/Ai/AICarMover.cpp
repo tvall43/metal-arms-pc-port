@@ -1088,6 +1088,22 @@ pThisRAT->m_PhysObj.DrawSphere( &vStart, 3.0f );
 		*pfVelAlgnmnt = fAlignment;
 	}
 
+	{
+		static u32 s_uR27CM = 0;
+		if( ( ++s_uR27CM % 300 ) == 1 )
+		{
+			DEVPRINTF( "[ma] TEMP r27 carmove veh=%s spd=%.2f push=(%.3f,%.3f) align=%.2f dist=%.0f wp=%d stuck=%d rev=%d\n",
+					( pThisRAT->Name() ) ? pThisRAT->Name() : "noname",
+					(double) m_fSpeedXZ,
+					(double) PushVec.x, (double) PushVec.z,
+					(double) fAlignment,
+					(double) fDistToDest,
+					(int) bGoodWaypoints,
+					( m_uAICarMoverFlags & AICARMOVERFLAG_STUCK_EXTRACTION ) ? 1 : 0,
+					( m_Controls.GetEntityControl()->m_nFlags & CBotControl::BUTTONFLAG_SPECIAL2 ) ? 1 : 0 );
+		}
+	}
+
 	return FALSE;
 }
 

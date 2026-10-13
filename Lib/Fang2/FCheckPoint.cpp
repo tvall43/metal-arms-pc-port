@@ -21,7 +21,11 @@
 #include "FCheckPoint.h"
 #include "fclib.h"
 
-#define _CHECKPOINT_STREAM_SIZE		( 1024 * 304 )
+// Retail XBE FCheckPoint::ModuleInit calls Init(0x55000 = 1024*340, FAMEM_TYPE_SLOW)
+// (push 1 / push 0x55000 sequence at VA 0x0026122B).  The leak's 1024*304 overflows
+// on WEWHchase01 (round-27): its checkpoint save drops an object, so the respawn
+// restore fails (FCheckPoint.cpp:779 FAMEM errors) and the chase never restarts.
+#define _CHECKPOINT_STREAM_SIZE		( 1024 * 340 )
 #define _CHECKPOINT_MEM_BUFFER_SIZE	( 1024 )	// size of buffer to hold pending reads/writes to storage
 #define _STREAM_ALIGNMENT_BYTES		( 32 )		// alignment boundry requirement of CFMemAccessor
 #define _MAX_WRITE_RETRY			( 8 )		// number of time to try to write to storage before failing
@@ -345,6 +349,12 @@ BOOL CFCheckPoint::_WillStreamOverflow( FCheckPointData_t *pPoint, u32 uSize )
 	FASSERT( pPoint->m_nStreamOffset + pPoint->m_nMemBufferOffset + uSize < pPoint->m_nStreamSize );
 	if( pPoint->m_nStreamOffset + pPoint->m_nMemBufferOffset + uSize >= pPoint->m_nStreamSize )
 	{
+		DEVPRINTF( "[ma] TEMP r27 ckpt overflow hObj=%d uSize=%u off=%u buf=%u cap=%u objsz=%u\n",
+				(int) pPoint->m_hCurObj, (unsigned) uSize,
+				(unsigned) pPoint->m_nStreamOffset, (unsigned) pPoint->m_nMemBufferOffset,
+				(unsigned) pPoint->m_nStreamSize,
+				( ( pPoint->m_hCurObj >= 0 ) && ( pPoint->m_hCurObj < FCHECKPOINT_MAX_OBJECTS ) ) ?
+					(unsigned) pPoint->m_aObjData[ pPoint->m_hCurObj ].nDataSize : 0u );
 		return TRUE;
 	}
 	

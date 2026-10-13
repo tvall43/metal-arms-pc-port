@@ -2804,6 +2804,25 @@ void CVehicleRat::MoveVehicle( void )
 		m_fSteeringPosition = m_fRawSteeringPosition * ( 1.0f - (1.0f - _HIGH_SPEED_MAX_STEERING) * m_fClampedNormSpeedXZ_WS );
 	}
 
+	{
+		static u32 s_uR27RC = 0;
+		if( ( ++s_uR27RC % 300 ) == 1 )
+		{
+			DEVPRINTF( "[ma] TEMP r27 ratctl veh=%s thr=%.2f rev=%d mx=%.2f ctrl=(%.3f,%.3f) front=(%.3f,%.3f) vel=(%.2f,%.2f) steer=%.2f\n",
+					( Name() ) ? Name() : "noname",
+					(double) m_fThrottle,
+					( m_nControlsBot_Buttons & CBotControl::BUTTONFLAG_SPECIAL2 ) ? 1 : 0,
+					(double) GetMaxUnitSpeed(),
+					(double) m_ControlsBot_XlatNormSpeedXZ_WS.x,
+					(double) m_ControlsBot_XlatNormSpeedXZ_WS.z,
+					(double) m_MtxToWorld.m_vFront.x,
+					(double) m_MtxToWorld.m_vFront.z,
+					(double) m_PhysObj.GetVelocity()->x,
+					(double) m_PhysObj.GetVelocity()->z,
+					(double) m_fSteeringPosition );
+		}
+	}
+
 //if( IsPlayerBot() )
 //ftext_Printf( 0.15f, 0.32f, "~f1~C92929299~w1~al~s0.69clamping %.2f", m_PhysObj.GetClampingCoefficient() );
 
