@@ -485,7 +485,13 @@ BOOL CWeaponFlamer::ClassHierarchyBuild( void ) {
 		goto _ExitWithError;
 	}
 
-	if( !m_pFlamer->Create( this, m_apDamageProfileHit[0], m_apDamageProfileBurn[0], CFlamer::FLAMER_DEFAULT_STREAM_NODE_COUNT, m_aUserProps[0].hFiringSound, m_aUserProps[0].hFadeOutSound ) ) {
+	// [ma] Round-33: retail passes the m_aUserProps[m_nUpgradeLevel] row's
+	// profiles/sounds to CFlamer::Create (retail FUN_0013de50 fills the create
+	// params from the level row); the leak hardcoded row 0 here.  (For NPC and
+	// item weapons the level is still 0 at build time -- the level's profiles
+	// reach the flamer via SetProfiles() in ClassHierarchySetUpgradeLevel,
+	// matching retail.)
+	if( !m_pFlamer->Create( this, m_apDamageProfileHit[m_nUpgradeLevel], m_apDamageProfileBurn[m_nUpgradeLevel], CFlamer::FLAMER_DEFAULT_STREAM_NODE_COUNT, m_aUserProps[m_nUpgradeLevel].hFiringSound, m_aUserProps[m_nUpgradeLevel].hFadeOutSound ) ) {
 		DEVPRINTF( "CWeaponFlamer::Create(): Could not create m_pFlamer.\n" );
 		goto _ExitWithError;
 	}
@@ -737,6 +743,15 @@ void CWeaponFlamer::ClassHierarchySetUpgradeLevel( u32 nPreviousUpgradeLevel ) {
 	}
 
 	TransferFromReserveToClip( INFINITE_AMMO, FALSE );
+
+	// [ma] Round-33: retail re-applies the new EUK level's damage profiles and
+	// firing sounds to the live CFlamer on upgrade-level change (retail
+	// CWeaponFlamer::ClassHierarchySetUpgradeLevel refills the flamer create
+	// params from m_aUserProps[m_nUpgradeLevel] and re-applies them).  The leak
+	// never touched m_pFlamer here, so every flamer burned with the level-0
+	// (FlamerL1) profiles -- possessed MIL flamers ticked flamerburnl1
+	// (period 0.0 = every frame) instead of flamerburn_mil (period 0.25).
+	m_pFlamer->SetProfiles( m_apDamageProfileHit[m_nUpgradeLevel], m_apDamageProfileBurn[m_nUpgradeLevel], m_aUserProps[m_nUpgradeLevel].hFiringSound, m_aUserProps[m_nUpgradeLevel].hFadeOutSound );
 }
 
 

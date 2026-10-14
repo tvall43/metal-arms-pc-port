@@ -279,6 +279,26 @@ _ExitWithError:
 }
 
 
+// [ma] Round-33: re-apply the owner weapon's current EUK level damage profiles
+// (and firing sounds) to this live flamer.  Retail does exactly this in
+// CWeaponFlamer::ClassHierarchySetUpgradeLevel: it refills the CFlamer create
+// params from m_aUserProps[m_nUpgradeLevel] (retail FUN_0013de50) and
+// re-applies them to the existing CFlamer (retail param-copy FUN_001e2540,
+// profiles -> +4/+8, sounds -> the CFlamer sound-handle members).  The leak
+// never updated the flamer on upgrade-level change, so every flamer instance
+// kept burning with the level-0 profiles regardless of its actual level.
+void CFlamer::SetProfiles( const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, FSndFx_FxHandle_t hSoundFire, FSndFx_FxHandle_t hSoundOff ) {
+	FASSERT( IsCreated() );
+
+	DEVPRINTF( "[ma] r33 flamer SetProfiles this=%p hit '%s'(%p)->'%s'(%p) burn '%s'(%p)->'%s'(%p)\n", this, CDamage::SafeProfileName( m_pDamageProfileHit ), m_pDamageProfileHit, CDamage::SafeProfileName( pDamageProfileHit ), pDamageProfileHit, CDamage::SafeProfileName( m_pDamageProfileBurn ), m_pDamageProfileBurn, CDamage::SafeProfileName( pDamageProfileBurn ), pDamageProfileBurn );
+
+	m_pDamageProfileHit = pDamageProfileHit;
+	m_pDamageProfileBurn = pDamageProfileBurn;
+	m_hSoundFire = hSoundFire;
+	m_hSoundOff = hSoundOff;
+}
+
+
 void CFlamer::Destroy( void ) {
 
 	if( IsCreated() ) {

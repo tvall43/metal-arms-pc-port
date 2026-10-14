@@ -208,6 +208,7 @@ public:
 	static void WorkAll( void );
 
 	BOOL Create( CWeapon *pOwnerWeapon, const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, u32 nStreamNodeCount = FLAMER_DEFAULT_STREAM_NODE_COUNT, FSndFx_FxHandle_t hSoundFire=NULL, FSndFx_FxHandle_t hSoundOff=NULL );
+	void SetProfiles( const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, FSndFx_FxHandle_t hSoundFire, FSndFx_FxHandle_t hSoundOff );
 	void Destroy( void );
 	FINLINE BOOL IsCreated( void ) const { return m_nFlags & FLAG_CREATED; }
 

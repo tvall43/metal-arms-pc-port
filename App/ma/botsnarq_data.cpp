@@ -131,7 +131,7 @@ const FGameData_TableEntry_t CBotSnarq::m_aBotInfoVocab_Snarq[] = {
 	F32_DATATABLE_100,
 
 	FGAMEDATA_VOCAB_F32_UNIT,					// f32 fEngineResponseRate;				// how fast the particles/sounds respond to changes in accel
-	FGAMEDATA_VOCAB_ARMOR,						//	CDamageProfile *pGunDamageProfile;
+	FGAMEDATA_VOCAB_DAMAGE,						//	CDamageProfile *pGunDamageProfile;		// [ma] Round-33: b_snarq.csv cell is "SnarqLaser", a *damage* profile (damage.csv 'snarqlaser'); the leak's ARMOR vocab resolved it via FindArmorProfile() -> not found -> m_ArmorProfileInfinite, so every snarq tracer form was rejected at submit (log_f: 76x).  Retail's fire path treats the field as damage too (reads bot-info+0x1c, FindDamageProfile fallback).
 	FGAMEDATA_VOCAB_SOUND_GROUP,				// CFSoundGroup *pHoverSound;
 	FGAMEDATA_VOCAB_SOUND_GROUP,				// CFSoundGroup *pGunSound;
 	FGAMEDATA_VOCAB_PARTICLE,					// FParticle_DefHandle_t hExhaustParticle;
