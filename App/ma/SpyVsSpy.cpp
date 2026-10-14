@@ -5635,11 +5635,18 @@ BOOL CProgramStage::Load( LevelEvent_e eEvent ) {
 	if( eEvent == LEVEL_EVENT_POST_WORLD_LOAD ) {
 		CEntity *pEntity;
 
-		// Find the spawn point
-		if( !( pEntity = CSpyVsSpy::FindEntity( _PROGRAM_SPAWN_POINT, ENTITY_BIT_SPHERE ) ) ) {
-			goto _ExitWithError;
+		// Find the spawn point.  Retail 1.20 removed the 'reprogram' sphere
+		// from WECFfacty01.wld, and the retail XBE has no reference to the
+		// name at all (retail's CProgramStage::Load at VA 0x230270 never
+		// looks it up), so a miss is not fatal: fall back to the box-stop
+		// point below (that is the only position retail keeps).
+		CEntity *pSpawnEntity = CSpyVsSpy::FindEntity( _PROGRAM_SPAWN_POINT, ENTITY_BIT_SPHERE );
+		if( pSpawnEntity ) {
+			m_SpawnPoint = pSpawnEntity->MtxToWorld()->m_vPos;
+		} else {
+			DEVPRINTF( "[ma] r34 CProgramStage::Load(): spawn '%s' not found (retail 1.20 data)\n", _PROGRAM_SPAWN_POINT );
+			m_SpawnPoint.Zero();	// fallback set from box-stop below
 		}
-		m_SpawnPoint = pEntity->MtxToWorld()->m_vPos;
 
 		// Find the crate
 		if( !( pEntity = CSpyVsSpy::FindEntity( _PROGRAM_CRATE_NAME, ENTITY_BIT_MESHENTITY ) ) ) {
@@ -5658,6 +5665,11 @@ BOOL CProgramStage::Load( LevelEvent_e eEvent ) {
 			goto _ExitWithError;
 		}
 		m_CrateDest = pEntity->MtxToWorld()->m_vPos;
+
+		// If 'reprogram' was absent (retail 1.20), spawn at the box-stop point.
+		if( !pSpawnEntity ) {
+			m_SpawnPoint = m_CrateDest;
+		}
 
 		// Try to load our program particles
 //		m_hProgramParticleDef = (FParticle_DefHandle_t) fresload_Load( FPARTICLE_RESTYPE, _PROGRAM_PARTICLES );

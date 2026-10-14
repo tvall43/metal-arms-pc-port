@@ -464,6 +464,11 @@ void CDDRStage::Unload( void ) {
 		m_pCrusherEmitter = NULL;
 	}
 
+	if( m_pHoloMesh ) {
+		fdelete( m_pHoloMesh );		// CFWorldTracker dtor removes it from world first
+		m_pHoloMesh = NULL;
+	}
+
 	_ClearDataMembers();
 }
 
