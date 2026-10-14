@@ -504,6 +504,16 @@ CDamageForm *CDamage::GetEmptyDamageFormFromPool( void ) {
 	CDamageForm *pDamageForm = (CDamageForm *)flinklist_RemoveTail( &m_RootFreeDamageForm );
 	if( pDamageForm == NULL ) {
 		// No more in the free pool...
+		// [ma] Round-32: pool exhaustion silently drops damage submissions
+		// (flamer rays, rivet, door guns...).  Log it so dropped-damage
+		// reports can be told apart from balance problems.
+		static u32 s_nTEMPPool32 = 0;
+		s_nTEMPPool32++;
+		if( s_nTEMPPool32 <= 16 || ( s_nTEMPPool32 % 120 ) == 0 ) {
+			DEVPRINTF( "[ma] TEMP r32 damage form pool EMPTY f=%u cnt=%u caller=%p\r\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPPool32,
+				__builtin_return_address( 0 ) );
+		}
 		return NULL;
 	}
 
@@ -584,15 +594,17 @@ void CDamage::SubmitDamageForm( CDamageForm *pDamageForm, f32 fDuration ) {
 		// Ignore form...
 
 		// [ma] Round-19: submission validation dropped the form (which input was bad?).
+		// [ma] Round-32: add the submitting site (return address) -- r20 logged the
+		// bad pointer but never who assigned it.
 		{
 			static u32 s_nTEMPPrep19 = 0;
 			s_nTEMPPrep19++;
 			if( s_nTEMPPrep19 <= 32 || ( s_nTEMPPrep19 % 120 ) == 0 ) {
-				DEVPRINTF( "[ma] TEMP r19 submit PREPARE-FAIL f=%u cnt=%u form=%p locale=%u deliv=%u norm=%g dur=%g damagee=%p profile=%p\n",
+				DEVPRINTF( "[ma] TEMP r19 submit PREPARE-FAIL f=%u cnt=%u form=%p locale=%u deliv=%u norm=%g dur=%g damagee=%p profile=%p caller=%p\n",
 					(unsigned)FVid_nFrameCounter, s_nTEMPPrep19, pDamageForm,
 					(unsigned)pDamageForm->m_nDamageLocale, (unsigned)pDamageForm->m_nDamageDelivery,
 					pDamageForm->m_fNormIntensity, fDuration, pDamageForm->m_pDamageeEntity,
-					pDamageForm->m_pDamageProfile );
+					pDamageForm->m_pDamageProfile, __builtin_return_address( 0 ) );
 			}
 		}
 
@@ -634,6 +646,18 @@ void CDamage::SubmitDamageForm( CDamageForm *pDamageForm, f32 fDuration ) {
 		pWorkDamageForm->_Work();
 
 		// Retire the form...
+
+		// [ma] Round-32: if the form got re-listed (re-submitted) while we worked
+		// it, retail adds it back to the free pool here anyway -- leaving the same
+		// form in two lists.  That double-list is the corruption that eventually
+		// hands a re-Init'ed (NULL damagee) form back to _Work (reactr2 crash).
+		// Log it and leave the form to the list that now owns it.
+		if( pWorkDamageForm->m_nListMember != CDamageForm::LIST_MEMBER_NONE ) {
+			DEVPRINTF( "[ma] TEMP r32 instant form re-listed during work f=%u form=%p listmember=%u\n",
+				(unsigned)FVid_nFrameCounter, pWorkDamageForm,
+				(unsigned)pWorkDamageForm->m_nListMember );
+			continue;
+		}
 
 		if( pWorkDamageForm->m_nFlags & CDamageForm::DAMAGE_FLAG_FORM_ORIG_FROM_FREE_POOL ) {
 			pWorkDamageForm->m_nListMember = CDamageForm::LIST_MEMBER_FREE_POOL;
@@ -712,6 +736,17 @@ void CDamage::Work( void ) {
 	for( i=0; i<nQueuedFormCount; ++i ) {
 		if( __apDamageFormArray[i]->_Work() ) {
 			// This form is ready to be moved back in the free pool...
+
+			// [ma] Round-32: the form should still say QUEUED here.  If it does
+			// not, it was re-submitted while we worked it and the flinklist_Remove
+			// below would rip it out of whichever list now owns it (or corrupt that
+			// list).  Log and leave it alone.
+			if( __apDamageFormArray[i]->m_nListMember != CDamageForm::LIST_MEMBER_QUEUED_POOL ) {
+				DEVPRINTF( "[ma] TEMP r32 queued form re-listed during work f=%u form=%p listmember=%u\n",
+					(unsigned)FVid_nFrameCounter, __apDamageFormArray[i],
+					(unsigned)__apDamageFormArray[i]->m_nListMember );
+				continue;
+			}
 
 			FASSERT( __apDamageFormArray[i]->m_nListMember == CDamageForm::LIST_MEMBER_QUEUED_POOL );
 
@@ -1323,7 +1358,24 @@ BOOL CDamageForm::_Work( void ) {
 		if( m_fNormIntensity != 0.0f ) {
 			switch( m_nDamageDelivery ) {
 			case DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY:
-				if( !m_pDamageeEntity->IsInvincible() ) {
+				// [ma] Round-32: retail (XBE FUN_001bb5a0 case 0) derefs
+				// m_pDamageeEntity here with no NULL test (reads [form+0x90]+0x158
+				// directly).  Xbox maps physical page 0, so a NULL read lands in
+				// mapped garbage; Win32 page 0 is unmapped and AVs (reactr2 crash,
+				// log_e line 84105).  The only writer of m_pDamageeEntity = NULL is
+				// CDamageForm::Init(), so NULL here means a live form was re-Init'ed
+				// while still reachable from a work list -- log who worked it.
+				if( m_pDamageeEntity == NULL ) {
+					static u32 s_nTEMPNull32 = 0;
+					s_nTEMPNull32++;
+					if( s_nTEMPNull32 <= 16 || ( s_nTEMPNull32 % 120 ) == 0 ) {
+						DEVPRINTF( "[ma] TEMP r32 NULL damagee in _Work f=%u cnt=%u form=%p listmember=%u flags=%u locale=%u norm=%g caller=%p\r\n",
+							(unsigned)FVid_nFrameCounter, s_nTEMPNull32, this,
+							(unsigned)m_nListMember, (unsigned)m_nFlags,
+							(unsigned)m_nDamageLocale, m_fNormIntensity,
+							__builtin_return_address( 0 ) );
+					}
+				} else if( !m_pDamageeEntity->IsInvincible() ) {
 					_Work_OneSpecificEntity();
 				}
 
@@ -1335,11 +1387,34 @@ BOOL CDamageForm::_Work( void ) {
 				break;
 
 			case DAMAGE_DELIVERY_ALL_ENTITIES_WITHIN_SPECIFIC_VOLUME:
-				_Work_SpecificVolume();
+				// [ma] Round-32: same NULL guard rationale as case 0 (Init() does
+				// not re-zero m_pVisVolume, so this only trips on a form that was
+				// submitted without a volume in the first place).
+				if( m_pVisVolume == NULL ) {
+					static u32 s_nTEMPVolNull32 = 0;
+					s_nTEMPVolNull32++;
+					if( s_nTEMPVolNull32 <= 16 || ( s_nTEMPVolNull32 % 120 ) == 0 ) {
+						DEVPRINTF( "[ma] TEMP r32 NULL volume in _Work f=%u cnt=%u form=%p caller=%p\r\n",
+							(unsigned)FVid_nFrameCounter, s_nTEMPVolNull32, this,
+							__builtin_return_address( 0 ) );
+					}
+				} else {
+					_Work_SpecificVolume();
+				}
 				break;
 
 			case DAMAGE_DELIVERY_ALL_ENTITIES_WITHIN_SPECIFIC_TRIPWIRE:
-				_Work_SpecificTripwire();
+				if( m_pTripwireEntity == NULL ) {
+					static u32 s_nTEMPTwNull32 = 0;
+					s_nTEMPTwNull32++;
+					if( s_nTEMPTwNull32 <= 16 || ( s_nTEMPTwNull32 % 120 ) == 0 ) {
+						DEVPRINTF( "[ma] TEMP r32 NULL tripwire in _Work f=%u cnt=%u form=%p caller=%p\r\n",
+							(unsigned)FVid_nFrameCounter, s_nTEMPTwNull32, this,
+							__builtin_return_address( 0 ) );
+					}
+				} else {
+					_Work_SpecificTripwire();
+				}
 				break;
 
 			default:
