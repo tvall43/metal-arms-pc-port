@@ -907,6 +907,24 @@ void CFWorldTracker::AddToWorld( void )
 		}
 	}
 
+	// [ma] Round-31: a tracker added into ZERO volumes is invisible to every
+	// ray/collision walk (matches the 'TEMP reg ... inter=0 added=1' lines).
+	if ( GetIntersectCount() == 0 )
+	{
+		static struct { const void *pKey; u32 nCount; } s_aTEMPr31Vol[64];
+		static u32 s_nTEMPr31Vol = 0;
+		const void *pTEMPKey = this;
+		u32 nTEMPIdx;
+		for ( nTEMPIdx = 0; nTEMPIdx < s_nTEMPr31Vol; ++nTEMPIdx ) { if ( s_aTEMPr31Vol[nTEMPIdx].pKey == pTEMPKey ) { break; } }
+		if ( nTEMPIdx == s_nTEMPr31Vol && s_nTEMPr31Vol < 64 ) { s_aTEMPr31Vol[nTEMPIdx].pKey = pTEMPKey; s_aTEMPr31Vol[nTEMPIdx].nCount = 0; ++s_nTEMPr31Vol; }
+		if ( nTEMPIdx < s_nTEMPr31Vol && s_aTEMPr31Vol[nTEMPIdx].nCount < 3 )
+		{
+			++s_aTEMPr31Vol[nTEMPIdx].nCount;
+			DEVPRINTF( "[ma] TEMP r31 addvol tracker=%p type=%u pos=(%g,%g,%g)\n",
+				this, (unsigned)GetType(), m_BoundSphere_WS.m_Pos.x, m_BoundSphere_WS.m_Pos.y, m_BoundSphere_WS.m_Pos.z );
+		}
+	}
+
 	FMATH_SETBITMASK( m_nTrackerFlags, FWORLD_TRACKER_FLAG_ADDED );
 	flinklist_AddTail( &m_TrackerRoot, this );
 }

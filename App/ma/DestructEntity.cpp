@@ -360,6 +360,11 @@ void CDestructEntity::ClassHierarchyResolveEntityPointerFixups()
 void CDestructEntity::_StartDie()
 {
 #ifndef DISABLE_ALL_DESTRUCT
+	// [ma] Round-31: destruct death (fires the script 'destruct' event at the end).
+	DEVPRINTF( "[ma] TEMP r31 destruct DIE f=%u name=%s pos=(%g,%g,%g)\n",
+		(unsigned)FVid_nFrameCounter, Name(),
+		MtxToWorld()->m_vPos.x, MtxToWorld()->m_vPos.y, MtxToWorld()->m_vPos.z );
+
 	SelectMesh(m_eDEConfig.m_uTotMeshCnt - 1);
 
 	// The state has to be changed up here or else a cluster of crystals could result in infinitely
@@ -482,6 +487,25 @@ void CDestructEntity::InflictDamage(CDamageData *pDamageData)
 			CMeshEntity::InflictDamage(pDamageData);
 
 			f32 fCurHealth = NormHealth();
+
+			// [ma] Round-31: destruct health after each hit (throttled per entity).
+			{
+				static struct { const void *pKey; u32 nCount; } s_aTEMPr31HP[128];
+				static u32 s_nTEMPr31HP = 0;
+				const void *pTEMPKey = this;
+				u32 nTEMPIdx;
+				for( nTEMPIdx = 0; nTEMPIdx < s_nTEMPr31HP; ++nTEMPIdx ) { if ( s_aTEMPr31HP[nTEMPIdx].pKey == pTEMPKey ) { break; } }
+				if( nTEMPIdx == s_nTEMPr31HP && s_nTEMPr31HP < 128 ) { s_aTEMPr31HP[nTEMPIdx].pKey = pTEMPKey; s_aTEMPr31HP[nTEMPIdx].nCount = 0; ++s_nTEMPr31HP; }
+				if( nTEMPIdx < s_nTEMPr31HP && ( s_aTEMPr31HP[nTEMPIdx].nCount < 6 || ( s_aTEMPr31HP[nTEMPIdx].nCount % 60 ) == 0 ) ) {
+					++s_aTEMPr31HP[nTEMPIdx].nCount;
+					DEVPRINTF( "[ma] TEMP r31 destruct dmg f=%u name=%s hp=%g prof=%s pBot=%p dplayer=%d\n",
+						(unsigned)FVid_nFrameCounter, Name(), fCurHealth,
+						CDamage::SafeProfileName( pDamageData ? pDamageData->m_pDamageProfile : NULL ),
+						( pDamageData ) ? (void *)pDamageData->m_Damager.pBot : NULL,
+						( pDamageData ) ? (int)pDamageData->m_Damager.nDamagerPlayerIndex : -1 );
+				}
+			}
+
 			if(fCurHealth <= 0.0f)
 			{
 				_StartDie();

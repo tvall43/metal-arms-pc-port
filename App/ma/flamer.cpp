@@ -1009,7 +1009,43 @@ void CFlamer::_SpawnBurners( void ) {
 	}
 	UnitFireDir.Mul( fmath_InvSqrt( fMag2 ) );
 
-	if( !fworld_FindClosestImpactPointToRayStart( &CollImpact, &RayStart, &RayEnd, 0, NULL, TRUE, NULL, -1, FCOLL_MASK_COLLIDE_WITH_THIN_PROJECTILES ) ) {
+	BOOL bTEMPHit = fworld_FindClosestImpactPointToRayStart( &CollImpact, &RayStart, &RayEnd, 0, NULL, TRUE, NULL, -1, FCOLL_MASK_COLLIDE_WITH_THIN_PROJECTILES );
+
+	// [ma] Round-31: NPC flamer ray outcomes (reactor cutscene: does slosh's
+	// flame ever reach real_grate, and what does it hit?). Counted only for
+	// non-player owners so the player's own flamming doesn't eat the budget.
+	{
+		CBot *pTEMPBot = m_pOwnerWeapon ? m_pOwnerWeapon->GetOwner() : NULL;
+		if( pTEMPBot && pTEMPBot->m_nPossessionPlayerIndex < 0 ) {
+			static u32 s_nTEMPr31Ray = 0;
+			s_nTEMPr31Ray++;
+			if( s_nTEMPr31Ray <= 60 || ( s_nTEMPr31Ray % 240 ) == 0 ) {
+				cchar *pszTEMPHit = "-";
+				CFVec3A TEMPpt = CFVec3A::m_Null;
+				int nTEMPSelf = 0;
+				if( bTEMPHit ) {
+					TEMPpt = CollImpact.ImpactPoint;
+					if( CollImpact.pTag ) {
+						CFWorldMesh *pTEMPWM = (CFWorldMesh *)CollImpact.pTag;
+						if( pTEMPWM->m_nUser == MESHTYPES_ENTITY ) {
+							CEntity *pTEMPEnt = (CEntity *)pTEMPWM->m_pUser;
+							pszTEMPHit = pTEMPEnt ? pTEMPEnt->Name() : "?";
+							nTEMPSelf = ( pTEMPEnt == pTEMPBot ) ? 1 : 0;
+						} else {
+							pszTEMPHit = "(world)";
+						}
+					} else {
+						pszTEMPHit = "(notag)";
+					}
+				}
+				DEVPRINTF( "[ma] TEMP r31 flamer ray f=%u cnt=%u owner=%s hit=%d pt=(%g,%g,%g) raylen=%g target=%s self=%d\n",
+					(unsigned)FVid_nFrameCounter, s_nTEMPr31Ray, pTEMPBot->Name(), (int)bTEMPHit,
+					TEMPpt.x, TEMPpt.y, TEMPpt.z, fmath_Sqrt( fMag2 ), pszTEMPHit, nTEMPSelf );
+			}
+		}
+	}
+
+	if( !bTEMPHit ) {
 		// No collision...
 		return;
 	}

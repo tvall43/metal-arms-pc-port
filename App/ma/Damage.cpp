@@ -1307,13 +1307,16 @@ BOOL CDamageForm::_Work( void ) {
 		cchar *pszEType = "-";
 		CFVec3A posE = CFVec3A::m_Null;
 		if( m_pDamageeEntity ) { u64 nLeaf = m_pDamageeEntity->LeafTypeBit(); u32 nBit = 0; while( nLeaf >>= 1 ) nBit++; pszEType = ( nBit < 61 ) ? CEntity::m_apszEntityType[ nBit ] : "?"; posE = m_pDamageeEntity->MtxToWorld()->m_vPos; }
-		DEVPRINTF( "[ma] TEMP r19 dmg gate BLOCK f=%u form=%p deal=%d ret=%g norm=%g deliv=%u damagee=%p name=%s etype=%s epos=(%g,%g,%g) invinc=%d profile=%p\n",
+		DEVPRINTF( "[ma] TEMP r19 dmg gate BLOCK f=%u form=%p deal=%d ret=%g norm=%g deliv=%u damagee=%p name=%s etype=%s epos=(%g,%g,%g) invinc=%d profile=%p prof=%s bot=%p botname=%s wep=%p dplayer=%d self=%d\n",
 			(unsigned)FVid_nFrameCounter, this, (int)bDealDamage,
 			m_fSecsUntilFormRetired, m_fNormIntensity, (unsigned)m_nDamageDelivery,
 			m_pDamageeEntity, m_pDamageeEntity ? m_pDamageeEntity->Name() : "-",
 			pszEType, posE.x, posE.y, posE.z,
 			m_pDamageeEntity ? (int)m_pDamageeEntity->IsInvincible() : -1,
-			m_pDamageProfile );
+			m_pDamageProfile, CDamage::SafeProfileName( m_pDamageProfile ),
+			m_Damager.pBot, m_Damager.pBot ? m_Damager.pBot->Name() : "-",
+			m_Damager.pWeapon, (int)m_Damager.nDamagerPlayerIndex,
+			( m_Damager.pBot && m_Damager.pBot == m_pDamageeEntity ) ? 1 : 0 );
 	}
 
 	if( bDealDamage ) {
