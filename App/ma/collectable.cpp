@@ -130,6 +130,46 @@ static const NameType_t _collectableTypes[] = {
 	{ "Cleaner",			COLLECTABLE_WEAPON_CLEANER },
 	{ "Wrench",				COLLECTABLE_WEAPON_WRENCH },
 	{ "Recruiter Grenade",	COLLECTABLE_WEAPON_RECRUITER },
+
+	// PC port: retail's collectable name table gained rows after this source
+	// was cut (the 72-row table decoded from default.xbe, file 0x348f28, has
+	// "EUK <weapon> [2|3]" at rows 19-41 and the scopes after them). Retail's
+	// BarterItems.csv names every shop upgrade that way, and each level's
+	// barter stock table (ns2_barter1, wemcbrtr_01/02, weshbarter1, ...) uses
+	// the same spelling, so every barter row failed to classify and Slim and
+	// Shady had nothing to sell - the shop never appeared on any level.
+	// These are pure name aliases onto the same weapon-upgrade types the
+	// level pickups use; the search above is linear so appending after the
+	// enum-ordered block is safe. "Battery N" is how retail numbers its
+	// battery shop rows (goodies.csv has a single 'battery' type).
+	{ "EUK Laser",			COLLECTABLE_WEAPON_LASER_L1 },
+	{ "EUK Laser 2",		COLLECTABLE_WEAPON_LASER_L2 },
+	{ "EUK Laser 3",		COLLECTABLE_WEAPON_LASER_L3 },
+	{ "EUK Ripper",			COLLECTABLE_WEAPON_RIPPER_L1 },
+	{ "EUK Ripper 2",		COLLECTABLE_WEAPON_RIPPER_L2 },
+	{ "EUK Ripper 3",		COLLECTABLE_WEAPON_RIPPER_L3 },
+	{ "EUK Rivet Gun",		COLLECTABLE_WEAPON_RIVET_GUN_L1 },
+	{ "EUK Rivet Gun 2",	COLLECTABLE_WEAPON_RIVET_GUN_L2 },
+	{ "EUK Rivet Gun 3",	COLLECTABLE_WEAPON_RIVET_GUN_L3 },
+	{ "EUK Rocket",			COLLECTABLE_WEAPON_ROCKET_L1 },
+	{ "EUK Rocket 2",		COLLECTABLE_WEAPON_ROCKET_L2 },
+	{ "EUK Rocket 3",		COLLECTABLE_WEAPON_ROCKET_L3 },
+	{ "EUK Blaster",		COLLECTABLE_WEAPON_BLASTER_L1 },
+	{ "EUK Blaster 2",		COLLECTABLE_WEAPON_BLASTER_L2 },
+	{ "EUK Blaster 3",		COLLECTABLE_WEAPON_BLASTER_L3 },
+	{ "EUK Tether",			COLLECTABLE_WEAPON_TETHER_L1 },
+	{ "EUK Tether 2",		COLLECTABLE_WEAPON_TETHER_L2 },
+	{ "EUK Tether 3",		COLLECTABLE_WEAPON_TETHER_L3 },
+	{ "EUK Spew",			COLLECTABLE_WEAPON_SPEW_L1 },
+	{ "EUK Spew 2",			COLLECTABLE_WEAPON_SPEW_L2 },
+	{ "EUK Spew 3",			COLLECTABLE_WEAPON_SPEW_L3 },
+	{ "EUK Scope",			COLLECTABLE_WEAPON_SCOPE_L1 },
+	{ "EUK Scope 2",		COLLECTABLE_WEAPON_SCOPE_L2 },
+	{ "Battery 2",			COLLECTABLE_BATTERY },
+	{ "Battery 3",			COLLECTABLE_BATTERY },
+	{ "Battery 4",			COLLECTABLE_BATTERY },
+	{ "Battery 5",			COLLECTABLE_BATTERY },
+	{ "Battery 6",			COLLECTABLE_BATTERY },
 };
 
 static const u32 _uNumCollectableTypes		= sizeof( _collectableTypes ) / sizeof( NameType_t );

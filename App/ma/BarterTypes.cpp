@@ -455,6 +455,21 @@ _ExitWithError:
 	return FALSE;
 }
 
+// PC port: these tables are allocated from the level's resource frame. When a
+// level is left without bartersystem_UninitLevel() having run - which happens
+// whenever the previous level's barter init failed partway - they survive into
+// the next level still pointing at memory that has since been released. Drop
+// them without freeing, so the Uninit paths do not walk them and fault on
+// whatever now occupies that memory.
+void CBarterItem::DropStaleState()
+{
+	for( s32 nSlot = 0; nSlot < BARTER_TYPES_NUM_SLOTS; nSlot++ )
+	{
+		m_apaItems[nSlot] = NULL;
+		m_aNumItems[nSlot] = 0;
+	}
+}
+
 void CBarterItem::Shutdown() 
 {
 
@@ -506,6 +521,7 @@ CBarterResponse *CBarterItem::CreateResponseArrayFromTable( FGameDataTableHandle
 		FGameData_VarType_e nDataType;
 		cchar *pszFilename, *pszKeyword, *pszEventName;
 		f32 fPercent, fPercentCompleteBeforeEventTriggers;
+		u32 nGood = 0;
 		nIndex = 0;
 		for( i=0; i < rnNumItems; i++ ) {
 			pszFilename = (cchar *)fgamedata_GetPtrToFieldData( hBotTalkTable, nIndex, nDataType );
@@ -514,13 +530,27 @@ CBarterResponse *CBarterItem::CreateResponseArrayFromTable( FGameDataTableHandle
 			pszEventName = (cchar *)fgamedata_GetPtrToFieldData( hBotTalkTable, nIndex + 3, nDataType );
 			fPercentCompleteBeforeEventTriggers = *(f32 *)fgamedata_GetPtrToFieldData( hBotTalkTable, nIndex + 4, nDataType );
 
-			if( !paResponses[i].Init( pszFilename, fPercent, pszKeyword, pszEventName, fPercentCompleteBeforeEventTriggers ) ) {
-				DEVPRINTF( "CBarterItem::CreateResponseArrayFromTable() : Could not init a bot talk reponse, File = '%s', Keyword = '%s'.\n", pszFilename, pszKeyword );
-				fdelete_array( paResponses );
-				fres_ReleaseFrame( hResFrame );
-				return NULL;
+			// PC port: one bad row used to throw the whole table away, which
+			// took the barter system - and the level's shop - down with it.
+			// Retail's BarterItems.csv ends Generic_Bot_Talks with a
+			// "NOSOUPFORYOU" state this source version has no counterpart for
+			// (a silent BD_NOTHING line with Slim shaking his head, for a
+			// sale Shady turns down), so every barter level failed to init.
+			// Skip what we cannot read and keep the rest.
+			if( !paResponses[nGood].Init( pszFilename, fPercent, pszKeyword, pszEventName, fPercentCompleteBeforeEventTriggers ) ) {
+				DEVPRINTF( "CBarterItem::CreateResponseArrayFromTable() : Skipping bot talk response, File = '%s', Keyword = '%s'.\n", pszFilename, pszKeyword );
+			} else {
+				++nGood;
 			}
 			nIndex += 5;
+		}
+
+		rnNumItems = nGood;
+		if( !nGood ) {
+			DEVPRINTF( "CBarterItem::CreateResponseArrayFromTable() : No usable responses in table '%s'.\n", fgamedata_GetTableName( hBotTalkTable ) );
+			fdelete_array( paResponses );
+			fres_ReleaseFrame( hResFrame );
+			return NULL;
 		}
 		return paResponses;
 	}
@@ -1282,6 +1312,14 @@ _ExitWithError:
 	fmem_ReleaseFrame( hMemFrame );
 
 	return FALSE;
+}
+
+// PC port: see the note on CBarterItem::DropStaleState().
+void CBarterLevel::DropStaleState()
+{
+	m_pCurrentTable = NULL;
+	m_paTables = NULL;
+	m_nNumTables = 0;
 }
 
 void CBarterLevel::UninitLevel() 

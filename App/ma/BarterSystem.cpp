@@ -207,7 +207,21 @@ void bartersystem_UninitSystem() {
 BOOL bartersystem_InitLevel( cchar *pszCSVFile ) {
 	
 	FASSERT( !_bLevelOK );
-	
+
+	// PC port: the item and table arrays are allocated from the level's
+	// resource frame. When a level is left without bartersystem_UninitLevel()
+	// having run - which happens whenever the previous level's barter init
+	// failed partway - they survive into the next level still pointing at
+	// memory that has since been released. Drop them without freeing, so the
+	// Uninit paths do not walk them and fault on whatever now occupies that
+	// memory.
+	CBarterItem::DropStaleState();
+	CBarterLevel::DropStaleState();
+	_pBoxMeshEntity = NULL;
+	_pBarterSound = NULL;
+	_pShady = NULL;
+	_pSlim = NULL;
+
 	//////////////////////////////////////////////////////
 	// see if the player has seen the barter droids before
 	_bFirstBarterEncounter = FALSE;
@@ -756,10 +770,16 @@ void _InitUserInterface(void)
 	_avtxButtonPurchase[1].ST.Set(fU2,fV1);
 	_avtxButtonPurchase[2].ST.Set(fU1,fV2);
 	_avtxButtonPurchase[3].ST.Set(fU2,fV2);
+	// PC port: these were [1]..[4] - one past the end of this 4-vertex array
+	// (the Leave button does [0]..[3]). The fifth vertex's colour is four
+	// floats of 1.0f, and in this build's .bss they land on _pShady,
+	// _pBarterSound, _pBoxMeshEntity and _apBarterPts[0] - the 1.0f found in
+	// _pBoxMeshEntity after a failed barter init. Vertex [0] was never
+	// coloured at all, so one corner of the Purchase button was transparent.
+	_avtxButtonPurchase[0].ColorRGBA.OpaqueWhite();
 	_avtxButtonPurchase[1].ColorRGBA.OpaqueWhite();
 	_avtxButtonPurchase[2].ColorRGBA.OpaqueWhite();
 	_avtxButtonPurchase[3].ColorRGBA.OpaqueWhite();
-	_avtxButtonPurchase[4].ColorRGBA.OpaqueWhite();
 
 #if FANG_PLATFORM_DX
 	const f32 fAcceptX = (-272.0f / 272.0f) * fHalfResX;
@@ -2023,7 +2043,18 @@ static BOOL _WaitStateWork( void ) {
 static BOOL _InitBarterLevel( cchar *pszCSVFile ) {
 
 	FASSERT( !_bLevelOK );
-	
+
+	// PC port: this function owns these four, and its error path below hands
+	// them to bartersystem_UninitLevel(), which deletes whatever it finds. Any
+	// value here that this function did not put there is not ours to free -
+	// after a failed barter load one held 1.0f (a float, not a pointer: the
+	// _avtxButtonPurchase[4] off-by-one in _InitUserInterface scribbled it),
+	// and cleanup dereferenced it and crashed.
+	_pSlim = NULL;
+	_pShady = NULL;
+	_pBarterSound = NULL;
+	_pBoxMeshEntity = NULL;
+
 	FResFrame_t hResFrame = fres_GetFrame();
 
 	/////////////////////////////////////////

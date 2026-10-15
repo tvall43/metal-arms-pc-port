@@ -51,6 +51,7 @@ public:
 	// INTERFACE:
 	static BOOL InitFromFile( cchar *pszCSVFile );
 	static void Shutdown();
+	static void DropStaleState();	// PC port: see bartersystem_InitLevel()
 	static CBarterItem *FindBarterItem( u32 nSlot, cchar *pszItemName );
 
 	static void UninitLevel();
@@ -266,6 +267,7 @@ public:
 	// INTERFACE:
 	static BOOL InitLevel( cchar *pszCSVFile );
 	static void UninitLevel();
+	static void DropStaleState();	// PC port: see bartersystem_InitLevel()
 
 	static void Work();
 	
