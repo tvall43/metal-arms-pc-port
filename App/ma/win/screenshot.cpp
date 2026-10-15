@@ -75,9 +75,11 @@ void screenshot_Shutdown( void ) {
 void screenshot_Work( void ) {
 	
 	if( _bScreenShotsSystemOK ) {
-		// see if windows says that the space key is down
+		// see if windows says that the F12 key is down
+		// (was VK_SPACE, which screenshots on every jump; F12 matches the
+		//  documented key in screenshot.h and is unused by gameplay)
 #if FANG_PLATFORM_WIN
-		BOOL bKeyDown = fdx8vid_HaveFocus() && ( GetAsyncKeyState( VK_SPACE ) < 0 );
+		BOOL bKeyDown = fdx8vid_HaveFocus() && ( GetAsyncKeyState( VK_F12 ) < 0 );
 #else
 		BOOL bKeyDown = FALSE;// ADD SOME WAY OF CLICKING A SCREENSHOT ON OTHER PLATFORMS	
 #endif
