@@ -117,8 +117,11 @@ private:
 
 		cchar *pszDamageProfile;			// Damage profile string (references a damage profile in damage.csv)
 
-		// Sound Effects
-		FSndFx_FxHandle_t hFiringSound;		// The sound made when firing
+		// Sound group - retail's vocab flags are 0x81000 =
+		// STRING_TO_SOUND_GROUP|NONE_TO_NULL; w_laser.csv field 65 holds the
+		// group name 'LaserFire' (snd_wpn.csv -> SFX 'Fire Laser EUK1'), not
+		// a raw bank SFX name.
+		CFSoundGroup *pSoundGroupFire;		// The sound made when firing
 
 		FDecalDefHandle_t hDecalDef;		// decal def
 	} _UserProps_t;

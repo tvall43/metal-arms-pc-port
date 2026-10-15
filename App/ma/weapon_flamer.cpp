@@ -207,47 +207,19 @@ const FGameData_TableEntry_t CWeaponFlamer::m_aUserPropVocab[] = {
 	F32_DATATABLE_0,
 	F32_DATATABLE_10000000,
 
-	// hFiringSound:
-	FGAMEDATA_VAR_TYPE_STRING|
-	FGAMEDATA_FLAGS_STRING_PTR_TO_SFX_HANDLE,
-	sizeof( u32 ),
-	F32_DATATABLE_0,
-	F32_DATATABLE_0,
-
-	// hFadeOutSound:
-	FGAMEDATA_VAR_TYPE_STRING|
-	FGAMEDATA_FLAGS_STRING_PTR_TO_SFX_HANDLE,
-	sizeof( u32 ),
-	F32_DATATABLE_0,
-	F32_DATATABLE_0,
-
-	// hAttachClipSound:
-	FGAMEDATA_VAR_TYPE_STRING|
-	FGAMEDATA_FLAGS_STRING_PTR_TO_SFX_HANDLE,
-	sizeof( u32 ),
-	F32_DATATABLE_0,
-	F32_DATATABLE_0,
-
-	// hSlapInSound:
-	FGAMEDATA_VAR_TYPE_STRING|
-	FGAMEDATA_FLAGS_STRING_PTR_TO_SFX_HANDLE,
-	sizeof( u32 ),
-	F32_DATATABLE_0,
-	F32_DATATABLE_0,
-
-	// hEjectSound:
-	FGAMEDATA_VAR_TYPE_STRING|
-	FGAMEDATA_FLAGS_STRING_PTR_TO_SFX_HANDLE,
-	sizeof( u32 ),
-	F32_DATATABLE_0,
-	F32_DATATABLE_0,
-
-	// hEmptyClickSound:
-	FGAMEDATA_VAR_TYPE_STRING|
-	FGAMEDATA_FLAGS_STRING_PTR_TO_SFX_HANDLE,
-	sizeof( u32 ),
-	F32_DATATABLE_0,
-	F32_DATATABLE_0,
+	// PC port: retail's vocab flags for these six fields are 0x81000 =
+	// STRING_TO_SOUND_GROUP|NONE_TO_NULL. The names (TstFire/TstTail/
+	// TstClip/TstSlap/TstEject/TstMT - CSV fields 24,25,29,30,28,27 via
+	// _aUserPropFieldMap) exist only as sound groups in snd_wpn.csv, never
+	// as raw bank SFX, so the fsndfx handles parsed here never resolved and
+	// every flamer sound was silent. Field 26 (TstBurn, retail-added) is
+	// unread by this source.
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupFire (TstFire)
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupFadeOut (TstTail)
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupAttachClip (TstClip)
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupSlapInClip (TstSlap)
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupEjectClip (TstEject)
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupEmpty (TstMT)
 
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0
@@ -491,7 +463,7 @@ BOOL CWeaponFlamer::ClassHierarchyBuild( void ) {
 	// item weapons the level is still 0 at build time -- the level's profiles
 	// reach the flamer via SetProfiles() in ClassHierarchySetUpgradeLevel,
 	// matching retail.)
-	if( !m_pFlamer->Create( this, m_apDamageProfileHit[m_nUpgradeLevel], m_apDamageProfileBurn[m_nUpgradeLevel], CFlamer::FLAMER_DEFAULT_STREAM_NODE_COUNT, m_aUserProps[m_nUpgradeLevel].hFiringSound, m_aUserProps[m_nUpgradeLevel].hFadeOutSound ) ) {
+	if( !m_pFlamer->Create( this, m_apDamageProfileHit[m_nUpgradeLevel], m_apDamageProfileBurn[m_nUpgradeLevel], CFlamer::FLAMER_DEFAULT_STREAM_NODE_COUNT, m_aUserProps[m_nUpgradeLevel].pSoundGroupFire, m_aUserProps[m_nUpgradeLevel].pSoundGroupFadeOut ) ) {
 		DEVPRINTF( "CWeaponFlamer::Create(): Could not create m_pFlamer.\n" );
 		goto _ExitWithError;
 	}
@@ -751,7 +723,7 @@ void CWeaponFlamer::ClassHierarchySetUpgradeLevel( u32 nPreviousUpgradeLevel ) {
 	// never touched m_pFlamer here, so every flamer burned with the level-0
 	// (FlamerL1) profiles -- possessed MIL flamers ticked flamerburnl1
 	// (period 0.0 = every frame) instead of flamerburn_mil (period 0.25).
-	m_pFlamer->SetProfiles( m_apDamageProfileHit[m_nUpgradeLevel], m_apDamageProfileBurn[m_nUpgradeLevel], m_aUserProps[m_nUpgradeLevel].hFiringSound, m_aUserProps[m_nUpgradeLevel].hFadeOutSound );
+	m_pFlamer->SetProfiles( m_apDamageProfileHit[m_nUpgradeLevel], m_apDamageProfileBurn[m_nUpgradeLevel], m_aUserProps[m_nUpgradeLevel].pSoundGroupFire, m_aUserProps[m_nUpgradeLevel].pSoundGroupFadeOut );
 }
 
 
@@ -793,11 +765,7 @@ u32 CWeaponFlamer::TriggerWork( f32 fUnitTriggerVal1, f32 fUnitTriggerVal2, cons
 			if( !(m_nWeaponFlags & WEAPONFLAG_MADE_EMPTY_CLICK_SOUND) ) {
 				FMATH_SETBITMASK( m_nWeaponFlags, WEAPONFLAG_MADE_EMPTY_CLICK_SOUND );
 
-				if( IsOwnedByPlayer() ) {
-					fsndfx_Play2D( m_pUserProps->hEmptyClickSound );
-				} else {
-					fsndfx_Play3D( m_pUserProps->hEmptyClickSound, &m_MtxToWorld.m_vPos, m_pUserProps->fSoundRadius );
-				}
+				PlaySound( m_pUserProps->pSoundGroupEmpty );
 			}
 		}
 
@@ -889,11 +857,7 @@ void CWeaponFlamer::Clip_AttachToWeapon( void ) {
 	if( IsInWorld() ) {
 		_AddClipToWorld();
 
-		if( IsOwnedByPlayer() ) {
-			fsndfx_Play2D( m_pUserProps->hAttachClipSound );
-		} else {
-			fsndfx_Play3D( m_pUserProps->hAttachClipSound, &m_MtxToWorld.m_vPos, m_pUserProps->fSoundRadius );
-		}
+		PlaySound( m_pUserProps->pSoundGroupAttachClip );
 	}
 
 	FMATH_SETBITMASK( m_nWeaponFlags, WEAPONFLAG_CLIP_INSTALLED );
@@ -914,22 +878,14 @@ void CWeaponFlamer::Clip_Eject( void ) {
 
 	_RemoveClipFromWorld();
 
-	if( IsOwnedByPlayer() ) {
-		fsndfx_Play2D( m_pUserProps->hEjectSound );
-	} else {
-		fsndfx_Play3D( m_pUserProps->hEjectSound, &m_MtxToWorld.m_vPos, m_pUserProps->fSoundRadius );
-	}
+	PlaySound( m_pUserProps->pSoundGroupEjectClip );
 
 	EjectClip( &m_pClipMeshEntity->MtxToWorld()->m_vPos, m_pUserProps->pMeshEjectClip,m_pClipMeshEntity->ScaleToWorld() );
 }
 
 
 void CWeaponFlamer::Clip_SlapIn( void ) {
-	if( IsOwnedByPlayer() ) {
-		fsndfx_Play2D( m_pUserProps->hSlapInSound );
-	} else {
-		fsndfx_Play3D( m_pUserProps->hSlapInSound, &m_MtxToWorld.m_vPos, m_pUserProps->fSoundRadius );
-	}
+	PlaySound( m_pUserProps->pSoundGroupSlapInClip );
 }
 
 

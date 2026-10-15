@@ -219,7 +219,7 @@ CFlamer::~CFlamer() {
 }
 
 
-BOOL CFlamer::Create( CWeapon *pOwnerWeapon, const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, u32 nStreamNodeCount, FSndFx_FxHandle_t hSoundFire, FSndFx_FxHandle_t hSoundOff ) {
+BOOL CFlamer::Create( CWeapon *pOwnerWeapon, const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, u32 nStreamNodeCount, CFSoundGroup *pSoundGroupFire, CFSoundGroup *pSoundGroupOff ) {
 	FASSERT( m_bSystemInitialized );
 	FASSERT( !IsCreated() );
 
@@ -266,8 +266,8 @@ BOOL CFlamer::Create( CWeapon *pOwnerWeapon, const CDamageProfile *pDamageProfil
 
 	m_nActivePartCount = 0;
 
-	m_hSoundFire = hSoundFire;
-	m_hSoundOff = hSoundOff;
+	m_pSoundGroupFire = pSoundGroupFire;
+	m_pSoundGroupOff = pSoundGroupOff;
 
 	return TRUE;
 
@@ -287,15 +287,15 @@ _ExitWithError:
 // profiles -> +4/+8, sounds -> the CFlamer sound-handle members).  The leak
 // never updated the flamer on upgrade-level change, so every flamer instance
 // kept burning with the level-0 profiles regardless of its actual level.
-void CFlamer::SetProfiles( const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, FSndFx_FxHandle_t hSoundFire, FSndFx_FxHandle_t hSoundOff ) {
+void CFlamer::SetProfiles( const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, CFSoundGroup *pSoundGroupFire, CFSoundGroup *pSoundGroupOff ) {
 	FASSERT( IsCreated() );
 
 	DEVPRINTF( "[ma] r33 flamer SetProfiles this=%p hit '%s'(%p)->'%s'(%p) burn '%s'(%p)->'%s'(%p)\n", this, CDamage::SafeProfileName( m_pDamageProfileHit ), m_pDamageProfileHit, CDamage::SafeProfileName( pDamageProfileHit ), pDamageProfileHit, CDamage::SafeProfileName( m_pDamageProfileBurn ), m_pDamageProfileBurn, CDamage::SafeProfileName( pDamageProfileBurn ), pDamageProfileBurn );
 
 	m_pDamageProfileHit = pDamageProfileHit;
 	m_pDamageProfileBurn = pDamageProfileBurn;
-	m_hSoundFire = hSoundFire;
-	m_hSoundOff = hSoundOff;
+	m_pSoundGroupFire = pSoundGroupFire;
+	m_pSoundGroupOff = pSoundGroupOff;
 }
 
 
@@ -327,8 +327,8 @@ void CFlamer::_ClearDataMembers( void ) {
 	m_fSecsUntilNextSmokeSpawn = 0.0f;
 	m_fSecsUntilNextNodeSpawn = 0.0f;
 	m_pPSGroup = NULL;
-	m_hSoundFire = NULL;
-	m_hSoundOff = NULL;
+	m_pSoundGroupFire = NULL;
+	m_pSoundGroupOff = NULL;
 	m_pSoundFireEmitter = NULL;
 
 	m_fSecsUntilNextBurner = 0.0f;
@@ -690,11 +690,9 @@ BOOL CFlamer::TriggerWork( f32 fTriggerValue, const CFVec3A *pUnitEmitterDir_WS,
 				m_pSoundFireEmitter = NULL;
 			}
 
-			if( m_pOwnerWeapon->IsOwnedByPlayer() ) {
-				fsndfx_Play2D( m_hSoundOff, 1.0f, _SOUND_FREQ_MULTIPLIER );
-			} else {
-				fsndfx_Play3D( m_hSoundOff, &m_pOwnerWeapon->MtxToWorld()->m_vPos, 100.0f, 1.0f, _SOUND_FREQ_MULTIPLIER );
-			}
+			// PC port: sound-group playback (retail stores group names, not
+			// raw SFX handles - see weapon_flamer.h)
+			m_pOwnerWeapon->PlaySound( m_pSoundGroupOff, 1.0f, _SOUND_FREQ_MULTIPLIER );
 		}
 
 		return FALSE;
@@ -740,11 +738,9 @@ BOOL CFlamer::TriggerWork( f32 fTriggerValue, const CFVec3A *pUnitEmitterDir_WS,
 	m_nEmitterNodeIndex = m_nNextAvailNodeIndex;
 	_CreateNewNode( pUnitEmitterDir_WS, pEmitterPos_WS, pUserVel_WS, TRUE, TRUE );
 
-	if( m_pOwnerWeapon->IsOwnedByPlayer() ) {
-		m_pSoundFireEmitter = FSNDFX_ALLOCNPLAY2D( m_hSoundFire, 1.0f, _SOUND_FREQ_MULTIPLIER, FAudio_EmitterDefaultPriorityLevel, 0.f, TRUE );
-	} else {
-		m_pSoundFireEmitter = FSNDFX_ALLOCNPLAY3D( m_hSoundFire, &m_pOwnerWeapon->MtxToWorld()->m_vPos, 100.0f, 1.0f, _SOUND_FREQ_MULTIPLIER, FAudio_EmitterDefaultPriorityLevel, TRUE );
-	}
+	// PC port: the fire loop plays through the sound group so retail's
+	// TstFire group (SFX 'FlameLoop' + its volume/radius) applies.
+	m_pSoundFireEmitter = m_pOwnerWeapon->AllocAndPlaySound( m_pSoundGroupFire, 1.0f, _SOUND_FREQ_MULTIPLIER );
 
 	return TRUE;
 }

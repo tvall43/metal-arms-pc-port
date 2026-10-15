@@ -243,12 +243,11 @@ const FGameData_TableEntry_t CWeaponLaser::m_aUserPropVocab[] = {
 	F32_DATATABLE_0,
 	F32_DATATABLE_0,
 
-	// hFiringSound:
-	FGAMEDATA_VAR_TYPE_STRING|
-	FGAMEDATA_FLAGS_STRING_PTR_TO_SFX_HANDLE,
-	sizeof( u32 ),
-	F32_DATATABLE_0,
-	F32_DATATABLE_0,
+	// PC port: retail's vocab flags for this field are 0x81000 =
+	// STRING_TO_SOUND_GROUP|NONE_TO_NULL - w_laser.csv field 65 holds the
+	// sound-group name 'LaserFire' (defined in snd_wpn.csv over SFX
+	// 'Fire Laser EUK1'), which never resolves as a raw bank SFX.
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupFire ('LaserFire')
 
 	FGAMEDATA_VOCAB_DECAL_DEF,
 
@@ -323,26 +322,10 @@ BOOL CWeaponLaser::InitSystem( void ) {
 		return FALSE;
 	}
 
-	// TEMP: resolved SFX handles from w_laser.csv (0 = name not in any loaded bank yet)
-	for( i = 0; i < EUK_COUNT_LASER; i++ ) {
-		MA_AUDIO_TEMP( "[ma] TEMP laser u=%u fireSfx=%u\n", (unsigned)i,
-			(unsigned)m_aUserProps[i].hFiringSound );
-		// Retail weapons.sfb renamed the fire SFX; w_laser.csv still says LaserFire.
-		if( FSNDFX_INVALID_FX_HANDLE == m_aUserProps[i].hFiringSound ) {
-			static const char *_apszFireAliases[] = {
-				"Fire Laser EUK1", "Fire Laser EUK2", "GruntLaser", "LaserFire"
-			};
-			for( u32 uAlias = 0; uAlias < 4; uAlias++ ) {
-				FSndFx_FxHandle_t hTry = fsndfx_GetFxHandle( _apszFireAliases[uAlias] );
-				if( FSNDFX_INVALID_FX_HANDLE != hTry ) {
-					m_aUserProps[i].hFiringSound = hTry;
-					MA_AUDIO_TEMP( "[ma] TEMP laser u=%u remapped fireSfx to '%s'=%u\n",
-						(unsigned)i, _apszFireAliases[uAlias], (unsigned)hTry );
-					break;
-				}
-			}
-		}
-	}
+	// PC port: the fire sound now resolves through the 'LaserFire' sound
+	// group (retail semantics - w_laser.csv field 65 is a group name), which
+	// replaces the old raw-SFX alias fallback that remapped the never-
+	// resolving 'LaserFire' bank name to 'Fire Laser EUK1' by hand.
 
 	// Do this for each EUK level...
 	for( i=0; i<EUK_COUNT_LASER; i++ ) {
@@ -1068,19 +1051,11 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 						}
 					}
 
-					if ( IsOwnedByPlayer() )
+					if ( !m_pSoundEmitter )
 					{
-						if ( !m_pSoundEmitter )
-						{
-							m_pSoundEmitter = FSNDFX_ALLOCNPLAY2D( m_aUserProps[m_nUpgradeLevel].hFiringSound, 1.0f, 1.0f, FAudio_EmitterDefaultPriorityLevel, 0.f, TRUE );
-						}
-					}
-					else
-					{
-						if ( !m_pSoundEmitter )
-						{
-							m_pSoundEmitter = FSNDFX_ALLOCNPLAY3D( m_aUserProps[m_nUpgradeLevel].hFiringSound, &vecMuzzlePoint, m_aUserProps[m_nUpgradeLevel].fMaxLiveRange, 1.0f, 1.0f, FAudio_EmitterDefaultPriorityLevel, TRUE );
-						}
+						// PC port: sound-group playback; the helper picks 2D/3D
+						// from ownership like the old pair of alloc calls.
+						m_pSoundEmitter = AllocAndPlaySound( m_aUserProps[m_nUpgradeLevel].pSoundGroupFire, 1.0f, 1.0f, m_aUserProps[m_nUpgradeLevel].fMaxLiveRange, &vecMuzzlePoint );
 					}
 
 					if (GetOwner() && GetOwner()->m_nPossessionPlayerIndex > -1)
@@ -1158,18 +1133,24 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 					tracer_NewTracer(m_hTracerGroup, &m_aoTracerDef[m_nUpgradeLevel], 0.2f, FALSE, FALSE, &CDamageForm::m_TempDamager);
 				}
 
+				// Sound-group volume/radius come from the group definition;
+				// the original per-owner multipliers (0.75 2D, 0.6 @ 450 3D)
+				// are kept.
 				if ( IsOwnedByPlayer() )
 				{
-					fsndfx_Play2D( m_aUserProps[m_nUpgradeLevel].hFiringSound,
-									0.75f);	//fVolumeMultiplier  =
+					PlaySound( m_aUserProps[m_nUpgradeLevel].pSoundGroupFire,
+									0.75f,	//fVolumeMultiplier
+									1.0f,
+									-1.0f,
+									&vecMuzzlePoint );
 				}
 				else
 				{
-					fsndfx_Play3D( m_aUserProps[m_nUpgradeLevel].hFiringSound,
-									&vecMuzzlePoint,
+					PlaySound( m_aUserProps[m_nUpgradeLevel].pSoundGroupFire,
+									0.6f,	//fVolumeMultiplier
+									1.0f,
 									450.0f,
-									-1.f,
-									0.6f);//fVolumeMultiplier);
+									&vecMuzzlePoint );
 				}
 
 				if (GetOwner() && GetOwner()->m_nPossessionPlayerIndex > -1)

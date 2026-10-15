@@ -39,6 +39,7 @@ class CFlamer;
 class CFXfm;
 class CWeapon;
 class CDamageProfile;
+class CFSoundGroup;
 
 
 // Layer 0 is innermost.
@@ -183,8 +184,10 @@ private:
 
 	f32 m_fSecsUntilNextBurner;				// Seconds remaining until we spawn another burner
 	
-	FSndFx_FxHandle_t m_hSoundFire;
-	FSndFx_FxHandle_t m_hSoundOff;
+	// PC port: retail's w_flamer.csv sound fields are sound-group names
+	// (TstFire/TstTail), not raw bank SFX - see weapon_flamer.h.
+	CFSoundGroup *m_pSoundGroupFire;
+	CFSoundGroup *m_pSoundGroupOff;
 	CFAudioEmitter *m_pSoundFireEmitter;
 	u32 m_uAISoundHandle;					//handle to an AI sound that is used to notify AI that a fire is happening here.
 
@@ -207,8 +210,8 @@ public:
 	static void DrawAll( void );
 	static void WorkAll( void );
 
-	BOOL Create( CWeapon *pOwnerWeapon, const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, u32 nStreamNodeCount = FLAMER_DEFAULT_STREAM_NODE_COUNT, FSndFx_FxHandle_t hSoundFire=NULL, FSndFx_FxHandle_t hSoundOff=NULL );
-	void SetProfiles( const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, FSndFx_FxHandle_t hSoundFire, FSndFx_FxHandle_t hSoundOff );
+	BOOL Create( CWeapon *pOwnerWeapon, const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, u32 nStreamNodeCount = FLAMER_DEFAULT_STREAM_NODE_COUNT, CFSoundGroup *pSoundGroupFire=NULL, CFSoundGroup *pSoundGroupOff=NULL );
+	void SetProfiles( const CDamageProfile *pDamageProfileHit, const CDamageProfile *pDamageProfileBurn, CFSoundGroup *pSoundGroupFire, CFSoundGroup *pSoundGroupOff );
 	void Destroy( void );
 	FINLINE BOOL IsCreated( void ) const { return m_nFlags & FLAG_CREATED; }
 

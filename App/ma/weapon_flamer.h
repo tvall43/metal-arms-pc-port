@@ -103,13 +103,18 @@ private:
 
 		f32 fSoundRadius;					// Distance sound from this weapon travels
 
-		// Sound Effects
-		FSndFx_FxHandle_t hFiringSound;		// The looping sound made when firing
-		FSndFx_FxHandle_t hFadeOutSound;	// The sound made when done firing
-		FSndFx_FxHandle_t hAttachClipSound;	// The sound made when the clip is attached
-		FSndFx_FxHandle_t hSlapInSound;		// The sound made when the clip is slapped in
-		FSndFx_FxHandle_t hEjectSound;		// The sound made when the clip is ejected
-		FSndFx_FxHandle_t hEmptyClickSound;	// The sound made when the trigger is pulled while there is no ammo
+		// Sound groups (retail CSV fields 24-30: TstFire/TstTail/TstBurn/
+		// TstMT/TstEject/TstClip/TstSlap; TstBurn is unread by this source).
+		// Retail's vocab flags are 0x81000 = STRING_TO_SOUND_GROUP|
+		// NONE_TO_NULL - those names exist only as sound groups in
+		// snd_wpn.csv, never as raw bank SFX, so the fsndfx handles this
+		// struct used to hold never resolved and the flamer was silent.
+		CFSoundGroup *pSoundGroupFire;			// The looping sound made when firing
+		CFSoundGroup *pSoundGroupFadeOut;		// The sound made when done firing
+		CFSoundGroup *pSoundGroupAttachClip;	// The sound made when the clip is attached
+		CFSoundGroup *pSoundGroupSlapInClip;	// The sound made when the clip is slapped in
+		CFSoundGroup *pSoundGroupEjectClip;		// The sound made when the clip is ejected
+		CFSoundGroup *pSoundGroupEmpty;			// The sound made when the trigger is pulled while there is no ammo
 	} _UserProps_t;
 
 
