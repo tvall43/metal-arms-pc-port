@@ -2085,6 +2085,12 @@ void fdraw_DevLine( const CFVec3 *pPoint0_WS, const CFVec3 *pPoint1_WS, CFColorR
 //
 void fdraw_RenderDevShapes( void )
 {
+	if( !Fang_bDevOverlays ) {
+		// PC port: retail mode shows no development shapes
+		fdraw_ClearDevShapes();
+		return;
+	}
+
 	// Setup fdraw for rendering
 	frenderer_Push( FRENDERER_DRAW, NULL );
 

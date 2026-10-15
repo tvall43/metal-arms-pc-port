@@ -123,6 +123,12 @@ extern BOOL Gameloop_bDrawHUD;
 extern BOOL Gameloop_bDrawDebugInfo;
 extern Gameloop_ExitDestination_e Gameloop_ExitDestination;
 
+// PC port: retail mode. gameloop_EnterRetailMode() flips this and with it
+// Fang_bDevOverlays, so a retail boot shows no dev cheats, overlays, readouts
+// or script monitors (port of RangerXT's retail-mode gate).
+extern BOOL Gameloop_bRetailMode;
+extern void gameloop_EnterRetailMode( BOOL bRetail );
+
 extern BOOL gameloop_Start( GameloopInitParm_t *pParms );
 extern void gameloop_End( void );
 

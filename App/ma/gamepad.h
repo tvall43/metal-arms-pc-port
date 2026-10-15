@@ -95,7 +95,13 @@ typedef enum {
 
 
 extern u32 Gamepad_nPortOnlineMask;		// Set bits indicate ports that have controllers installed in them
-extern FPad_Sample_t *Gamepad_aapSample[GAMEPAD_MAX_PORT_COUNT][GAMEPAD_MAX_ACTIONS];
+
+// PC port: one extra row, GAMEPAD_NULL_DEBUG_PORT, whose samples are always
+// idle. Debug features read Gamepad_nDebugPortIndex; on Windows it points
+// here, because port 0 is the player's own keyboard and pad - holding both
+// fire buttons would otherwise trip the debug holds mid-game.
+#define GAMEPAD_NULL_DEBUG_PORT		GAMEPAD_MAX_PORT_COUNT
+extern FPad_Sample_t *Gamepad_aapSample[GAMEPAD_MAX_PORT_COUNT+1][GAMEPAD_MAX_ACTIONS];
 extern u32 Gamepad_nDebugPortIndex;// what controller port should we look at for debug features
 extern f32 Gamepad_fMouseSensitivity;	// [Mouse] Sensitivity in ma_win.ini: scales mouse-look deltas only (1.0 = default)
 

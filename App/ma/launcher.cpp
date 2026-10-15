@@ -167,9 +167,16 @@ BOOL launcher_EnterMenus( LauncherFrom_e nFrom ) {
 		// go directly to the e3 menu (it will handle the demo version too)
 		_ScheduleMenu( _MENU_TYPE_E3 );
 #else
-		// development mode, offer the choice of boot modes
 		_nCurState = nFrom;
-		_ScheduleMenu( _MENU_TYPE_BOOTUP );
+		if( Gameloop_bRetailMode ) {
+			// PC port: retail mode never sees the Development/Retail boot
+			// chooser; go straight to the retail front end (what picking
+			// the boot menu's Retail Mode row does).
+			_ScheduleMenu( _MENU_TYPE_LANGUAGESELECT, TRUE );
+		} else {
+			// development mode, offer the choice of boot modes
+			_ScheduleMenu( _MENU_TYPE_BOOTUP );
+		}
 #endif
 		break;
 
@@ -455,6 +462,7 @@ static BOOL _BootupWork( void ) {
 		// boot to the proper mode
 		switch( _nCurSelection ) {
 		case _DEV_MENU:
+			gameloop_EnterRetailMode( FALSE );	// PC port
 
 			// Cleanup the boot menu fonts
 			_BootupCleanup();
@@ -474,6 +482,7 @@ static BOOL _BootupWork( void ) {
 			break;
 		case _RETAIL_MENUS:
 			// launch the retail bootup mode
+			gameloop_EnterRetailMode( TRUE );	// PC port: no dev cheats or overlays
 
 			// Cleanup the boot menu fonts
 			_BootupCleanup();
@@ -640,7 +649,7 @@ static BOOL _ReloadCurrentLevel( void ) {
 	}
 
 	gameloop_ShowFPS( TRUE );
-	if( Gameloop_bDrawDebugInfo ) {
+	if( Gameloop_bDrawDebugInfo && !Gameloop_bRetailMode ) {
 		FPerf_nDisplayPerfType = FPERF_TYPE_FRAMERATE;
 	}
 	

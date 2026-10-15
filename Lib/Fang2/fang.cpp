@@ -69,6 +69,7 @@
 
 
 FangConfigDef_t Fang_ConfigDefs;
+BOOL Fang_bDevOverlays = TRUE;	// PC port: see fang.h
 
 
 Fang_LaunchType_e Fang_nLaunchType;

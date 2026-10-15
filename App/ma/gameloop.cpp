@@ -197,6 +197,7 @@ BOOL Gameloop_bOverrideFrameTime = TRUE;
 
 BOOL Gameloop_bDrawHUD = TRUE;
 BOOL Gameloop_bDrawDebugInfo = TRUE;
+BOOL Gameloop_bRetailMode = FALSE;	// PC port: retail mode, see gameloop.h
 BOOL Gameloop_bInstallAudio = TRUE;
 
 //BOOL Gameloop_bDrawDebugInfo = FALSE;
@@ -466,11 +467,24 @@ void gameloop_SetViewBounds( BOOL bEnable ) {
 
 // Returns the current bounding sphere drawing mode.
 BOOL gameloop_GetViewBounds( void ) {
-	return _bDrawBoundingSphere;
+	return _bDrawBoundingSphere && !Gameloop_bRetailMode;
+}
+
+// PC port: retail mode, see gameloop.h.
+void gameloop_EnterRetailMode( BOOL bRetail ) {
+	Gameloop_bRetailMode = bRetail;
+	Fang_bDevOverlays = !bRetail;
+	if( bRetail ) {
+		gameloop_EnableOverlayDrawElements( Gameloop_bDrawHUD, FALSE );
+		FPerf_nDisplayPerfType = FPERF_TYPE_NONE;
+		_nAnimPlaybackMode = GAMELOOP_ANIM_PLAYBACK_REALTIME;
+		Game_bCameraPOVVisibility = FALSE;
+	}
+	DEVPRINTF( "gameloop_EnterRetailMode(): %s mode - developer cheats and overlays %s.\n", bRetail ? "retail" : "development", bRetail ? "off" : "on" );
 }
 
 BOOL gameloop_GetPlayerDeath( void ) {
-	return _InitParms.bPlayerDeath;
+	return _InitParms.bPlayerDeath || Gameloop_bRetailMode;
 }
 
 void gameloop_SetPlayerDeath( BOOL bEnable ) {
@@ -478,7 +492,7 @@ void gameloop_SetPlayerDeath( BOOL bEnable ) {
 }
 
 BOOL gameloop_GetDebugAI( void ) {
-	return _InitParms.bDebugAI;
+	return _InitParms.bDebugAI && !Gameloop_bRetailMode;
 }
 
 void gameloop_SetDebugAI( BOOL bEnable ) {
@@ -486,7 +500,7 @@ void gameloop_SetDebugAI( BOOL bEnable ) {
 }
 
 BOOL gameloop_GetShowEntityInfo( void ) {
-	return _InitParms.bShowEntityInfo;
+	return _InitParms.bShowEntityInfo && !Gameloop_bRetailMode;
 }
 
 void gameloop_SetShowEntityInfo( BOOL bEnable ) {
@@ -494,11 +508,11 @@ void gameloop_SetShowEntityInfo( BOOL bEnable ) {
 }
 
 u32 gameloop_GetLegServoLevel( void ) {
-	return _InitParms.nLegServoLevel;
+	return Gameloop_bRetailMode ? 0 : _InitParms.nLegServoLevel;
 }
 
 u32 gameloop_GetArmServoLevel( void ) {
-	return _InitParms.nArmServoLevel;
+	return Gameloop_bRetailMode ? 0 : _InitParms.nArmServoLevel;
 }
 
 void gameloop_SetLegServoLevel( u32 nUpgradeLevel ) {
@@ -1164,7 +1178,7 @@ static BOOL _GameMain( BOOL bExitRequest, void *pParameter ) {
 	PROTRACK_DRAW();
 
 	#if !FANG_PRODUCTION_BUILD
-		if( _bDisplayScreenSafeArea ) {
+		if( _bDisplayScreenSafeArea && !Gameloop_bRetailMode ) {
 			_DrawScreenSafeArea();	
 		}
 	#endif

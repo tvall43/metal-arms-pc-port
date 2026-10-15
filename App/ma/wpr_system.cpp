@@ -175,6 +175,7 @@ typedef enum {
 	// MM = MAIN MENU
 	_MENU_ITEMS_MM_SINGLE = 0,
 	_MENU_ITEMS_MM_MULTI,
+	_MENU_ITEMS_MM_QUIT,	// PC port: retail has no quit; see _MainMenu_DrawOrtho
 //	_MENU_ITEMS_MM_GAMEDEMOS,
 	_MENU_ITEMS_MM_COUNT,
 
@@ -536,6 +537,9 @@ static cwchar *_apwszPhrases[WPR_DATATYPES_PHRASES_COUNT];
 static CFAudioStream *_pAudioStream;
 static CSkyBox *_pSkyBox;
 static FViewport_t *_pViewportOrtho3D = NULL;
+#if FANG_PLATFORM_WIN
+static FTextAreaHandle_t _hMMQuitText = 0;	// PC port: the main menu's "Quit Game" row (the others are meshes)
+#endif
 static CCamManualInfo _CamInfo;
 static CFMtx43A _CamMtx;
 static CFCamAnimInst *_pCamAnimInst;
@@ -2050,6 +2054,24 @@ static BOOL _Init( void ) {
 			goto _EXIT_WITH_ERROR;
 		}
 		fviewport_InitOrtho3D( _pViewportOrtho3D, 0.1f, 100.0f );
+
+#if FANG_PLATFORM_WIN
+		// PC port: the main menu's "Quit Game" row text. A text area sizes its
+		// letters from its own height, so laying it into the row the entry
+		// meshes use keeps it the same size as them at any resolution
+		// (see _MainMenu_DrawOrtho).
+		{
+			FTextArea_t QuitArea;
+			ftext_SetToDefaults( &QuitArea );
+			QuitArea.fNumberOfLines = 1.0f;
+			QuitArea.ohFont = '1';
+			QuitArea.oHorzAlign = FTEXT_HORZ_ALIGN_LEFT;
+			QuitArea.oColorBackground.Transparent();
+			QuitArea.oColorForeground.Set( 0.97f, 0.78f, 0.13f, 1.0f );	// the gold of the entry meshes
+			QuitArea.bVisible = FALSE;
+			_hMMQuitText = ftext_Create( &QuitArea );
+		}
+#endif
 
 		/////////////////////////////
 		// create and init a sky box
@@ -3820,14 +3842,53 @@ static Wpr_DataTypes_NavCode_e _MainMenu_Work( void ) {
 	return WPR_DATATYPES_NAV_CODE_NOTHING;
 }
 
+#if FANG_PLATFORM_WIN
+// PC port: a mesh drawn by wpr_drawutils_DrawMesh_XlatOnly, as an ortho pixel
+// rect - the row the "Quit Game" text is laid into (helper ported from
+// RangerXT, half-res passed in instead of his mouse globals).
+static BOOL _WprMesh_GetOrthoRect( const Wpr_DataTypes_MeshLayout_t *pLayout, f32 fScaleMultiplier,
+								   f32 fHalfXRes, f32 fHalfYRes,
+								   f32 *pfLeft, f32 *pfTop, f32 *pfRight, f32 *pfBottom ) {
+	if( !pLayout->pMeshInst || !pLayout->pMeshInst->m_pMesh ) {
+		return FALSE;
+	}
+	const FMesh_t *pMesh = pLayout->pMeshInst->m_pMesh;
+	f32 fScale = pLayout->fScale * fScaleMultiplier;
+	f32 fX = pLayout->fBiPolarUnitX * fHalfXRes;
+	f32 fY = pLayout->fBiPolarUnitY * fHalfYRes;
+	f32 fMinX = pMesh->vBoundBoxMin_MS.x, fMaxX = pMesh->vBoundBoxMax_MS.x;
+	f32 fMinY = pMesh->vBoundBoxMin_MS.y, fMaxY = pMesh->vBoundBoxMax_MS.y;
+	if( fMaxX - fMinX < 0.001f || fMaxY - fMinY < 0.001f ) {
+		// no usable box: the bounding sphere
+		f32 fR = pMesh->BoundSphere_MS.m_fRadius;
+		fMinX = pMesh->BoundSphere_MS.m_Pos.x - fR;	fMaxX = pMesh->BoundSphere_MS.m_Pos.x + fR;
+		fMinY = pMesh->BoundSphere_MS.m_Pos.y - fR;	fMaxY = pMesh->BoundSphere_MS.m_Pos.y + fR;
+	}
+	*pfLeft = fX + fMinX * fScale;
+	*pfTop = fY + fMaxY * fScale;
+	*pfRight = fX + fMaxX * fScale;
+	*pfBottom = fY + fMinY * fScale;
+	return TRUE;
+}
+#endif
+
 static void _MainMenu_DrawOrtho( f32 fScaleMultiplier, f32 fHalfXRes, f32 fHalfYRes ) {
 	Wpr_DataTypes_ScreenData_t *pScreen = &Wpr_DataTypes_paScreenData[WPR_DATATYPES_SCREENS_MAIN_MENU];
 
 	// draw the highlight behind the selected world
 	Wpr_DataTypes_MeshLayout_t Layout, *pCurrent;
 	Layout.pMeshInst = wpr_datatypes_FindMeshInst( "gfh_logo05", _nNumMeshes, _paMeshInsts );
+#if FANG_PLATFORM_WIN
+	// PC port: "Quit Game" sits one row below Multiplayer, which has a mesh; it doesn't
+	Wpr_DataTypes_MeshLayout_t QuitLayout = pScreen->pMesh[_MENU_ITEMS_MM_START_OFFSET + _MENU_ITEMS_MM_MULTI];
+	QuitLayout.fBiPolarUnitY += QuitLayout.fBiPolarUnitY - pScreen->pMesh[_MENU_ITEMS_MM_START_OFFSET + _MENU_ITEMS_MM_SINGLE].fBiPolarUnitY;
+#endif
 	if( Layout.pMeshInst ) {
+#if FANG_PLATFORM_WIN
+		pCurrent = ( _MenuState.nCurItemIndex == _MENU_ITEMS_MM_QUIT ) ? &QuitLayout : &pScreen->pMesh[_MENU_ITEMS_MM_START_OFFSET + _MenuState.nCurItemIndex];
+#else
 		pCurrent = &pScreen->pMesh[_MENU_ITEMS_MM_START_OFFSET + _MenuState.nCurItemIndex];
+#endif
 
 		Layout.fBiPolarUnitX = pCurrent->fBiPolarUnitX;
 		Layout.fBiPolarUnitY = pCurrent->fBiPolarUnitY;
@@ -3844,6 +3905,34 @@ static void _MainMenu_DrawOrtho( f32 fScaleMultiplier, f32 fHalfXRes, f32 fHalfY
 		_MENU_ITEMS_MM_START_OFFSET + _MenuState.nCurItemIndex,
 		FALSE,
         fScaleMultiplier, fHalfXRes, fHalfYRes );
+
+#if FANG_PLATFORM_WIN
+	// PC port: "Quit Game" - no mesh exists for it, so it is drawn into the row
+	// that one would occupy, as text (the gold of the entry meshes; setup in
+	// the fviewport_InitOrtho3D block of _Init).
+	{
+		f32 fQuitLeft, fQuitTop, fQuitRight, fQuitBottom;
+		if( _WprMesh_GetOrthoRect( &QuitLayout, fScaleMultiplier, fHalfXRes, fHalfYRes,
+				&fQuitLeft, &fQuitTop, &fQuitRight, &fQuitBottom ) ) {
+			FTextArea_t *pQuitArea = ( _hMMQuitText ? ftext_GetAttributes( _hMMQuitText ) : NULL );
+			if( pQuitArea ) {
+				// letters a little shorter than the row, as the word meshes are
+				f32 fCentreY = ( fQuitTop + fQuitBottom ) * 0.5f;
+				f32 fHalfHeight = ( fQuitTop - fQuitBottom ) * 0.5f * 0.62f;
+
+				// the word in a mesh doesn't start at the left edge of the
+				// mesh's bounding box - neither does this
+				f32 fLeftInset = ( fQuitTop - fQuitBottom ) * 0.9f;
+
+				pQuitArea->fUpperLeftX = 0.5f + ( fQuitLeft + fLeftInset ) / ( 2.0f * fHalfXRes );
+				pQuitArea->fLowerRightX = 0.5f + fQuitRight / ( 2.0f * fHalfXRes );
+				pQuitArea->fUpperLeftY = ( 0.5f - ( fCentreY + fHalfHeight ) / ( 2.0f * fHalfYRes ) ) * 0.75f;
+				pQuitArea->fLowerRightY = ( 0.5f - ( fCentreY - fHalfHeight ) / ( 2.0f * fHalfYRes ) ) * 0.75f;
+				ftext_PrintString( _hMMQuitText, L"Quit Game" );
+			}
+		}
+	}
+#endif
         
 	if( _MenuState.bFadeScreen ) {
 		f32 fUnitPercent = _MenuState.fModeTimer * (1.0f/_TOTAL_FADE_IN_TIME);
@@ -3902,6 +3991,14 @@ static void _MainMenu_ExitDecisions( Wpr_DataTypes_NavCode_e nNavCode ) {
 #endif
 			fsndfx_Play2D( _ahSounds[WPR_DATATYPES_SOUNDS_SUCCESS] );
 			break;
+
+#if FANG_PLATFORM_WIN
+		case _MENU_ITEMS_MM_QUIT:
+			// PC port: leave the game (the launcher closes with it)
+			fsndfx_Play2D( _ahSounds[WPR_DATATYPES_SOUNDS_SUCCESS] );
+			gameloop_ScheduleExit();
+			break;
+#endif
 
 		case _MENU_ITEMS_MM_MULTI:
 			_MenuState.nMode = WPR_DATATYPES_MODES_MULTIPLAYER;
@@ -5418,6 +5515,9 @@ static void _LaunchMenu_SP_ExitDecisions( Wpr_DataTypes_NavCode_e nNavCode ) {
 
 // the Code is: RTrigger Down + A then B then X then Y
 static _LaunchCode_e _HandleUnlockLevelsCode( _LaunchCode_e nCurState, u32 nControllerID ) {
+	if( Gameloop_bRetailMode ) {
+		return _LAUNCH_CODE_NOT_STARTED;	// PC port: dev unlock code, not in retail mode
+	}
 	
 #if FANG_ENABLE_DEV_FEATURES
 	GameSave_ProfileData_t *pProfile = &_paProfiles[0].m_Data;

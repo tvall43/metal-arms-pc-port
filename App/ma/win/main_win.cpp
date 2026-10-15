@@ -70,6 +70,12 @@ static FILE *_pLogFile = NULL;
 static BOOL _bLogFileEnabled = FALSE;
 #define _LOGFILE_DEFAULT 0
 
+// PC port: development mode (-dev / autorun) vs retail mode (default / play).
+// Retail hides the launch dialog's dev rows, keeps the debug log off no matter
+// what the ini says, and sets Gameloop_bRetailMode before the game starts.
+static BOOL _bDevMode = FALSE;
+
+
 static void _TraceV( const char *pszFormat, va_list Args )
 {
 	char szBuf[2048];
@@ -389,6 +395,13 @@ static void _LoadConfig( void )
 	_bFullscreen   = oSettings.ReadCustomInt( "Video", "Fullscreen", 0 ) ? TRUE : FALSE;
 	_bLogFileEnabled = oSettings.ReadCustomInt( "Debug", "LogFile", _LOGFILE_DEFAULT ) ? TRUE : FALSE;
 
+	// Retail mode disables debug: the file log stays off regardless of the ini.
+	// The stored value survives for dev runs - _SaveConfig only writes it there.
+	if( !_bDevMode ) {
+		_bLogFileEnabled = FALSE;
+	}
+
+
 	// [Audio] mix tuning. Whether a mix sounds right is judged by ear, not read
 	// off the code, so both knobs that decide the 2D-vs-3D balance are editable
 	// here rather than baked into fdx8audio -- see faudio.h for what each one
@@ -465,7 +478,9 @@ static void _SaveConfig( void )
 	oSettings.WriteCustomInt( "Video", "Height", _nScreenHeight );
 	oSettings.WriteCustomInt( "Video", "ColorBits", _nColorBits );
 	oSettings.WriteCustomInt( "Video", "Fullscreen", _bFullscreen ? 1 : 0 );
-	oSettings.WriteCustomInt( "Debug", "LogFile", _bLogFileEnabled ? 1 : 0 );
+	if( _bDevMode ) {
+		oSettings.WriteCustomInt( "Debug", "LogFile", _bLogFileEnabled ? 1 : 0 );
+	}
 	oSettings.WriteCustomFloat( "Audio", "Volume2D", FAudio_f2DVolumeScale );
 	oSettings.WriteCustomFloat( "Audio", "MinDistanceFraction", FAudio_fMinDistanceFraction );
 }
@@ -704,9 +719,14 @@ static void _CreateDialogControls( HWND hwndDlg )
 	_AddButton( hwndDlg, _ID_BROWSE, "Browse...", nCtrlX + nCtrlW + 8, nY, 80, 24 );
 	nY += 32;
 
-	_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Level / file:" );
-	_AddEdit( hwndDlg, _ID_LEVELEDIT, _szLevelFile, nCtrlX, nY, nCtrlW );
-	nY += 32;
+	// Dev rows (with the Debug log checkbox below): only in development mode
+	// (-dev / autorun). Retail boots clean; _ReadControls keeps the stored
+	// values for the hidden controls.
+	if( _bDevMode ) {
+		_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Level / file:" );
+		_AddEdit( hwndDlg, _ID_LEVELEDIT, _szLevelFile, nCtrlX, nY, nCtrlW );
+		nY += 32;
+	}
 
 	_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Screenshots:" );
 	_AddEdit( hwndDlg, _ID_SSHOTEDIT, _szScreenshotDir, nCtrlX, nY, nCtrlW );
@@ -742,7 +762,7 @@ static void _CreateDialogControls( HWND hwndDlg )
 			}
 		}
 	}
-	{
+	if( _bDevMode ) {
 		// Debug log: the file beside the exe (see _LOGFILE_DEFAULT). The saved
 		// Debug/LogFile value seeds it; the choice is re-applied right after the
 		// dialog closes, so ticking it here turns logging on for this session.
@@ -978,6 +998,13 @@ static BOOL _RunGame( void )
 	pVidWin->pFcnSuspend		= NULL;
 	strcpy( pVidWin->szWindowTitle, "Mettle Arms" );
 
+	// PC port: retail mode unless -dev/autorun asked for the development shell.
+	// Sets Gameloop_bRetailMode + Fang_bDevOverlays before the game thread
+	// starts: no dev cheats, no debug overlays, no debug pad holds.
+	gameloop_EnterRetailMode( _bDevMode ? FALSE : TRUE );
+	_Trace( "[ma] mode       : %s\n", _bDevMode ? "development (-dev)" : "retail" );
+
+
 	_Trace( "[ma] calling gameloop_Start...\n" );
 	const BOOL bStarted = gameloop_Start( &GameloopParms );
 	_Trace( "[ma] gameloop_Start returned %d\n", bStarted );
@@ -1046,12 +1073,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	CSettings::SetSettingsFilename( "ma_win.ini" );
 	CSettings::SetApplicationName( "ma_win" );
-	_LoadConfig();
 
-	// After _LoadConfig: gated on the Debug/LogFile flag. Also emits the first
-	// trace lines, so the crash handler must already be installed above.
-	_OpenLog();
-
+	// Command line, case-insensitive tokens; a leading '-' or '/' is ignored:
+	//   autorun  boot straight in, development mode (what it always did)
+	//   dev      development mode: boot-mode chooser, dev menu, dev cheats,
+	//            and the launch dialog's Level jump + Debug log checkbox
+	//   play     boot straight in, retail mode
+	//   (none)   retail-mode launch dialog: dev rows hidden, debug log off
 	BOOL bAutoRun = FALSE;
 	if( pszCmdLine ) {
 		for( const char* p = pszCmdLine; *p; p++ ) {
@@ -1060,11 +1088,34 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 				while( *q == 'a' || *q == 'A' ) { q++; }
 				if( strncmp( q, "utorun", 6 ) == 0 ) {
 					bAutoRun = TRUE;
-					break;
+					_bDevMode = TRUE;
 				}
 			}
 		}
+		for( const char* p = pszCmdLine; *p; ) {
+			while( *p == ' ' || *p == '\t' ) { p++; }
+			const char* pTok = p;
+			while( *p && *p != ' ' && *p != '\t' ) { p++; }
+			int nTok = (int)( p - pTok );
+			while( nTok > 0 && ( *pTok == '-' || *pTok == '/' ) ) { pTok++; nTok--; }
+			if( nTok == 3
+				&& ( pTok[0] | 0x20 ) == 'd' && ( pTok[1] | 0x20 ) == 'e' && ( pTok[2] | 0x20 ) == 'v' ) {
+				_bDevMode = TRUE;
+			} else if( nTok == 4
+				&& ( pTok[0] | 0x20 ) == 'p' && ( pTok[1] | 0x20 ) == 'l'
+				&& ( pTok[2] | 0x20 ) == 'a' && ( pTok[3] | 0x20 ) == 'y' ) {
+				bAutoRun = TRUE;
+				_bDevMode = FALSE;
+			}
+		}
 	}
+
+	// Reads Debug/LogFile; retail forces it off inside (_bDevMode already set).
+	_LoadConfig();
+
+	// After _LoadConfig: gated on the Debug/LogFile flag. Also emits the first
+	// trace lines, so the crash handler must already be installed above.
+	_OpenLog();
 
 	if( bAutoRun && _szMasterFile[0] != '\0' ) {
 		if( !_RunGame() ) {

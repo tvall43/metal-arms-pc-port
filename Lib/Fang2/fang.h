@@ -613,6 +613,12 @@ typedef struct {
 
 extern FangConfigDef_t Fang_ConfigDefs;
 
+// PC port: FALSE hides developer overlays (ftext_DebugPrintf text, fdraw_Dev*
+// shapes, fperf readouts) at run time, as a production build compiled them out.
+// The game clears it for retail mode (see gameloop_EnterRetailMode).
+extern BOOL Fang_bDevOverlays;
+
+
 extern void fang_Init( void );
 extern BOOL fang_Startup( void );
 extern void fang_Shutdown( void );

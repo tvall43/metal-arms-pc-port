@@ -29,7 +29,8 @@
 
 
 u32 Gamepad_nPortOnlineMask;
-FPad_Sample_t *Gamepad_aapSample[GAMEPAD_MAX_PORT_COUNT][GAMEPAD_MAX_ACTIONS];
+FPad_Sample_t *Gamepad_aapSample[GAMEPAD_MAX_PORT_COUNT+1][GAMEPAD_MAX_ACTIONS];
+static FPad_Sample_t _aNullDebugPortSamples[GAMEPAD_MAX_ACTIONS];	// PC port: see GAMEPAD_NULL_DEBUG_PORT
 u32 Gamepad_nDebugPortIndex;// what controller port should we look at for debug features
 f32 Gamepad_fMouseSensitivity = 1.0f;	// [Mouse] Sensitivity from ma_win.ini (mouse look only)
 
@@ -370,8 +371,14 @@ BOOL gamepad_InitSystem( void ) {
 		gamepad_SetMapping( i, GAMEPAD_MAP_MAIN1 );
 	}
 
+	// PC port: the extra, always-idle debug row (see GAMEPAD_NULL_DEBUG_PORT).
+	fang_MemZero( _aNullDebugPortSamples, sizeof( _aNullDebugPortSamples ) );
+	for( i=0; i<GAMEPAD_MAX_ACTIONS; i++ ) {
+		Gamepad_aapSample[GAMEPAD_NULL_DEBUG_PORT][i] = &_aNullDebugPortSamples[i];
+	}
+
 #if( FANG_PLATFORM_WIN )
-	Gamepad_nDebugPortIndex = 0;
+	Gamepad_nDebugPortIndex = GAMEPAD_NULL_DEBUG_PORT;
 #elif( FANG_PLATFORM_GC )
 	Gamepad_nDebugPortIndex = 1;
 #elif( FANG_PLATFORM_XB )
@@ -602,7 +609,9 @@ void gamepad_SetDebugPortIndex( u32 nIndex ) {
 	FMATH_CLAMP( nIndex, 0, (GAMEPAD_MAX_PORT_COUNT-1) );
 
 #if( FANG_PLATFORM_WIN )
-	Gamepad_nDebugPortIndex = 0;
+	// PC port: Windows always reads debug holds from the idle null row; port 0
+	// is the player's own keyboard/pad, so real gameplay would trip them.
+	Gamepad_nDebugPortIndex = GAMEPAD_NULL_DEBUG_PORT;
 #else
 	Gamepad_nDebugPortIndex = nIndex;
 #endif
@@ -672,6 +681,11 @@ void Gamepad_ResetCheatCodes( void )
 void _HandleCheatCodes( void )
 {
 	u32 i, j, k;
+
+	// PC port: the only codes here are dev ones (level win), not in retail mode
+	if( Gameloop_bRetailMode ) {
+		return;
+	}
 
 	// Check each port for cheat codes
 	for( i = 0; i < GAMEPAD_MAX_PORT_COUNT; i++ ) 

@@ -37,6 +37,7 @@
 #include "ProTrack.h"
 #include "fsndfx.h"
 #include "RoboBuddy.h"
+#include "gameloop.h"	// PC port: Gameloop_bRetailMode
 #include "meshentity.h"
 #include "Ai/AIEnviro.h"	//for AI sounds
 #include "Ai/AIGameUtils.h"	// for autils_DebugTrackRay
@@ -1113,7 +1114,7 @@ void CBotGlitch::ClassHierarchyWork() {
 			
 #if !FANG_PRODUCTION_BUILD
 	// Temp stuff...
-	if( m_nPossessionPlayerIndex >= 0 ) {
+	if( m_nPossessionPlayerIndex >= 0 && !Gameloop_bRetailMode ) {	// PC port: dev cheat, not in retail mode
 		u32 nPortNum = Player_aPlayer[m_nPossessionPlayerIndex].m_nControllerIndex;
 
 		// No more turbo

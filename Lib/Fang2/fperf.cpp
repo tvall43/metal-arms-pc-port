@@ -961,7 +961,7 @@ void fperf_RenderPerf( void )
 
 	FASSERT( _bModuleInitialized );
 	
-	if ( !FViewport_pDefaultOrtho || !FVid_bOnline || (FPerf_nDisplayPerfType == FPERF_TYPE_NONE) )
+	if ( !FViewport_pDefaultOrtho || !FVid_bOnline || (FPerf_nDisplayPerfType == FPERF_TYPE_NONE) || !Fang_bDevOverlays )	// PC port: Fang_bDevOverlays
 	{
 		return;
 	}

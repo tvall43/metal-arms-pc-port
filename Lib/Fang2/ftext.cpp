@@ -1300,6 +1300,9 @@ void ftext_DebugPrintf( const f32 fX, const f32 fY, cchar *pszFormat, ... )
 	//now, convert the single byte string to a multibyte string
 	fclib_CharToWide( _pszWTemp, _pszTemp );
 
+	if( !Fang_bDevOverlays ) {
+		return;	// PC port: see fang.h
+	}
 	_ftext_PrintString( _FTEXT_PRINTF_DEBUG_XY_ONLY, 0, fX, fY, _pszWTemp );
 
 } // ftext_DebugPrintfA
@@ -1322,6 +1325,9 @@ void ftext_DebugPrintf( const f32 fX, const f32 fY, cwchar *pszWFormat, ... )
 	}
 	va_end( oVAList );
 
+	if( !Fang_bDevOverlays ) {
+		return;	// PC port: see fang.h
+	}
 	_ftext_PrintString( _FTEXT_PRINTF_DEBUG_XY_ONLY, 0, fX, fY, _pszWTemp );
 
 } // ftext_DebugPrintfW
