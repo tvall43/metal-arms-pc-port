@@ -316,6 +316,9 @@ private:
 		CFSoundGroup *pSoundGroupGas;
 		f32 fGasTimeMin;
 		f32 fGasTimeMax;
+		CArmorProfile *pArmorProfileShield;		// PC port: retail addition (unused)
+		f32 fRetailShield1;						// PC port: retail addition (unused)
+		f32 fRetailShield2;						// PC port: retail addition (unused)
 	} BotInfo_Grunt_t;
 
 

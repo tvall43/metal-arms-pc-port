@@ -61,6 +61,9 @@ const FGameData_TableEntry_t CBotGrunt::m_aBotInfoVocab_Grunt[] = {
 	F32_DATATABLE_10000000,
 
 
+	FGAMEDATA_VOCAB_ARMOR,			// pArmorProfileShield (retail addition: 'GruntShield')
+	FGAMEDATA_VOCAB_F32_BOUND( F32_DATATABLE_Pt001, F32_DATATABLE_1000000000 ),	// fRetailShield1 (retail addition, data 1)
+	FGAMEDATA_VOCAB_F32_BOUND( F32_DATATABLE_Pt001, F32_DATATABLE_1000000000 ),	// fRetailShield2 (retail addition, data 120)
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0
 };

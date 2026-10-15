@@ -388,6 +388,7 @@ public:
 		u32 uNumHitsToBreakLimb;						// how many blows it takes to break one of the bot's limbs
 
 		f32 fDoubleJumpTime;							// Time frame in which we are allowed to double jump
+		CFSoundGroup *pSoundGroupDeath;				// PC port: retail data appends a death sound group (not yet played)
 	} BotInfo_Gen_t;
 
 	typedef struct {

@@ -141,13 +141,18 @@ private:
 		f32 fEnterHalfHeight;
 		CFSoundGroup *pRotateTuret;
 		FDecalDefHandle_t hBulletDecalDef;
+		FParticle_DefHandle_t hBackSmokePartDef;	// PC port: retail addition (unused)
+		FParticle_DefHandle_t hImpact1PartDef;	// PC port: retail addition (unused)
+		FParticle_DefHandle_t hImpact2PartDef;	// PC port: retail addition (unused)
+		CArmorProfile *pGunnerArmorProfile;		// PC port: retail addition (unused)
 			} BotInfo_AAGun_t;
 
 	typedef struct {
 		u32 uPoolCannonsBalls;
 		f32 fRoundsPerSec;
 		f32 fOORoundsPerSec;
-		f32 fRetailExtra02;
+		f32 fRetailRate;				// PC port: retail data inserts a second rate pair (data 0.2 - meaning unknown)
+		f32 fOORetailRate;
 		FExplosion_GroupHandle_t hExplLaunchGroup;
 		FExplosion_GroupHandle_t hExplDetonateGroup;
 		f32 fMinCannonballVelocityXZ;
@@ -160,6 +165,8 @@ private:
 		CFSoundGroup *pMortarFire;
 		CFSoundGroup *pMortarExplode;
 		CFSoundGroup *pMortarNoFire;
+		CDamageProfile *pDetonateDamageProfile;	// PC port: retail addition (unused)
+		f32 fRetailTail;						// PC port: retail addition (unused)
 	} MortarInfo_t;
 
 //----------------------------------------------------------------------------------------------------------------------------------

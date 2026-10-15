@@ -133,11 +133,13 @@ const FGameData_TableEntry_t CWeaponQuadLaser::m_aUserPropVocab[] = {
 	F32_DATATABLE_100,
 
 	//f32 fMaxShotSpread;
+	// PC port: retail clamps to 0..1 - its data is 0 and 0.01, which the
+	// source's 1..100000 clamp would have raised to 1 (a hundredfold spread).
 	FGAMEDATA_VAR_TYPE_FLOAT|
 	FGAMEDATA_FLAGS_FLOAT_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( f32 ),
+	F32_DATATABLE_0,
 	F32_DATATABLE_1,
-	F32_DATATABLE_100000,
 
 	//cchar *pszFireParticle;
 	FGAMEDATA_VAR_TYPE_STRING|

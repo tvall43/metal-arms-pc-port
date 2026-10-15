@@ -234,7 +234,7 @@ public:
 		cchar *pszRocketMeshName;				// Mesh name of the rocket projectile
 		u32 nRocketPoolCount;					// Number of rockets in the rocket pool
 
-		CFDebrisGroup *pDebrisGroupClipEject;	// Debris group used to eject clips
+		cchar *pszDebrisGroupClipEject;			// Name of the debris group used to eject clips (retail resolves it at eject time - groups are per-level, so a parse-time lookup could fail)
 	} _UserProps_t;
 
 

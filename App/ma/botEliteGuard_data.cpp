@@ -157,6 +157,7 @@ const FGameData_TableEntry_t m_EliteInfoVocab_Staff[] =
 //		FParticle_DefHandle_t hLaserParticle
 	FGAMEDATA_VOCAB_PARTICLE,
 
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupBeamImpact (retail addition: 'EliteBeamImpact')
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0
 };

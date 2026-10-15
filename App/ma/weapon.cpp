@@ -181,7 +181,14 @@ const FGameData_TableEntry_t CWeapon::m_aUserPropVocab[] = {
 	F32_DATATABLE_1,
 	F32_DATATABLE_10000,
 
-	FGAMEDATA_VOCAB_DEBRIS_GROUP,	// pDebrisGroupClipEject
+	// pszDebrisGroupClipEject: retail stores the name (flags 0x400) and resolves it
+	// when a clip is ejected, rather than looking the group up while parsing (the
+	// groups load per level, so the parse-time lookup could miss).
+	FGAMEDATA_VAR_TYPE_STRING|
+	FGAMEDATA_FLAGS_STRING_PTR_TO_MAIN_STR_TBL,
+	sizeof( char * ),
+	F32_DATATABLE_0,
+	F32_DATATABLE_0,
 
 
 	// End of table:
@@ -1679,7 +1686,9 @@ CFAudioEmitter *CWeapon::AllocAndPlaySound( CFSoundGroup *pSoundGroup, f32 fVolM
 
 void CWeapon::EjectClip( const CFVec3A *pPos_WS, FMesh_t *pEjectMesh, f32 fDebrisMeshScale ) {
 	if( pEjectMesh ) {
-		if( m_UserProps.pDebrisGroupClipEject ) {
+		CFDebrisGroup *pDebrisGroupClipEject = CFDebrisGroup::Find( m_UserProps.pszDebrisGroupClipEject );
+
+		if( pDebrisGroupClipEject ) {
 			CFDebrisSpawner DebrisSpawner;
 			CFDebrisMesh DebrisMesh;
 			CFVec3A ScaledY_WS;
@@ -1718,7 +1727,7 @@ void CWeapon::EjectClip( const CFVec3A *pPos_WS, FMesh_t *pEjectMesh, f32 fDebri
 			DebrisMesh.m_pMesh = pEjectMesh;
 
 			DebrisSpawner.m_pDebrisMesh = &DebrisMesh;
-			DebrisSpawner.m_pDebrisGroup = m_UserProps.pDebrisGroupClipEject;
+			DebrisSpawner.m_pDebrisGroup = pDebrisGroupClipEject;
 			DebrisSpawner.m_fMinSpeed = fSpeed * fDebrisMeshScale;
 			DebrisSpawner.m_fMaxSpeed = fSpeed * fDebrisMeshScale;
 

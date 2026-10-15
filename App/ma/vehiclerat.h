@@ -292,6 +292,7 @@ private:
 		CFSoundGroup *pSoundGroupHatchClank;	// driver hatch open/close sound
 		CFSoundGroup *pSoundGroupBoost;			// boosting sound
 		CFSoundGroup *pSoundGroupSkid;			// tire skid sound
+		CArmorProfile *apRetailArmorProfile[6];		// PC port: retail addition: 'VRatRR','VRatWC0'..'VRatWC3','VRatR2R' (unused)
 	} BotInfo_Rat_t;
 
 	//----------------------------------------------------------------------------------------------------------------------------------

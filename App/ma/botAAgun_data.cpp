@@ -238,6 +238,11 @@ const FGameData_TableEntry_t CBotAAGun::m_aBotInfoVocab_AAGun[] = {
 
 	FGAMEDATA_VOCAB_DECAL_DEF,	// hBulletDecalDef
 
+	FGAMEDATA_VOCAB_PARTICLE,	// hBackSmokePartDef (retail addition: 'aagunbksmk2')
+	FGAMEDATA_VOCAB_PARTICLE,	// hImpact1PartDef (retail addition: 'e_aaImpact1')
+	FGAMEDATA_VOCAB_PARTICLE,	// hImpact2PartDef (retail addition: 'e_aaImpact2')
+	FGAMEDATA_VOCAB_ARMOR,		// pGunnerArmorProfile (retail addition: 'AAGunner')
+
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0
 };
@@ -248,10 +253,12 @@ const FGameData_TableEntry_t CBotAAGun::m_aBotInfoVocab_Mortar[] = {
 
 //	f32 fRoundsPerSec;
 //	f32 fOORoundsPerSec;
-	FGAMEDATA_VOCAB_F32_BOUND_XOOX( F32_DATATABLE_1, F32_DATATABLE_60 ),
+	// PC port: retail lowers the minimum to 0.001 (its data uses 0.67/sec, which the
+	// source clamp of 1 would have raised) and inserts a second rate pair after it.
+	FGAMEDATA_VOCAB_F32_BOUND_XOOX( F32_DATATABLE_Pt001, F32_DATATABLE_60 ),
 
-//	f32 fRetailExtra02;
-	FGAMEDATA_VOCAB_F32_BOUND( F32_DATATABLE_0, F32_DATATABLE_60 ),
+//	f32 fRetailRate; f32 fOORetailRate; (retail addition, data 0.2 - meaning unknown)
+	FGAMEDATA_VOCAB_F32_BOUND_XOOX( F32_DATATABLE_Pt001, F32_DATATABLE_60 ),
 
 //	cchar *pszLaunchExplosion;
 	FGAMEDATA_VOCAB_EXPLODE_GROUP,
@@ -286,6 +293,12 @@ const FGameData_TableEntry_t CBotAAGun::m_aBotInfoVocab_Mortar[] = {
 
 // CFSoundGroup *pMortarNoFire;
 	FGAMEDATA_VOCAB_SOUND_GROUP,
+
+// CDamageProfile *pDetonateDamageProfile; (retail addition: 'AAGunMortarDetonate')
+	FGAMEDATA_VOCAB_DAMAGE,
+
+// f32 fRetailTail; (retail addition, data 0.333 - meaning unknown)
+	FGAMEDATA_VOCAB_F32_BOUND( F32_DATATABLE_0, F32_DATATABLE_10000 ),
 
 // End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0

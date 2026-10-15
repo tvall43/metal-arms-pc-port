@@ -175,7 +175,9 @@ private:
 		CFSoundGroup *pSoundGroupTreads;
 		CFSoundGroup *pSoundGroupAlarmZap;
 		CFSoundGroup *pSoundGroupTick;					//ticking sound for when scout is in blow up state
+		CFSoundGroup *pSoundGroupSiren;					// PC port: retail data inserts this before the detonation profile ('ScoutSiren'); not yet played - without it 'ScoutSiren' was parsed as a damage profile (log: "Damage profile 'ScoutSiren' doesn't exist")
 		CDamageProfile* pScoutDetDamageProfile;
+		CFDebrisGroup *pDebrisGroupGuts;				// PC port: retail data appends this ('ScoutGuts'); not yet spawned
 	} BotInfo_Scout_t;
 
 

@@ -157,6 +157,12 @@ const FGameData_TableEntry_t CVehicleRat::m_aBotInfoVocab_Rat[] =
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupBoost
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupSkid
 
+	FGAMEDATA_VOCAB_ARMOR,	// apRetailArmorProfile[0] (retail addition: 'VRatRR')
+	FGAMEDATA_VOCAB_ARMOR,	// apRetailArmorProfile[1] ('VRatWC0')
+	FGAMEDATA_VOCAB_ARMOR,	// apRetailArmorProfile[2] ('VRatWC1')
+	FGAMEDATA_VOCAB_ARMOR,	// apRetailArmorProfile[3] ('VRatWC2')
+	FGAMEDATA_VOCAB_ARMOR,	// apRetailArmorProfile[4] ('VRatWC3')
+	FGAMEDATA_VOCAB_ARMOR,	// apRetailArmorProfile[5] ('VRatR2R')
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0
 };

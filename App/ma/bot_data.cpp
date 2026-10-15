@@ -372,7 +372,7 @@ const FGameData_TableEntry_t CBot::m_aBotInfoVocab_Gen[] = {
 	F32_DATATABLE_1000000000,
 
 
-
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupDeath (retail addition, e.g. 'Grunt_Death')
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0
 };

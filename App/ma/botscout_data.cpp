@@ -176,7 +176,9 @@ const FGameData_TableEntry_t CBotScout::m_aBotInfoVocab_Scout[] = {
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupTreads
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupAlarmZap
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupTick
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupSiren (retail insertion: 'ScoutSiren'; was being read as the damage profile below)
 	FGAMEDATA_VOCAB_DAMAGE,			// pScoutDetDamageProfile:
+	FGAMEDATA_VOCAB_DEBRIS_GROUP,	// pDebrisGroupGuts (retail addition: 'ScoutGuts')
 
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0
