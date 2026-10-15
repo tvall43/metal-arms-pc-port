@@ -1083,12 +1083,12 @@ const FGameData_TableEntry_t CFDebrisGroup::m_aGameDataVocab[] = {
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupImpact
 	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupFlaming
 
-	// nPriority:
+	// nPriority (retail clamps to 0..4 and its data uses 3 and 4):
 	FGAMEDATA_VAR_TYPE_FLOAT|
 	FGAMEDATA_FLAGS_CONVERT_TO_U32 | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( u32 ),
 	F32_DATATABLE_0,
-	F32_DATATABLE_2,
+	F32_DATATABLE_4,
 
 	// bIgnoreFlatObjectFlag:
 	FGAMEDATA_VAR_TYPE_FLOAT|
@@ -1104,12 +1104,8 @@ const FGameData_TableEntry_t CFDebrisGroup::m_aGameDataVocab[] = {
 	F32_DATATABLE_0,
 	F32_DATATABLE_1,
 
-	// bRandomOrientation:
-	FGAMEDATA_VAR_TYPE_FLOAT|
-	FGAMEDATA_FLAGS_CONVERT_TO_U32 | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
-	sizeof( BOOL ),
-	F32_DATATABLE_0,
-	F32_DATATABLE_1,
+	// bRandomOrientation: not present in the retail table (the retail
+	// executable's vocab goes straight from two BOOLs to two unit floats).
 
 	// fUnitDustKickUp:
 	FGAMEDATA_VAR_TYPE_FLOAT|
@@ -1331,9 +1327,13 @@ _ExitWithError:
 }
 
 
+// PC port: retail deb_group.csv has 24 fields and the retail vocab (found by
+// shape at XBE offset 3584312) has 24 entries with no bRandomOrientation, so
+// the map is now the identity. The leak's map had 25 entries and routed both
+// fUnitDustKickUp and fUnitHitpointDamage to CSV field 7.
 static const u8 _aDebrisFieldMap[] = {
-	0, 1, 2, 3, 4, 5, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14,
-	15, 16, 17, 18, 19, 20, 21, 22, 23,
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+	16, 17, 18, 19, 20, 21, 22, 23,
 };
 
 CFDebrisGroup *CFDebrisGroup::LoadFromGameData( FGameDataTableHandle_t hTable, cchar *pszMeshSetFileName ) {
@@ -1374,7 +1374,9 @@ CFDebrisGroup *CFDebrisGroup::LoadFromGameData( FGameDataTableHandle_t hTable, c
 	pMeshGroup->m_nPriority = UserProps.nPriority;
 	pMeshGroup->m_bIgnoreFlatObjectFlag = UserProps.bIgnoreFlatObjectFlag;
 	pMeshGroup->m_bRotationalMotion = UserProps.bRotationalMotion;
-	pMeshGroup->m_bRandomOrientation = UserProps.bRandomOrientation;
+	// Retail data has no such column. Off keeps spawned pieces (limbs, clips)
+	// in their spawn orientation; rotational motion still tumbles them.
+	pMeshGroup->m_bRandomOrientation = FALSE;
 	pMeshGroup->m_pSoundGroupImpact = UserProps.pSoundGroupImpact;
 	pMeshGroup->m_pSoundGroupFlaming = UserProps.pSoundGroupFlaming;
 
@@ -2096,12 +2098,12 @@ const FGameData_TableEntry_t CFDebrisMeshSet::m_aGameDataVocab[] = {
 	F32_DATATABLE_0,
 	F32_DATATABLE_0,
 
-	// m_bFlatObject:
+	// m_bFlatObject (retail clamps to 0..2):
 	FGAMEDATA_VAR_TYPE_FLOAT|
 	FGAMEDATA_FLAGS_CONVERT_TO_U32 | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( u32 ),
 	F32_DATATABLE_0,
-	F32_DATATABLE_1,
+	F32_DATATABLE_2,
 
 	// m_bCanKickUpDust:
 	FGAMEDATA_VAR_TYPE_FLOAT|

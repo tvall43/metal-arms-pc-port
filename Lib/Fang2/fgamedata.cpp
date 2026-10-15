@@ -71,6 +71,7 @@ f32 afDataTable[F32_DATATABLE_COUNT] = {
 	1.0f,			//	F32_DATATABLE_1,
 	2.0f,			//	F32_DATATABLE_2,
 	3.0f,			//	F32_DATATABLE_3,
+	4.0f,			//	F32_DATATABLE_4,  // PC port: retail XBE has 4.0 at index 12
 	5.0f,			//	F32_DATATABLE_5,
 	6.0f,			//	F32_DATATABLE_6,
 	10.0f,			//	F32_DATATABLE_10,

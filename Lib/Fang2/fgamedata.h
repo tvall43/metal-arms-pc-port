@@ -143,6 +143,7 @@ typedef enum {
 	F32_DATATABLE_1,
 	F32_DATATABLE_2,
 	F32_DATATABLE_3,
+	F32_DATATABLE_4,		// PC port: present in the retail XBE's table (index 12); recovered vocab tables index past it
 	F32_DATATABLE_5,
 	F32_DATATABLE_6,
 	F32_DATATABLE_10,

@@ -361,11 +361,12 @@ private:
 		CFSoundGroup *pSoundGroupImpact;	// Sound group used for when debris impacts geo
 		CFSoundGroup *pSoundGroupFlaming;	// Sound group used for flaming debris
 
-		u32 nPriority;						// From 0 to 2 (2 is the highest priority)
+		u32 nPriority;						// From 0 to 4 in retail data (source said 0 to 2)
 
 		BOOL bIgnoreFlatObjectFlag;
 		BOOL bRotationalMotion;
-		BOOL bRandomOrientation;
+		// PC port: retail deb_group.csv has no bRandomOrientation column (24
+		// fields, not 25) - see LoadFromGameData().
 
 		f32 fUnitDustKickUp;
 		f32 fUnitHitpointDamage;
