@@ -4786,11 +4786,61 @@ void _HandleFastShader()
 	_nPrevTexCoordMtxCount = _nTexCoordMtxCount;
 }
 
+//TEMP shprobe (R45): per-row shader-activation snapshot for the invisible alpha-cutout investigation.
+static void _TEMPShProbe( int nFast )
+{
+	static u32 s_anTEMPShProbe[FSHADERS_SHADER_COUNT + 16];
+	const FShaderRenderStates_t *pTEMPRow;
+	const char *pszTEMPtex;
+	u32 nTEMPtexfmt;
+	FShTexInst_t *pTEMPinst;
+	void *pTEMPt0;
+
+	if ( _nShaderID >= FSHADERS_SHADER_COUNT + 16 )
+	{
+		return;
+	}
+	if ( s_anTEMPShProbe[_nShaderID] >= 3 )
+	{
+		return;
+	}
+	s_anTEMPShProbe[_nShaderID]++;
+
+	pTEMPRow = &_aShaderRenderStates[_nShaderID];
+	pszTEMPtex = "(none)";
+	nTEMPtexfmt = 0xff;
+	if ( FSh_pnSurfaceInputRegisters[0] )
+	{
+		pTEMPinst = (FShTexInst_t *)FSh_pnSurfaceInputRegisters[0];
+		if ( pTEMPinst->TexInst.GetTexDef() )
+		{
+			pszTEMPtex = pTEMPinst->TexInst.GetTexDef()->TexInfo.szName;
+			nTEMPtexfmt = (u32)pTEMPinst->TexInst.GetTexDef()->TexInfo.nTexFmt;
+		}
+	}
+	pTEMPt0 = NULL;
+	FDX8_pDev->GetTexture( 0, (IDirect3DBaseTexture8 **)&pTEMPt0 );
+
+	DEVPRINTF( "[ma] TEMP shprobe fast=%d id=%u type=%d surfonly=%d usefastpass=%d psh=%u vsh=%u src=%u dst=%u op=%u at=%d aref=%u stages=%u c2=%.3f/%.3f/%.3f/%.3f c3=%.3f t0=%s fmt=%u h=%p\n",
+		nFast, (u32)_nShaderID, (u32)FSh_shaderType, FSh_bSurfaceOnly ? 1 : 0,
+		FSh_bUseFastPass ? 1 : 0,
+		pTEMPRow->pShader, pTEMPRow->vShader,
+		pTEMPRow->nSrcBlend, pTEMPRow->nDstBlend, pTEMPRow->nBlendOp,
+		pTEMPRow->bAlphaTest ? 1 : 0, pTEMPRow->nAlphaRef, (u32)pTEMPRow->nStages,
+		_fFinalSurfaceColor.fRed, _fFinalSurfaceColor.fGreen, _fFinalSurfaceColor.fBlue, _fFinalSurfaceColor.fAlpha,
+		_fLayerAlpha, pszTEMPtex, nTEMPtexfmt, pTEMPt0 );
+	if ( pTEMPt0 )
+	{
+		((IDirect3DBaseTexture8 *)pTEMPt0)->Release();
+	}
+}
+
 void _SetPassDXState()
 {
 	if (_bFastShader&&FSh_bUseFastPass) //FAST SHADER HERE.
 	{
 		_HandleFastShader();
+		_TEMPShProbe( 1 );
 		return;
 	}
 
@@ -5304,6 +5354,9 @@ void _SetPassDXState()
 	}
 	_nPrevTexOverrideCount = _nTexOverrideCount;
 	_nPrevTexCoordMtxCount = _nTexCoordMtxCount;
+
+	//TEMP shprobe (R45): main-path activation snapshot.
+	_TEMPShProbe( 0 );
 }
 
 extern f32 FVis_fLastVPFOVDistMod;
@@ -5589,6 +5642,9 @@ void fsh_FastSurfaceExecute()
 	{
 		fdx8tex_SetTexture( 1, _pReflectTex, 1 );
 	}
+
+	//TEMP shprobe (R45): fast-surface activation snapshot.
+	_TEMPShProbe( 2 );
 }
 
 void fsh_ExecuteCurrent(BOOL bShadowRender, s32 nShadowID)
