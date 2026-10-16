@@ -1211,9 +1211,20 @@ BOOL CBarterLevel::InitLevel( cchar *pszCSVFile ) {
 			}
 			
 			// Fill in the unspecified BarterItemInsts with the possible candidates off the CBarterItem array...
+			// PC port (R44): retail's collectable enum gives every barteritems row a distinct
+			// type (EUK weapons/scopes carry their own ids), so per slot the number of item
+			// rows whose type is covered by a spec chain always equals the spec chain count
+			// and the loop below fills chains [m_nSpecSaleChains, m_nSaleChains) exactly.
+			// Our enum has no EUK ids: R36 maps "EUK X" onto the base weapon type, so two
+			// item rows can share one type, fewer rows come back "already in list" than
+			// expected, nSalesChainInsertAt ends below m_nSaleChains, and the tail chains
+			// keep the uninitialized m_poItem==NULL inst allocated above.
+			// _UpdateItemsForSaleBasedOn then derefs NULL (crash VA 0x482F15, chain 14 in
+			// weshbarter1's Items slot).  Clamp the chain count to what was actually filled
+			// and free the unfilled tails; a no-op on retail-shaped data.
 			BOOL		bItemIsInListAlready;
 			u32 nSalesChainInsertAt = pSlot->m_nSpecSaleChains;
-			for (u32 nItem = 0; nItem < CBarterItem::m_aNumItems[nSlot]; nItem++)
+			for (u32 nItem = 0; pSlot->m_paSaleChains && (nItem < CBarterItem::m_aNumItems[nSlot]); nItem++)
 			{
 				bItemIsInListAlready = FALSE;
 				// search to see if we've already got this item in the offer list
@@ -1227,7 +1238,10 @@ BOOL CBarterLevel::InitLevel( cchar *pszCSVFile ) {
 					}
 				}
 
-				if (bItemIsInListAlready == FALSE)
+				// never write past the allocated chain array (in theory two spec chains
+				// can resolve to the same collectable type, covering more rows than there
+				// are chains to insert into)
+				if (bItemIsInListAlready == FALSE && (nSalesChainInsertAt < pSlot->m_nSaleChains))
 				{
 					pSaleChain = &pSlot->m_paSaleChains[nSalesChainInsertAt];
 					pSaleChain->m_paItemInsts[0].Init(&CBarterItem::m_apaItems[nSlot][nItem],FALSE,BARTER_INFINITE,BARTER_DEFAULT_PRICE);
@@ -1249,6 +1263,26 @@ BOOL CBarterLevel::InitLevel( cchar *pszCSVFile ) {
 						pSaleChain->m_paItemInsts[0].m_poItem->LoadSharedResources();
 					}
 				}
+			}
+
+			// PC port (R44): free tail chains the fill pass above left with an
+			// uninitialized (NULL) m_poItem and clamp the chain count to what was
+			// actually filled, so _UpdateItemsForSaleBasedOn / SelectStartingItems /
+			// UninitLevel never walk them.  Retail-shaped data fills all
+			// m_nSaleChains (spec types cover exactly m_nSpecSaleChains rows), so
+			// this is a no-op there.
+			if( pSlot->m_paSaleChains )
+			{
+				for (u32 nTail = nSalesChainInsertAt; nTail < pSlot->m_nSaleChains; nTail++)
+				{
+					pSaleChain = &pSlot->m_paSaleChains[nTail];
+					if( pSaleChain->m_paItemInsts )
+					{
+						fdelete_array( pSaleChain->m_paItemInsts );
+						pSaleChain->m_paItemInsts = NULL;
+					}
+				}
+				pSlot->m_nSaleChains = nSalesChainInsertAt;
 			}
 		}
 	}
