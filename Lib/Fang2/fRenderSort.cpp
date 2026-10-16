@@ -1092,20 +1092,26 @@ BOOL _AddDLEntry( _RL_Entry_t *pNewEntry, u32 nLightShaderIdx, u32 nSurfaceShade
 // This function adds a mesh into the display list linklists.  It will
 // divide the object up by materials.
 //
-static void *s_apTEMPSeenKey[128];
-static char s_acTEMPSeenBranch[128];
+// Round-45d: 128 slots went permanently silent once full (k2's "128 frs
+// lines" was the cap, not reality) — reset on overflow instead.
+static void *s_apTEMPSeenKey[8192];
+static char s_acTEMPSeenBranch[8192];
 static BOOL _TEMPSeen( void *pKey, char cBranch )
 {
 	u32 i;
-	for ( i = 0; i < 128; ++i )
+	for ( i = 0; i < 8192; ++i )
 	{
 		if ( s_apTEMPSeenKey[i] == pKey && s_acTEMPSeenBranch[i] == cBranch ) { return TRUE; }
 	}
-	for ( i = 0; i < 128; ++i )
+	for ( i = 0; i < 8192; ++i )
 	{
 		if ( s_apTEMPSeenKey[i] == NULL ) { s_apTEMPSeenKey[i] = pKey; s_acTEMPSeenBranch[i] = cBranch; return FALSE; }
 	}
-	return TRUE;
+	memset( s_apTEMPSeenKey, 0, sizeof(s_apTEMPSeenKey) );
+	memset( s_acTEMPSeenBranch, 0, sizeof(s_acTEMPSeenBranch) );
+	s_apTEMPSeenKey[0] = pKey;
+	s_acTEMPSeenBranch[0] = cBranch;
+	return FALSE;
 }
 
 BOOL frs_AddMeshInst( CFMeshInst *pMeshInst, FViewportPlanesMask_t nPlanesMask, f32 fDistToCam, f32 fVPtoScreenPixelRatio )
@@ -1278,11 +1284,12 @@ BOOL frs_AddMeshInst( CFMeshInst *pMeshInst, FViewportPlanesMask_t nPlanesMask, 
 		int nTEMPnan = ( fTEMPx != fTEMPx || fTEMPy != fTEMPy || fTEMPz != fTEMPz || fDistToCam != fDistToCam ) ? 1 : 0;
 		if ( nTEMPnan || !_TEMPSeen( pMeshInst, 'F' ) )
 		{
-			DEVPRINTF( "[ma] TEMP frs %s mats=%u add=%u lodskip=%u addfail=%u failmat=%u surf=%u light=%u spec=%u lod=%u/%u mask=%u pos=(%g,%g,%g) dist=%g nan=%d\n",
+			DEVPRINTF( "[ma] TEMP frs %s mats=%u add=%u lodskip=%u addfail=%u failmat=%u surf=%u light=%u spec=%u lod=%u/%u mask=%u pos=(%g,%g,%g) dist=%g nan=%d pool=%u/%u\n",
 				pMeshInst->m_pMesh->szName, nTEMPMats, nTEMPAdded, nTEMPLODSkip, nTEMPAddFail,
 				nTEMPFailMat, nTEMPFailSurf, nTEMPFailLight, nTEMPFailSpec,
 				(u32)nLODIndex, (u32)pMeshInst->m_pMesh->nLODCount, (u32)nLODMask,
-				fTEMPx, fTEMPy, fTEMPz, fDistToCam, nTEMPnan );
+				fTEMPx, fTEMPy, fTEMPz, fDistToCam, nTEMPnan,
+				_nUsedDLEntryCount, _nMaxDLEntries );
 		}
 	}
 
@@ -1307,6 +1314,7 @@ BOOL frs_AddVolumeMeshMaterial( CFMeshInst *pMeshInst, FMeshMaterial_t *pMat, FV
 
 	if ( !(FRS_bRenderFlags & FRS_RENDER_VOLUME_GEO) )
 	{
+		if ( !_TEMPSeen( pMat, 'R' ) ) { DEVPRINTF( "[ma] TEMP frsvol %s mat=%u add=0 REASON=volgeooff surf=%u light=%u\n", pMeshInst->m_pMesh->szName, (u32)( pMat - pMeshInst->m_pMesh->aMtl ), (u32)pMat->nSurfaceShaderIdx, (u32)pMat->nLightShaderIdx ); }
 		return FALSE;
 	}
 
@@ -1316,6 +1324,7 @@ BOOL frs_AddVolumeMeshMaterial( CFMeshInst *pMeshInst, FMeshMaterial_t *pMat, FV
 	pNewEntry = _GetDLEntry();
 	if ( !pNewEntry )
 	{
+		if ( !_TEMPSeen( pMat, 'P' ) ) { DEVPRINTF( "[ma] TEMP frsvol %s mat=%u add=0 REASON=poolfull surf=%u light=%u\n", pMeshInst->m_pMesh->szName, (u32)( pMat - pMeshInst->m_pMesh->aMtl ), (u32)pMat->nSurfaceShaderIdx, (u32)pMat->nLightShaderIdx ); }
 		return FALSE;
 	}
 
@@ -1339,6 +1348,11 @@ BOOL frs_AddVolumeMeshMaterial( CFMeshInst *pMeshInst, FMeshMaterial_t *pMat, FV
 	if ( !_AddDLEntry( pNewEntry, pMat->nLightShaderIdx, pMat->nSurfaceShaderIdx, pMat->nSpecularShaderIdx, _RL_ENTRY_TYPE_WORLD_SPACE ) )
 	{
 		_ReleaseDLEntry( pNewEntry );
+		if ( !_TEMPSeen( pMat, 'F' ) ) { DEVPRINTF( "[ma] TEMP frsvol %s mat=%u add=0 REASON=addfail surf=%u light=%u spec=%u\n", pMeshInst->m_pMesh->szName, (u32)( pMat - pMeshInst->m_pMesh->aMtl ), (u32)pMat->nSurfaceShaderIdx, (u32)pMat->nLightShaderIdx, (u32)pMat->nSpecularShaderIdx ); }
+	}
+	else
+	{
+		if ( !_TEMPSeen( pMat, 'A' ) ) { DEVPRINTF( "[ma] TEMP frsvol %s mat=%u add=1 mask=%u dist=%g surf=%u light=%u spec=%u pool=%u/%u\n", pMeshInst->m_pMesh->szName, (u32)( pMat - pMeshInst->m_pMesh->aMtl ), (u32)nPlanesMask, fDistToCam, (u32)pMat->nSurfaceShaderIdx, (u32)pMat->nLightShaderIdx, (u32)pMat->nSpecularShaderIdx, _nUsedDLEntryCount, _nMaxDLEntries ); }
 	}
 	
 	return TRUE;

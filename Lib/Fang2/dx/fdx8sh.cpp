@@ -4825,6 +4825,7 @@ static void _TEMPShProbe( int nFast )
 		{
 			s_anTEMPShProbe[nTEMPslot].nID = (u32)_nShaderID;
 			s_anTEMPShProbe[nTEMPslot].nReg0 = FSh_pnSurfaceInputRegisters[0];
+			s_anTEMPShProbe[nTEMPslot].nCnt = 0;
 			break;
 		}
 		if ( s_anTEMPShProbe[nTEMPslot].nID == (u32)_nShaderID &&
@@ -4836,7 +4837,13 @@ static void _TEMPShProbe( int nFast )
 	}
 	if ( nTEMPprobe >= 4096 )
 	{
-		return;
+		// Round-45d: reset rather than suppress forever (reg0 pointer keys
+		// also go stale across level loads).
+		memset( s_anTEMPShProbe, 0xff, sizeof( s_anTEMPShProbe ) );
+		s_anTEMPShProbe[0].nID = (u32)_nShaderID;
+		s_anTEMPShProbe[0].nReg0 = FSh_pnSurfaceInputRegisters[0];
+		s_anTEMPShProbe[0].nCnt = 0;
+		nTEMPslot = 0;
 	}
 	if ( s_anTEMPShProbe[nTEMPslot].nCnt >= 2 )
 	{

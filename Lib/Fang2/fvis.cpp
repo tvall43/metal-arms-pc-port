@@ -1883,28 +1883,39 @@ static FViewportPlanesMask_t _VolumeCrossPlanes;
 //
 //
 //
-static void *s_apTEMPSeenKey[128];
-static char s_acTEMPSeenBranch[128];
+// Round-45d: 128 slots went permanently silent once full — DL_enter/out
+// lines for later objects were being lost. Reset on overflow instead.
+static void *s_apTEMPSeenKey[8192];
+static char s_acTEMPSeenBranch[8192];
 static BOOL _TEMPSeen( void *pKey, char cBranch )
 {
 	u32 i;
-	for ( i = 0; i < 128; ++i )
+	for ( i = 0; i < 8192; ++i )
 	{
 		if ( s_apTEMPSeenKey[i] == pKey && s_acTEMPSeenBranch[i] == cBranch ) { return TRUE; }
 	}
-	for ( i = 0; i < 128; ++i )
+	for ( i = 0; i < 8192; ++i )
 	{
 		if ( s_apTEMPSeenKey[i] == NULL ) { s_apTEMPSeenKey[i] = pKey; s_acTEMPSeenBranch[i] = cBranch; return FALSE; }
 	}
-	return TRUE;
+	memset( s_apTEMPSeenKey, 0, sizeof(s_apTEMPSeenKey) );
+	memset( s_acTEMPSeenBranch, 0, sizeof(s_acTEMPSeenBranch) );
+	s_apTEMPSeenKey[0] = pKey;
+	s_acTEMPSeenBranch[0] = cBranch;
+	return FALSE;
 }
 
 static BOOL _DL_AddVolume( FVisVolume_t *pVolume )
 {
+	// Round-45d: liquids (water/lava/ooze) are volume meshes — this whole
+	// path had zero probe coverage.
+	if ( !_TEMPSeen( pVolume, 'V' ) ) { DEVPRINTF( "[ma] TEMP fvis volIN %u %s\n", pVolume->nVolumeID, ( pVolume->pWorldGeo && pVolume->pWorldGeo->m_pMesh ) ? pVolume->pWorldGeo->m_pMesh->szName : "?" ); }
+
 	// Ensure that the volume is visible
 	_VolumeCrossPlanes = fviewport_TestSphere_WS( FVis_pCurrentViewport, &pVolume->spBoundingWS, FVIEWPORT_PLANESMASK_ALL );
 	if ( _VolumeCrossPlanes == -1 )
 	{
+		if ( !_TEMPSeen( pVolume, 'v' ) ) { DEVPRINTF( "[ma] TEMP fvis volOUT %u\n", pVolume->nVolumeID ); }
 		return FALSE;
 	}
 	
@@ -1988,6 +1999,7 @@ static BOOL _DL_AddVolume( FVisVolume_t *pVolume )
 
 		if ( !pVolume->pWorldGeo )
 		{
+			if ( !_TEMPSeen( pVolume, 'N' ) ) { DEVPRINTF( "[ma] TEMP fvis volNOGEO %u\n", pVolume->nVolumeID ); }
 			return TRUE;
 		}
 
@@ -2048,6 +2060,7 @@ static BOOL _DL_AddVolume( FVisVolume_t *pVolume )
 				#if FPERF_ENABLE
 					FPerf_nVolMeshMtlCullCount++;
 				#endif
+				if ( !_TEMPSeen( pMat, 'f' ) ) { DEVPRINTF( "[ma] TEMP fvis volmat %s mat=%u OUTFRUS mask=%u pos=(%g,%g,%g)\n", pVolume->pWorldGeo->m_pMesh->szName, (u32)( pMat - pVolume->pWorldGeo->m_pMesh->aMtl ), (u32)_VolumeCrossPlanes, pMat->vAverageVertPos.x, pMat->vAverageVertPos.y, pMat->vAverageVertPos.z ); }
 				continue;
 			}
 

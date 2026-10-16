@@ -453,13 +453,14 @@ BOOL CFMeshInst::DrawPrep_P( BOOL bFlushImmediate )
 //
 //
 //
-static void *_s_apTEMPMDKey[192];
-static char _s_acTEMPMDBranch[192];
-static u32 _s_anTEMPMDFrame[192];
+// Round-45d: 192 slots silently swallowed all later meshes — grow + reset on overflow.
+static void *_s_apTEMPMDKey[1024];
+static char _s_acTEMPMDBranch[1024];
+static u32 _s_anTEMPMDFrame[1024];
 static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
 {
 	u32 i;
-	for ( i = 0; i < 192; i++ )
+	for ( i = 0; i < 1024; i++ )
 	{
 		if ( _s_apTEMPMDKey[i] == pKey && _s_acTEMPMDBranch[i] == cBranch )
 		{
@@ -469,11 +470,17 @@ static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
 			return FALSE;
 		}
 	}
-	for ( i = 0; i < 192; i++ )
+	for ( i = 0; i < 1024; i++ )
 	{
 		if ( _s_apTEMPMDKey[i] == NULL ) { _s_apTEMPMDKey[i] = pKey; _s_acTEMPMDBranch[i] = cBranch; _s_anTEMPMDFrame[i] = FVid_nFrameCounter; return FALSE; }
 	}
-	return TRUE;
+	memset( _s_apTEMPMDKey, 0, sizeof(_s_apTEMPMDKey) );
+	memset( _s_acTEMPMDBranch, 0, sizeof(_s_acTEMPMDBranch) );
+	memset( _s_anTEMPMDFrame, 0, sizeof(_s_anTEMPMDFrame) );
+	_s_apTEMPMDKey[0] = pKey;
+	_s_acTEMPMDBranch[0] = cBranch;
+	_s_anTEMPMDFrame[0] = FVid_nFrameCounter;
+	return FALSE;
 }
 
 static const CFMtx43A *_TEMPGetPal( u32 nBoneCount, u32 nInstFlags, const CFMtx43A &PosMtx, CFMtx43A *const *ppPalette, const FMeshSeg_t *pSeg )
