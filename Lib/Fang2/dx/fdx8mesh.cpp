@@ -496,7 +496,11 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	DWORD dwTEMPps = 0xffffffff, dwTEMPcull = 0xffffffff, dwTEMPzfunc = 0xffffffff, dwTEMPzwrite = 0xffffffff;
 	DWORD dwTEMPab = 0xffffffff, dwTEMPsrc = 0xffffffff, dwTEMPdst = 0xffffffff, dwTEMPat = 0xffffffff;
 	DWORD dwTEMPafunc = 0xffffffff, dwTEMParef = 0xffffffff;
-	IDirect3DBaseTexture8 *pTEMPt0 = NULL;
+	DWORD dwTEMPclip = 0xffffffff, dwTEMPclippe = 0xffffffff;
+	IDirect3DBaseTexture8 *pTEMPt0 = NULL, *pTEMPt1 = NULL;
+	IDirect3DVertexBuffer8 *pTEMPvb = NULL;
+	IDirect3DIndexBuffer8 *pTEMPib = NULL;
+	UINT nTEMPstride = 0;
 	D3DMATRIX Wm;
 	if ( _TEMPMDSeen( pKey, cBranch ) ) { return; }
 	FDX8_pDev->GetVertexShader( &dwShader );
@@ -511,17 +515,28 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	FDX8_pDev->GetRenderState( D3DRS_ALPHATESTENABLE, &dwTEMPat );
 	FDX8_pDev->GetRenderState( D3DRS_ALPHAFUNC, &dwTEMPafunc );
 	FDX8_pDev->GetRenderState( D3DRS_ALPHAREF, &dwTEMParef );
+	FDX8_pDev->GetRenderState( D3DRS_CLIPPING, &dwTEMPclip );
+	FDX8_pDev->GetRenderState( D3DRS_CLIPPLANEENABLE, &dwTEMPclippe );
 	FDX8_pDev->GetTexture( 0, &pTEMPt0 );
 	if ( pTEMPt0 ) { pTEMPt0->Release(); }
+	FDX8_pDev->GetTexture( 1, &pTEMPt1 );
+	if ( pTEMPt1 ) { pTEMPt1->Release(); }
+	FDX8_pDev->GetStreamSource( 0, &pTEMPvb, &nTEMPstride );
+	if ( pTEMPvb ) { pTEMPvb->Release(); }
+	UINT nTEMPbase = 0;
+	FDX8_pDev->GetIndices( &pTEMPib, &nTEMPbase );
+	if ( pTEMPib ) { pTEMPib->Release(); }
 	memset( &Wm, 0, sizeof(Wm) );
 	FDX8_pDev->GetTransform( D3DTS_WORLDMATRIX(0), &Wm );
-	float aCvw[4] = { 0.f, 0.f, 0.f, 0.f };
+	float aCvw[16];
+	memset( aCvw, 0, sizeof(aCvw) );
 	FDX8_pDev->GetVertexShaderConstant( CV_WORLD_0, aCvw, 4 );
 	f32 fP0 = 0.f, fP1 = 0.f, fP2 = 0.f;
 	if ( pPal ) { fP0 = pPal->m_vP.x; fP1 = pPal->m_vP.y; fP2 = pPal->m_vP.z; }
 	int nNan = ( fM0 != fM0 || fM1 != fM1 || fM2 != fM2 || Wm._41 != Wm._41 || Wm._44 != Wm._44
-		|| fP0 != fP0 || fP1 != fP1 || aCvw[3] != aCvw[3] ) ? 1 : 0;
-	DEVPRINTF( "[ma] TEMP mdraw f%u %s%c %s inst=%p clu=%u partskip=%u lodskip=%u drawn=%u seg01sk=%u/%u/%u bone=%u parts=%08x lod=%u scale=%g pos=(%g,%g,%g) pal=(%g,%g,%g)%s cvw=(%g,%g,%g,%g) vw=(%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g) pj=(%g,%g,%g,%g,%g,%g) sh=0x%08X blend=%u wm=(%g,%g,%g,%g) vol=%d iflags=%x nan=%d ps=%u cull=%u z=%u zw=%u ab=%u s=%u d=%u at=%u af=%u aref=%u t0=%p\r\n",
+		|| fP0 != fP0 || fP1 != fP1 ) ? 1 : 0;
+	for ( int nTEMPi = 0; nTEMPi < 16; nTEMPi++ ) { if ( aCvw[nTEMPi] != aCvw[nTEMPi] ) { nNan = 1; } }
+	DEVPRINTF( "[ma] TEMP mdraw f%u %s%c %s inst=%p clu=%u partskip=%u lodskip=%u drawn=%u seg01sk=%u/%u/%u bone=%u parts=%08x lod=%u scale=%g pos=(%g,%g,%g) pal=(%g,%g,%g)%s cvw=(%g,%g,%g,%g) vw=(%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g) pj=(%g,%g,%g,%g,%g,%g) sh=0x%08X blend=%u wm=(%g,%g,%g,%g) vol=%d iflags=%x nan=%d ps=%u cull=%u z=%u zw=%u ab=%u s=%u d=%u at=%u af=%u aref=%u t0=%p clip=%u clippe=%u t1=%p stride=%u vb=%p ib=%p cvw12=(%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g,%g)\r\n",
 		(unsigned)FVid_nFrameCounter, pPass, cBranch, pName, pInst, nClusters, nPartSkip, nLodSkip, nDrawn, nSeg0, nSeg1, nSegSkin,
 		nBoneCount, nPartsMask, nLODIndex, fScale, fM0, fM1, fM2,
 		fP0, fP1, fP2, pPal ? "" : "(none)",
@@ -536,7 +551,12 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 		nVol, nInstFlags, nNan,
 		(unsigned)dwTEMPps, (unsigned)dwTEMPcull, (unsigned)dwTEMPzfunc, (unsigned)dwTEMPzwrite,
 		(unsigned)dwTEMPab, (unsigned)dwTEMPsrc, (unsigned)dwTEMPdst, (unsigned)dwTEMPat,
-		(unsigned)dwTEMPafunc, (unsigned)dwTEMParef, (void *)pTEMPt0 );
+		(unsigned)dwTEMPafunc, (unsigned)dwTEMParef, (void *)pTEMPt0,
+		(unsigned)dwTEMPclip, (unsigned)dwTEMPclippe, (void *)pTEMPt1, nTEMPstride,
+		(void *)pTEMPvb, (void *)pTEMPib,
+		(float)aCvw[4], (float)aCvw[5], (float)aCvw[6], (float)aCvw[7],
+		(float)aCvw[8], (float)aCvw[9], (float)aCvw[10], (float)aCvw[11],
+		(float)aCvw[12], (float)aCvw[13], (float)aCvw[14], (float)aCvw[15] );
 }
 
 BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMaterial_t *pMaterial, u32 nLODIndex )

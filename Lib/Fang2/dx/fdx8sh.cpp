@@ -4789,12 +4789,19 @@ void _HandleFastShader()
 //TEMP shprobe (R45): per-row shader-activation snapshot for the invisible alpha-cutout investigation.
 static void _TEMPShProbe( int nFast )
 {
-	static u32 s_anTEMPShProbe[512];
+	static struct { u32 nID; u32 nReg0; u32 nCnt; } s_anTEMPShProbe[4096];
+	static BOOL s_bTEMPShProbeInit = FALSE;
 	const FShaderRenderStates_t *pTEMPRow;
 	const char *pszTEMPtex;
-	u32 nTEMPtexfmt, nTEMPkey, nTEMPhash;
+	u32 nTEMPtexfmt, nTEMPslot, nTEMPprobe;
 	FShTexInst_t *pTEMPinst;
 	void *pTEMPt0;
+
+	if ( !s_bTEMPShProbeInit )
+	{
+		memset( s_anTEMPShProbe, 0xff, sizeof( s_anTEMPShProbe ) );
+		s_bTEMPShProbeInit = TRUE;
+	}
 
 	pszTEMPtex = "(none)";
 	nTEMPtexfmt = 0xff;
@@ -4808,16 +4815,34 @@ static void _TEMPShProbe( int nFast )
 		}
 	}
 
-	//Key on (shader row, LAYER0 texture) so specific meshes (godm_slat/temh_grate,
-	//wires/towrwire, ...) get their own lines even after the row itself was logged.
-	nTEMPhash = 0;
-	for ( const char *psz = pszTEMPtex; *psz; psz++ ) { nTEMPhash = nTEMPhash*31 + (u8)*psz; }
-	nTEMPkey = ((_nShaderID * 131) + nTEMPhash) & 511;
-	if ( s_anTEMPShProbe[nTEMPkey] >= 2 )
+	//Exact (shader row, LAYER0-register value) key in an open-addressed table.
+	//R45b's hash-of-name keys collided (bucket 452 lost godm_slat/temh_grate to
+	//(0,tedt_bits)) — this form cannot collide except on exact repeats.
+	nTEMPslot = ( (_nShaderID * 0x9E3779B1u) ^ FSh_pnSurfaceInputRegisters[0] ) & 4095;
+	for ( nTEMPprobe = 0; nTEMPprobe < 4096; nTEMPprobe++ )
+	{
+		if ( s_anTEMPShProbe[nTEMPslot].nID == 0xFFFFFFFFu )
+		{
+			s_anTEMPShProbe[nTEMPslot].nID = (u32)_nShaderID;
+			s_anTEMPShProbe[nTEMPslot].nReg0 = FSh_pnSurfaceInputRegisters[0];
+			break;
+		}
+		if ( s_anTEMPShProbe[nTEMPslot].nID == (u32)_nShaderID &&
+			s_anTEMPShProbe[nTEMPslot].nReg0 == FSh_pnSurfaceInputRegisters[0] )
+		{
+			break;
+		}
+		nTEMPslot = ( nTEMPslot + 1 ) & 4095;
+	}
+	if ( nTEMPprobe >= 4096 )
 	{
 		return;
 	}
-	s_anTEMPShProbe[nTEMPkey]++;
+	if ( s_anTEMPShProbe[nTEMPslot].nCnt >= 2 )
+	{
+		return;
+	}
+	s_anTEMPShProbe[nTEMPslot].nCnt++;
 
 	pTEMPRow = &_aShaderRenderStates[_nShaderID];
 	pTEMPt0 = NULL;
