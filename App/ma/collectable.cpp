@@ -1425,7 +1425,17 @@ BOOL CCollectable::PostPlayerCreationSetup( void ) {
 			//
 			// Extra Note: All EUK level 1 weapons will be drawn in the world as normal.
 			if( MultiplayerMgr.IsSinglePlayer() ) {
-				if( _IsWeapon( pType ) && IsPrimaryWeaponType( pType ) ) {
+				// Retail's IsWeapon() range check excludes the EUK collectable ids entirely (verified in
+				// default.xbe: the gate is eType > 0x29 && eType < 0x49, while the EUK types live at
+				// 0x13..0x29), so retail never runs this weapon inventory bookkeeping for "EUK *" types;
+				// retail instead remaps them to their base weapon type (xbe fn 0xd98c0 -> 0xd5d70) and
+				// looks the *base* name up in the item repository.  The leak's enum has no EUK ids, and
+				// the Round-36 name aliases classify "EUK *" goodies as their base weapon - but those
+				// types carry no itemlist.csv entry (m_uItemRepositoryIndex == ITEM_UNKNOWN, their names
+				// are not item tags), so IsWeaponInInventory( m_pszName ) can never resolve and the
+				// lookup crashed the level load (ItemInst.cpp:914 NULL deref).  Gating on a resolvable
+				// item entry restores retail's EUK exclusion for these types.
+				if( _IsWeapon( pType ) && IsPrimaryWeaponType( pType ) && ( pType->m_uItemRepositoryIndex != ITEM_UNKNOWN ) ) {
 					if( Player_aPlayer[ 0 ].m_pEntityOrig && ( Player_aPlayer[ 0 ].m_pEntityOrig->TypeBits() & ENTITY_BIT_BOTGLITCH ) ) {
 						CBot *pBot = (CBot *) Player_aPlayer[ 0 ].m_pEntityOrig;
 
@@ -1479,7 +1489,11 @@ BOOL CCollectable::PostPlayerCreationSetup( void ) {
 				continue;
 			}
 
-			if( IsWeapon( pType->m_eType ) ) {
+			// Skip EUK-alias types (no itemlist.csv entry) - retail's IsWeapon() excludes the EUK
+			// collectable ids from this loop's gate as well (see the first loop's note), and creating a
+			// weapon for an unresolvable name would fail out of PostPlayerCreationSetup (level load
+			// error) below at the ITEM_UNKNOWN assert / "Failed to find CItem" path.
+			if( IsWeapon( pType->m_eType ) && ( pType->m_uItemRepositoryIndex != ITEM_UNKNOWN ) ) {
 				// Make sure we have a bot
 				if( ( Player_aPlayer[i].m_pEntityOrig->TypeBits() & ENTITY_BIT_BOT ) ) {
 					CBot *pBot = (CBot *) Player_aPlayer[i].m_pEntityOrig;
@@ -2969,7 +2983,9 @@ BOOL CCollectable::_Setup( const CFMtx43A *pMtx, f32 fScale, f32 fSpawnTime/* = 
 	fworld_GetVolumeContainingPoint( &pMtx->m_vPos, &m_pVolume );
 
 	if( m_pCollectableType ) {
-		if( IsWeapon( m_pCollectableType->m_eType ) ) {
+		// EUK-alias types (no itemlist.csv entry) are non-weapons to retail's gates (xbe: IsWeapon
+		// range excludes the EUK ids) - no forced weapon scale and no special-EUK mesh flip for them.
+		if( IsWeapon( m_pCollectableType->m_eType ) && ( m_pCollectableType->m_uItemRepositoryIndex != ITEM_UNKNOWN ) ) {
 			switch( m_pCollectableType->m_eType ) {
 				// list weapons above who shouldn't have their scale forced up
 				case COLLECTABLE_WEAPON_CORING_CHARGE:
@@ -3312,7 +3328,10 @@ BOOL CCollectable::_PlayerPickupCollectable( void ) {
 	}
 
 	// Special case for weapons, they will play their own sounds based on what happens
-	if( IsWeapon( m_pCollectableType->m_eType ) ) {
+	// EUK-alias types (no itemlist.csv entry) fall through to the generic collectable path below -
+	// retail's IsWeapon() excludes the EUK ids here too (xbe gate), and GiveWeaponToPlayer() would
+	// look the unresolvable "EUK *" name up in the item repository (NULL deref on touch).
+	if( IsWeapon( m_pCollectableType->m_eType ) && ( m_pCollectableType->m_uItemRepositoryIndex != ITEM_UNKNOWN ) ) {
 		if( !GiveWeaponToPlayer( m_pCollectBot, m_pCollectableType->m_pszName, m_nCurAmmoCount ) ) {
 			return FALSE;
 		}

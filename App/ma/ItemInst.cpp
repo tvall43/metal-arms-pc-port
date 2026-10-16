@@ -912,6 +912,11 @@ CItemInst *CInventory::IsWeaponInInventory( cchar *pszWeaponName, BOOL bUseTagNa
 	if( !pItem ) {
 		// We shouldn't get here.  If we did, we got a bad weapon name or one that isn't in the itemlist.csv
 		FASSERT_NOW;
+
+		// Degrade to "not in the inventory" instead of dereferencing NULL below: every caller already
+		// handles a NULL return (the retail XBE has this same latent hole and only avoids it by never
+		// passing unresolvable - i.e. EUK - names; see the PostPlayerCreationSetup EUK gates).
+		return NULL;
 	}
 
 	// Compare code names since we don't want to compare the tag names, that would give duplicate weapons
