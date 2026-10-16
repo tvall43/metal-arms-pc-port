@@ -4789,24 +4789,13 @@ void _HandleFastShader()
 //TEMP shprobe (R45): per-row shader-activation snapshot for the invisible alpha-cutout investigation.
 static void _TEMPShProbe( int nFast )
 {
-	static u32 s_anTEMPShProbe[FSHADERS_SHADER_COUNT + 16];
+	static u32 s_anTEMPShProbe[512];
 	const FShaderRenderStates_t *pTEMPRow;
 	const char *pszTEMPtex;
-	u32 nTEMPtexfmt;
+	u32 nTEMPtexfmt, nTEMPkey, nTEMPhash;
 	FShTexInst_t *pTEMPinst;
 	void *pTEMPt0;
 
-	if ( _nShaderID >= FSHADERS_SHADER_COUNT + 16 )
-	{
-		return;
-	}
-	if ( s_anTEMPShProbe[_nShaderID] >= 3 )
-	{
-		return;
-	}
-	s_anTEMPShProbe[_nShaderID]++;
-
-	pTEMPRow = &_aShaderRenderStates[_nShaderID];
 	pszTEMPtex = "(none)";
 	nTEMPtexfmt = 0xff;
 	if ( FSh_pnSurfaceInputRegisters[0] )
@@ -4818,6 +4807,19 @@ static void _TEMPShProbe( int nFast )
 			nTEMPtexfmt = (u32)pTEMPinst->TexInst.GetTexDef()->TexInfo.nTexFmt;
 		}
 	}
+
+	//Key on (shader row, LAYER0 texture) so specific meshes (godm_slat/temh_grate,
+	//wires/towrwire, ...) get their own lines even after the row itself was logged.
+	nTEMPhash = 0;
+	for ( const char *psz = pszTEMPtex; *psz; psz++ ) { nTEMPhash = nTEMPhash*31 + (u8)*psz; }
+	nTEMPkey = ((_nShaderID * 131) + nTEMPhash) & 511;
+	if ( s_anTEMPShProbe[nTEMPkey] >= 2 )
+	{
+		return;
+	}
+	s_anTEMPShProbe[nTEMPkey]++;
+
+	pTEMPRow = &_aShaderRenderStates[_nShaderID];
 	pTEMPt0 = NULL;
 	FDX8_pDev->GetTexture( 0, (IDirect3DBaseTexture8 **)&pTEMPt0 );
 
