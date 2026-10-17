@@ -2270,6 +2270,15 @@ FSTATIC void _SetupVertexShaders()
 	//f0 = 1.0f/(far_z - near_z), f1 = -near_z/(far_z-near_z), f2 = -1.0f/(maxy-miny), f3 = maxy/(maxy-miny)
 	FDX8_pDev->SetVertexShaderConstant(CV_FOG_DEPTH, fsh_fFogConst, 1);
 	FDX8_pDev->SetVertexShaderConstant(CV_FOG_MIN, D3DXVECTOR4(0.0f, 0.0f, 0.0f, 0.5f), 1);
+
+	//TEMP(R46): log every vertex-shader handle once so future logs decode sh= handles exactly.
+	{
+		u32 nTEMPi;
+		for (nTEMPi=0; nTEMPi<_nNumVertexShaders; nTEMPi++)
+		{
+			DEVPRINTF( "[ma] TEMP vsh tbl i=%u h=0x%08X\n", nTEMPi, (unsigned)_anVShader_Handle[nTEMPi] );
+		}
+	}
 }
 
 //delete all my vertex shaders.
@@ -2291,10 +2300,11 @@ FINLINE void _SetVertexShader_Fast(u32 nBaseIdx)
 	u32 nRemapIdx, nShader;
 
 	nRemapIdx = _anVShaderRemap[nBaseIdx-1][_nVertexType];
-	nShader = _anVShaderRemap[nBaseIdx-1][_nVertexType];
+	nShader = _anVShader_Handle[nRemapIdx];	//R46: was the raw remap enum - not a valid d3d8 handle on PC (Xbox handles happened to equal creation indices).
 	if (_nCurrentVtxShader != nShader)
 	{
 		FDX8_SetVertexShader(nShader);
+		_nCurrentVtxShader = nShader;		//R46: cache was never updated, desyncing every later VS set.
 	}
 }
 
@@ -2479,6 +2489,20 @@ FSTATIC void _SetVertexShader(u32 nBaseIdx)
 	{
 		FDX8_SetVertexShader(nShader);
 
+		//TEMP(R46): decode every VS selection - base, remap index, vertex type, LM count, extstream, handle.
+		{
+			static u32 _anTEMPVSSeen[2048]; static u32 _nTEMPVSNext = 0;
+			u32 nTEMPi, nTEMPk;
+			nTEMPk = (nBaseIdx&0x3F) | ((nRemapIdx&0xFF)<<6) | (((u32)_nVertexType&7)<<14) | (((u32)m_nLM&0xF)<<17) | ((fsh_bUseExtColorStream?1u:0u)<<21) | ((nShader&0xFF)<<22);
+			for (nTEMPi=0; nTEMPi<_nTEMPVSNext; nTEMPi++) { if (_anTEMPVSSeen[nTEMPi]==nTEMPk) break; }
+			if (nTEMPi==_nTEMPVSNext)
+			{
+				if (_nTEMPVSNext<2048) { _anTEMPVSSeen[_nTEMPVSNext]=nTEMPk; _nTEMPVSNext++; }
+				DEVPRINTF( "[ma] TEMP vset base=%u remap=%u vt=%u lm=%u ext=%u h=0x%08X s1=%u\n",
+					nBaseIdx, nRemapIdx, (u32)_nVertexType, (u32)m_nLM, fsh_bUseExtColorStream?1:0, (unsigned)nShader, fdx8sh_bStream1Set?1:0 );
+			}
+		}
+
 		FDX8_pDev->SetVertexShaderConstant(CV_ZERO, D3DXVECTOR4(0.0f, 0.0f, 0.0f, 0.0f), 1);
 		FDX8_pDev->SetVertexShaderConstant(CV_ONE, D3DXVECTOR4(1.0f, 1.0f, 1.0f, 1.0f), 1);
 
@@ -2520,6 +2544,15 @@ FSTATIC void _SetupPixelShaders()
 			fang_DevPrintf( "fdx8sh::_SetupPixelShaders() - CreatePixelShader Error Shader Index: %d.\n", i );
 		}
 	#endif
+	}
+
+	//TEMP(R46): log every pixel-shader handle once so future logs decode ps= handles exactly.
+	{
+		u32 nTEMPi;
+		for (nTEMPi=0; nTEMPi<_nNumPixelShaders; nTEMPi++)
+		{
+			DEVPRINTF( "[ma] TEMP psh tbl i=%u h=0x%08X\n", nTEMPi, (unsigned)_anPShader_Handle[nTEMPi] );
+		}
 	}
 }
 
@@ -2763,6 +2796,19 @@ FSTATIC void _SetPixelShader(u32 nShaderIdx)
 		}
 	}
 	_nCurrentPixelShader = nShader;
+
+	//TEMP(R46): decode every PS selection - final idx + handle.
+	{
+		static u32 _anTEMPPSSeen[512]; static u32 _nTEMPPSNext = 0;
+		u32 nTEMPi, nTEMPk;
+		nTEMPk = (nShaderIdx&0x1FF) | ((nShader&0x3F)<<9);
+		for (nTEMPi=0; nTEMPi<_nTEMPPSNext; nTEMPi++) { if (_anTEMPPSSeen[nTEMPi]==nTEMPk) break; }
+		if (nTEMPi==_nTEMPPSNext)
+		{
+			if (_nTEMPPSNext<512) { _anTEMPPSSeen[_nTEMPPSNext]=nTEMPk; _nTEMPPSNext++; }
+			DEVPRINTF( "[ma] TEMP pset idx=%u h=0x%08X\n", nShaderIdx, (unsigned)nShader );
+		}
+	}
 }
 
 //Set and save vertex type. Also sets a flag if the type has changed.
@@ -2800,6 +2846,30 @@ void fdx8sh_SetVertexType(u32 type)
 	else if (type == (D3DFVF_XYZB3 | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEX2 | D3DFVF_TEXCOORDSIZE2(0) | D3DFVF_TEXCOORDSIZE2(1)))
 	{
 		_nVertexType = 3;
+	}
+	else
+	{
+		//TEMP(R46): unmapped FVF - _nVertexType silently keeps its previous value (stale blend-VS suspect). Log it.
+		static u32 _anTEMPFVN[64]; static u32 _nTEMPFVNext=0;
+		u32 nTEMPi6;
+		for (nTEMPi6=0; nTEMPi6<_nTEMPFVNext; nTEMPi6++) { if (_anTEMPFVN[nTEMPi6]==type) break; }
+		if (nTEMPi6==_nTEMPFVNext)
+		{
+			if (_nTEMPFVNext<64) { _anTEMPFVN[_nTEMPFVNext]=type; _nTEMPFVNext++; }
+			DEVPRINTF( "[ma] TEMP vtfvfNOMATCH fvf=0x%X keepvt=%u\n", (unsigned)type, (u32)_nVertexType );
+		}
+	}
+
+	//TEMP(R46): every mapped FVF -> vertex type conversion (deduped per FVF).
+	{
+		static u32 _anTEMPFV[64]; static u32 _nTEMPFV2Next=0;
+		u32 nTEMPi7;
+		for (nTEMPi7=0; nTEMPi7<_nTEMPFV2Next; nTEMPi7++) { if (_anTEMPFV[nTEMPi7]==type) break; }
+		if (nTEMPi7==_nTEMPFV2Next)
+		{
+			if (_nTEMPFV2Next<64) { _anTEMPFV[_nTEMPFV2Next]=type; _nTEMPFV2Next++; }
+			DEVPRINTF( "[ma] TEMP vtfvf fvf=0x%X vt=%u\n", (unsigned)type, (u32)_nVertexType );
+		}
 	}
 }
 
@@ -4394,6 +4464,20 @@ BOOL _IsProceduralShader()
 void _HandleProcedural(u32 vShader, u32 pShader, CFLiquidVolume *pLiquid)
 {
 	u32 i, j, nTexLayerID;
+
+	//TEMP(R46): liquid shader path decode - runs instead of _SetPassDXState for shader rows 38-42.
+	{
+		static u32 _anTEMPSeen[16]; static u32 _nTEMPNext=0;
+		u32 nTEMPi9, nTEMPk;
+		nTEMPk = (_nShaderID&0x3F) | ((pLiquid?1:0)<<8) | ((vShader&0x3F)<<9) | ((pShader&0x3F)<<15);
+		for (nTEMPi9=0; nTEMPi9<_nTEMPNext; nTEMPi9++) { if (_anTEMPSeen[nTEMPi9]==nTEMPk) break; }
+		if (nTEMPi9==_nTEMPNext)
+		{
+			if (_nTEMPNext<16) { _anTEMPSeen[_nTEMPNext]=nTEMPk; _nTEMPNext++; }
+			DEVPRINTF( "[ma] TEMP hproc id=%u v=%u p=%u liq=%p embmOK=%d proc=%p\n",
+				_nShaderID, vShader, pShader, (void *)pLiquid, (pLiquid && pLiquid->GetEMBM())?1:0, (void *)FSh_pProcedural );
+		}
+	}
 
 	CFTexInst *pEMBM = pLiquid->GetEMBM();
 	FShTexInst_t *pShTexInst = (FShTexInst_t *)FSh_pnSurfaceInputRegisters[2];  //This is the reflection texture.
@@ -6697,11 +6781,27 @@ void _MoveUp(f32 fYOffs)
 
 void fsh_RenderPlane(u32 nPlaneID, f32 fScaleU, f32 fScaleV, f32 fScrollU, f32 fScrollV, CFTexInst *pEMBM, f32 fGlowScale, f32 fBumpTile)
 {
-#if FANG_PLATFORM_XB
+#if FANG_PLATFORM_XB || FANG_PLATFORM_WIN	//R46: was XB-only with no #else - liquids (water/lava/ooze) compiled to nothing on PC.
 	if (!bRenderPlane) return;
+
+	fsh_Render_Plane_t *pPlane = &_aRenderPlanes[nPlaneID];
+
 	u32 nQuad=1, n, nPasses;
 	f32 fDeltaY=0.0f;
-	fsh_Render_Plane_t *pPlane = &_aRenderPlanes[nPlaneID];
+
+	//TEMP(R46): liquid/render-plane decode - one line per plane (deduped by plane).
+	{
+		static const void *_anTEMPSeen[64]; static u32 _nTEMPNext=0;
+		u32 nTEMPi4;
+		for (nTEMPi4=0; nTEMPi4<_nTEMPNext; nTEMPi4++) { if (_anTEMPSeen[nTEMPi4]==pPlane) break; }
+		if (nTEMPi4==_nTEMPNext)
+		{
+			if (_nTEMPNext<64) { _anTEMPSeen[_nTEMPNext++]=pPlane; }
+			DEVPRINTF( "[ma] TEMP rplane id=%u type=%x lay=%d%d embm=%d op=%g cen=(%g,%g,%g)\n",
+				nPlaneID, (unsigned)pPlane->nType, pPlane->pLayer0?1:0, pPlane->pLayer1?1:0, pEMBM?1:0, pPlane->fOpacity,
+				(float)pPlane->vCen.x, (float)pPlane->vCen.y, (float)pPlane->vCen.z );
+		}
+	}
 
 	fdx8xfm_SetViewDXMatrix( TRUE );
 	fdx8xfm_SetCustomDXMatrix( D3DTS_WORLDMATRIX(0), &CFMtx43A::m_IdentityMtx, TRUE );
@@ -6790,6 +6890,19 @@ void fsh_RenderPlane(u32 nPlaneID, f32 fScaleU, f32 fScaleV, f32 fScrollU, f32 f
 		else
 		{
 			nPasses = 1;
+		}
+	}
+
+	//TEMP(R46): which render-plane branch ran (deduped per plane/quad/passes).
+	{
+		static u32 _anTEMPSeen2[256]; static u32 _nTEMPNext2=0;
+		u32 nTEMPk2 = (nPlaneID) | ((u32)nQuad<<8) | ((u32)nPasses<<16);
+		u32 nTEMPi5;
+		for (nTEMPi5=0; nTEMPi5<_nTEMPNext2; nTEMPi5++) { if (_anTEMPSeen2[nTEMPi5]==nTEMPk2) break; }
+		if (nTEMPi5==_nTEMPNext2)
+		{
+			if (_nTEMPNext2<256) { _anTEMPSeen2[_nTEMPNext2++]=nTEMPk2; }
+			DEVPRINTF( "[ma] TEMP rplpass id=%u quad=%u passes=%u\n", nPlaneID, nQuad, nPasses );
 		}
 	}
 
@@ -6893,7 +7006,21 @@ void _MoveOut(f32 fScale, CFVec3& vFwd)
 
 void fsh_DrawLiquidMesh(u32 nType, u16 nVtx, u16 nPrim, void *pMesh, u16 *pIdx, CFColorRGB *pClr, f32 fOpacity, CFVec3& vFwd, CFTexInst *pLayer0, CFTexInst *pLayer1, CFTexInst *pEMBM)
 {
-#if FANG_PLATFORM_XB
+#if FANG_PLATFORM_XB || FANG_PLATFORM_WIN	//R46: was XB-only with no #else - liquid meshes (falls/oil) compiled to nothing on PC.
+
+	//TEMP(R46): liquid-mesh draw decode (deduped per type/texture combo).
+	{
+		static u32 _anTEMPSeen[64]; static u32 _nTEMPNext=0;
+		u32 nTEMPk = (nType&0x3F) | ((pLayer0?1:0)<<8) | ((pLayer1?1:0)<<9) | ((pEMBM?1:0)<<10) | (((u32)nPrim&0x3FF)<<12);
+		u32 nTEMPi8;
+		for (nTEMPi8=0; nTEMPi8<_nTEMPNext; nTEMPi8++) { if (_anTEMPSeen[nTEMPi8]==nTEMPk) break; }
+		if (nTEMPi8==_nTEMPNext)
+		{
+			if (_nTEMPNext<64) { _anTEMPSeen[_nTEMPNext++]=nTEMPk; }
+			DEVPRINTF( "[ma] TEMP liqmesh type=%x vtx=%u prim=%u lay=%d%d embm=%d op=%g\n",
+				(unsigned)nType, (unsigned)nVtx, (unsigned)nPrim, pLayer0?1:0, pLayer1?1:0, pEMBM?1:0, fOpacity );
+		}
+	}
 
 	if (!pEMBM) return;
 

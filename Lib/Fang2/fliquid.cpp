@@ -1448,6 +1448,27 @@ void CFLiquidSystem::Work()
 				m_LiquidVolumes[i]->m_bRender = TRUE;
 			}
 		}
+
+		//TEMP(R46): liquid visibility decode - one line per volume state (deduped by ptr+render+proc).
+		{
+			static const void *_anTEMPSeen[128]; static u32 _anTEMPState[128]; static u32 _nTEMPNext=0;
+			u32 nTEMPi2, nTEMPkey;
+			nTEMPkey = (m_LiquidVolumes[i]->m_bRender?1:0) | (m_LiquidVolumes[i]->m_bProcedural?2:0);
+			for (nTEMPi2=0; nTEMPi2<_nTEMPNext; nTEMPi2++) { if (_anTEMPSeen[nTEMPi2]==m_LiquidVolumes[i] && _anTEMPState[nTEMPi2]==nTEMPkey) break; }
+			if (nTEMPi2==_nTEMPNext)
+			{
+				if (_nTEMPNext<128) { _anTEMPSeen[_nTEMPNext]=m_LiquidVolumes[i]; _anTEMPState[_nTEMPNext]=nTEMPkey; _nTEMPNext++; }
+				DEVPRINTF( "[ma] TEMP liq i=%u ptr=%p t=%u proc=%d ren=%d par=%d drew=%d vis0=%u vis1=%u vis2=%u plane=%u\n",
+					i, (void *)m_LiquidVolumes[i], (u32)m_LiquidVolumes[i]->GetType(),
+					m_LiquidVolumes[i]->m_bProcedural?1:0, m_LiquidVolumes[i]->m_bRender?1:0,
+					m_LiquidVolumes[i]->m_pParentMesh?1:0,
+					m_LiquidVolumes[i]->m_pParentMesh ? (m_LiquidVolumes[i]->m_pParentMesh->WasDrawnThisFrame()?1:0) : (u32)-1,
+					m_LiquidVolumes[i]->m_pTracker[0]?(unsigned)(m_LiquidVolumes[i]->m_pTracker[0]->GetVolumeFlags()&0xFF):0u,
+					m_LiquidVolumes[i]->m_pTracker[1]?(unsigned)(m_LiquidVolumes[i]->m_pTracker[1]->GetVolumeFlags()&0xFF):0u,
+					m_LiquidVolumes[i]->m_pTracker[2]?(unsigned)(m_LiquidVolumes[i]->m_pTracker[2]->GetVolumeFlags()&0xFF):0u,
+					m_LiquidVolumes[i]->m_nRenderPlaneID );
+			}
+		}
 	}
 	
 	fsh_ActivateFullScrTargets(bFullScrActive);
