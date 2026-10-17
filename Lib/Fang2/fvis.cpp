@@ -2962,10 +2962,13 @@ static void _DrawViewportExtents( CFVec3A *pCamPos, CFVec3A *paVerts, u32 nPoint
 
 void fvis_DrawLiquidVolumes()
 {
-#if !FANG_PLATFORM_WIN
+	//R46b: this entire block sat inside "#if !FANG_PLATFORM_WIN" -- the PC port
+	//never called LiquidSystem.Work()/Render() at all (third platform guard
+	//behind the empty fsh_RenderPlane()/fsh_DrawLiquidMesh() bodies ported in
+	//R46). Tick the liquid system on every platform.
 	BOOL bFogEnable = fsh_Fog_IsEnabled();
 	fsh_Fog_Enable(FALSE);
-	
+
 	#if FANG_PLATFORM_GC
 		fgc_DisableChannels();
 	#endif
@@ -2977,7 +2980,6 @@ void fvis_DrawLiquidVolumes()
 	}
 
 	fsh_Fog_Enable(bFogEnable);
-#endif
 }
 
 

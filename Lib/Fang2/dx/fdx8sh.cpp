@@ -324,6 +324,30 @@ static BOOL _bVBChanged=FALSE;
 //Pixel Shader Info
 u32 _nNumPixelShaders=64;
 u32 _anPShader_Handle[136];
+
+//R46b: PS-handle corruption guard. The R46 log proved that runtime handle slots
+//2/14/26/38/50/62 get overwritten by twdm4wep's D3D TEXTURE pointer at level
+//load (a 48-byte-stride write lands on every 12th slot). SetPixelShader() with
+//such a value fails silently and the draw keeps whatever PS was bound before.
+//Keep a private copy of the freshly-created table and restore any slot that
+//drifts.
+static u32 _anPSSnapShot[136];
+static BOOL _bTEMPSSnap = FALSE;
+static u8 _anTEMPPSFixLogged[136];
+
+FSTATIC u32 _PSHandleChecked( u32 nIdx )
+{
+	if ( _bTEMPSSnap && nIdx < 136 && _anPShader_Handle[nIdx] != _anPSSnapShot[nIdx] )
+	{
+		if ( !_anTEMPPSFixLogged[nIdx] )
+		{
+			_anTEMPPSFixLogged[nIdx] = 1;
+			DEVPRINTF( "[ma] TEMP psfix slot=%d was=0x%08X restored=0x%08X\n", nIdx, _anPShader_Handle[nIdx], _anPSSnapShot[nIdx] );
+		}
+		_anPShader_Handle[nIdx] = _anPSSnapShot[nIdx];
+	}
+	return _anPShader_Handle[nIdx];
+}
 //Vertex Shader Info.
 u32 _nNumVertexShaders=76;
 u32 _anVShader_Handle[136]; //4*136 = 544
@@ -2546,6 +2570,10 @@ FSTATIC void _SetupPixelShaders()
 	#endif
 	}
 
+	//R46b: snapshot the fresh handle table for _PSHandleChecked().
+	memcpy( _anPSSnapShot, _anPShader_Handle, sizeof(_anPSSnapShot) );
+	_bTEMPSSnap = TRUE;
+
 	//TEMP(R46): log every pixel-shader handle once so future logs decode ps= handles exactly.
 	{
 		u32 nTEMPi;
@@ -2573,7 +2601,7 @@ FSTATIC void _DeletePixelShaders()
 FSTATIC void _SetPixelShader_Fast(u32 nShaderIdx)
 {
 	//Load only if different then what is already set.
-	u32 nShader = _anPShader_Handle[nShaderIdx-1];
+	u32 nShader = _PSHandleChecked(nShaderIdx-1);
 	if (_nCurrentPixelShader != nShader)
 	{
 		FDX8_pDev->SetPixelShader(nShader);	
@@ -2632,7 +2660,7 @@ FSTATIC void _SetPixelShader(u32 nShaderIdx)
 			}
 
 			//Set only if the shader is different
-			nShader = _anPShader_Handle[nShaderIdx-1];
+			nShader = _PSHandleChecked(nShaderIdx-1);
 		}
 		else
 		{
@@ -2659,7 +2687,7 @@ FSTATIC void _SetPixelShader(u32 nShaderIdx)
 			}
 
 			//Set only if the shader is different
-			nShader = _anPShader_Handle[nShaderIdx-1];
+			nShader = _PSHandleChecked(nShaderIdx-1);
 			
 			//Load lightmap motif values.
 			for (i=1; i<m_nLM; i++)
@@ -2686,7 +2714,7 @@ FSTATIC void _SetPixelShader(u32 nShaderIdx)
 
 		if ( FSh_shaderFlags&FSh_RENDER_FORCEBASE_SHADER )
 		{
-			nShader = _anPShader_Handle[ _BasePShaderRemap[ nShaderIdx ]-1 ];
+			nShader = _PSHandleChecked( _BasePShaderRemap[ nShaderIdx ]-1 );
 			if (_nCurrentPixelShader != nShader)
 			{
 				FDX8_pDev->SetPixelShader(nShader);
@@ -2757,7 +2785,7 @@ FSTATIC void _SetPixelShader(u32 nShaderIdx)
 					nShaderIdx = _ReflectionPShaderRemap[ nShaderIdx-PSHADER_oBASE_ADD_rbENV ];
 				}
 				
-				nShader = _anPShader_Handle[nShaderIdx-1];
+				nShader = _PSHandleChecked(nShaderIdx-1);
 				if (_nCurrentPixelShader != nShader)
 				{
 					FDX8_pDev->SetPixelShader(nShader);
@@ -4690,7 +4718,7 @@ void _HandleFastShader()
 		}
 		if (_nCurrentPixelShader != pShader)
 		{
-			FDX8_pDev->SetPixelShader( _anPShader_Handle[pShader-1] );
+			FDX8_pDev->SetPixelShader( _PSHandleChecked(pShader-1) );
 			_nCurrentPixelShader = pShader;
 
 			//I have to set my pixel shader constants if the shader changes.

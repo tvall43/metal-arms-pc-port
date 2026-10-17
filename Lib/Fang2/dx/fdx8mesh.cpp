@@ -483,6 +483,41 @@ static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
 	return FALSE;
 }
 
+//R46b: DrawIndexedPrimitive failure probe. All 12 draw sites swallow DIP
+//failures behind the retail no-op fang_DevPrintf() -- an invisible mesh whose
+//transform/state/shaders all decode healthy could simply be failing its draw
+//call. Log every failure (one per (vb,start,tris) key per 600 frames) with the
+//VB's vertex count for range validation.
+static void _TEMPDipFail( const char *pTag, u32 nMin, u32 nRange, u32 nStart, u32 nTris )
+{
+	static u32 _s_anKey[16];
+	static u32 _s_anAge[16];
+	static u32 _s_nTick = 0;
+	FDX8VB_t *pVB = fdx8vb_GetSelected();
+	u32 i, nKey;
+	_s_nTick++;
+	nKey = (u32)(size_t)pVB ^ (nStart << 16) ^ nTris;
+	for ( i = 0; i < 16; i++ )
+	{
+		if ( _s_anKey[i] == nKey && (_s_nTick - _s_anAge[i]) < 600 ) return;
+	}
+	for ( i = 0; i < 16; i++ )
+	{
+		if ( (_s_nTick - _s_anAge[i]) >= 600 )
+		{
+			_s_anKey[i] = nKey;
+			_s_anAge[i] = _s_nTick;
+			DEVPRINTF( "[ma] TEMP dipfail %s min=%d range=%d start=%d tris=%d vbvtx=%d vbinfo=%d fvf=0x%08X vb=%p\n",
+				pTag, nMin, nRange, nStart, nTris,
+				pVB ? (s32)pVB->nVtxCount : -1,
+				pVB ? pVB->nInfoIndex : -1,
+				pVB ? (unsigned)pVB->hVertexShader : 0,
+				(void *)pVB );
+			return;
+		}
+	}
+}
+
 static const CFMtx43A *_TEMPGetPal( u32 nBoneCount, u32 nInstFlags, const CFMtx43A &PosMtx, CFMtx43A *const *ppPalette, const FMeshSeg_t *pSeg )
 {
 	if ( nBoneCount == 0 ) { return &PosMtx; }
@@ -795,7 +830,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 					pCluster->TriList.nTriCount
 				)))
 				{
-					fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+					_TEMPDipFail("tri", pCluster->TriList.nVtxIndexMin, pCluster->TriList.nVtxIndexRange, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount);
 				}
 
 				#if FPERF_ENABLE
@@ -817,7 +852,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 					pStrip->nTriCount
 				)))
 				{
-					fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+					_TEMPDipFail("strip", pStrip->nVtxIndexMin, pStrip->nVtxIndexRange, pStrip->nStartVindex, pStrip->nTriCount);
 				}
 
 				#if FPERF_ENABLE
@@ -1067,7 +1102,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 				pCluster->TriList.nTriCount
 			)))
 			{
-				fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+				_TEMPDipFail("tri", pCluster->TriList.nVtxIndexMin, pCluster->TriList.nVtxIndexRange, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount);
 			}
 
 			#if FPERF_ENABLE
@@ -1089,7 +1124,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 				pStrip->nTriCount
 			)))
 			{
-				fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+				_TEMPDipFail("strip", pStrip->nVtxIndexMin, pStrip->nVtxIndexRange, pStrip->nStartVindex, pStrip->nTriCount);
 			}
 
 			#if FPERF_ENABLE
@@ -1304,7 +1339,7 @@ void CFMeshInst::DrawMaterialSpecular_P( FViewportPlanesMask_t nCrossesPlanesMas
 				pCluster->TriList.nTriCount
 			)))
 			{
-				fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+				_TEMPDipFail("tri", pCluster->TriList.nVtxIndexMin, pCluster->TriList.nVtxIndexRange, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount);
 			}
 
 			#if FPERF_ENABLE
@@ -1326,7 +1361,7 @@ void CFMeshInst::DrawMaterialSpecular_P( FViewportPlanesMask_t nCrossesPlanesMas
 				pStrip->nTriCount
 			)))
 			{
-				fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+				_TEMPDipFail("strip", pStrip->nVtxIndexMin, pStrip->nVtxIndexRange, pStrip->nStartVindex, pStrip->nTriCount);
 			}
 
 			#if FPERF_ENABLE
@@ -1567,7 +1602,7 @@ void CFMeshInst::DrawMaterialTranslucency_P( FViewportPlanesMask_t nCrossesPlane
 					pCluster->TriList.nTriCount
 				)))
 				{
-					fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+					_TEMPDipFail("tri", pCluster->TriList.nVtxIndexMin, pCluster->TriList.nVtxIndexRange, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount);
 				}
 
 				#if FPERF_ENABLE
@@ -1589,7 +1624,7 @@ void CFMeshInst::DrawMaterialTranslucency_P( FViewportPlanesMask_t nCrossesPlane
 					pStrip->nTriCount
 				)))
 				{
-					fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+					_TEMPDipFail("strip", pStrip->nVtxIndexMin, pStrip->nVtxIndexRange, pStrip->nStartVindex, pStrip->nTriCount);
 				}
 
 				#if FPERF_ENABLE
@@ -1611,7 +1646,9 @@ void CFMeshInst::DrawMaterialTranslucency_P( FViewportPlanesMask_t nCrossesPlane
 	}
 
 	//TEMP(R46): translucent path decode - which materials (incl. liquid surf=38-42) draw here, with device state.
-	_TEMPMDLog( "transl", 'T', m_pMesh, m_pMesh->szName, this, 0, 0, 0, 0, 0, 0, 0, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, NULL ), (s32)(pMaterial - m_pMesh->aMtl) );
+	//R46b: keyed per-material (not per-mesh) so the liquid material's translucent
+	//draw logs separately from its siblings.
+	_TEMPMDLog( "transl", 'T', pMaterial, m_pMesh->szName, this, 0, 0, 0, 0, 0, 0, 0, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, NULL ), (s32)(pMaterial - m_pMesh->aMtl) );
 
 #if FPERF_ENABLE
 	u32 nTrisRendered = (FPerf_nRawStripTriCount - nPreStripCount) + (FPerf_nRawListTriCount - nPreListCount);
@@ -1966,7 +2003,7 @@ void CFMeshInst::DrawAllMaterials_P( FViewportPlanesMask_t nCrossesPlanesMask )
 						pCluster->TriList.nTriCount
 					)) )
 					{
-						fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+						_TEMPDipFail("tri", pCluster->TriList.nVtxIndexMin, pCluster->TriList.nVtxIndexRange, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount);
 					}
 
 					#if FPERF_ENABLE
@@ -1988,7 +2025,7 @@ void CFMeshInst::DrawAllMaterials_P( FViewportPlanesMask_t nCrossesPlanesMask )
 						pStrip->nTriCount
 					)) )
 					{
-						fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+						_TEMPDipFail("strip", pStrip->nVtxIndexMin, pStrip->nVtxIndexRange, pStrip->nStartVindex, pStrip->nTriCount);
 					}
 
 					#if FPERF_ENABLE
@@ -2232,7 +2269,7 @@ void CFMeshInst::DrawShadow_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMa
 					pCluster->TriList.nTriCount
 				)))
 				{
-					fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+					_TEMPDipFail("tri", pCluster->TriList.nVtxIndexMin, pCluster->TriList.nVtxIndexRange, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount);
 				}
 
 				#if FPERF_ENABLE
@@ -2255,7 +2292,7 @@ void CFMeshInst::DrawShadow_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMa
 					pStrip->nTriCount
 				)))
 				{
-					fang_DevPrintf("fdx8mesh::DrawInstanceMaterial_P - DrawPrimitive failed.\n");
+					_TEMPDipFail("strip", pStrip->nVtxIndexMin, pStrip->nVtxIndexRange, pStrip->nStartVindex, pStrip->nTriCount);
 				}
 
 				#if FPERF_ENABLE
