@@ -653,6 +653,22 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	float aCvw[16];
 	memset( aCvw, 0, sizeof(aCvw) );
 	FDX8_pDev->GetVertexShaderConstant( CV_WORLD_0, aCvw, 4 );
+	//R48: read back the dynamic-light VS constants this draw will actually
+	//see (dir light in slot 14/22, point lights 1-2 in 15/16 and 23/24 --
+	//_BuildD3DLight writes CV_LIGHT2_*+pointCount for the first point).
+	float aLDir[4], aLDif[4], aLP1[4], aLP1c[4], aLP2[4], aLP2c[4];
+	memset( aLDir, 0, sizeof(aLDir) );
+	memset( aLDif, 0, sizeof(aLDif) );
+	memset( aLP1, 0, sizeof(aLP1) );
+	memset( aLP1c, 0, sizeof(aLP1c) );
+	memset( aLP2, 0, sizeof(aLP2) );
+	memset( aLP2c, 0, sizeof(aLP2c) );
+	FDX8_pDev->GetVertexShaderConstant( CV_LIGHT1_DIRECTION, aLDir, 1 );
+	FDX8_pDev->GetVertexShaderConstant( CV_LIGHT2_POSITION, aLP1, 1 );
+	FDX8_pDev->GetVertexShaderConstant( CV_LIGHT3_POSITION, aLP2, 1 );
+	FDX8_pDev->GetVertexShaderConstant( CV_LIGHT1_DIFFUSE, aLDif, 1 );
+	FDX8_pDev->GetVertexShaderConstant( CV_LIGHT2_DIFFUSE, aLP1c, 1 );
+	FDX8_pDev->GetVertexShaderConstant( CV_LIGHT3_DIFFUSE, aLP2c, 1 );
 	f32 fP0 = 0.f, fP1 = 0.f, fP2 = 0.f;
 	if ( pPal ) { fP0 = pPal->m_vP.x; fP1 = pPal->m_vP.y; fP2 = pPal->m_vP.z; }
 	int nNan = ( fM0 != fM0 || fM1 != fM1 || fM2 != fM2 || Wm._41 != Wm._41 || Wm._44 != Wm._44
@@ -679,6 +695,14 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 		(float)aCvw[4], (float)aCvw[5], (float)aCvw[6], (float)aCvw[7],
 		(float)aCvw[8], (float)aCvw[9], (float)aCvw[10], (float)aCvw[11],
 		(float)aCvw[12], (float)aCvw[13], (float)aCvw[14], (float)aCvw[15], nMatIdx );
+	DEVPRINTF( "[ma] TEMP mlight f%u %s%c %s ldir=(%g,%g,%g) ldif=(%g,%g,%g) lp1=(%g,%g,%g) lp1c=(%g,%g,%g) lp2=(%g,%g,%g) lp2c=(%g,%g,%g)\r\n",
+		(unsigned)FVid_nFrameCounter, pPass, cBranch, pName,
+		(float)aLDir[0], (float)aLDir[1], (float)aLDir[2],
+		(float)aLDif[0], (float)aLDif[1], (float)aLDif[2],
+		(float)aLP1[0], (float)aLP1[1], (float)aLP1[2],
+		(float)aLP1c[0], (float)aLP1c[1], (float)aLP1c[2],
+		(float)aLP2[0], (float)aLP2[1], (float)aLP2[2],
+		(float)aLP2c[0], (float)aLP2c[1], (float)aLP2c[2] );
 }
 
 BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMaterial_t *pMaterial, u32 nLODIndex )
@@ -2425,6 +2449,29 @@ void CFMeshInst::AddShaderLights( void )
 	else 
 	{
 		fsh_SetGlobalRegister( FSHREG_AMBIENT, (u32)&FColor_MotifBlack );
+	}
+
+	//R48: per-instance dynamic-light collection health. The vertex-lit prop
+	//class (elevator slats, cables, door fences) renders black while the
+	//lightmapped world draws fine -- log which lights this instance actually
+	//collected (m_pRenderLights, filled by fvis _DL_AddMesh) plus the ambient
+	//motif uploaded with it. Keyed by instance pointer, once per 600f.
+	if ( !_TEMPMDSeen( this, 'L' ) )
+	{
+		BOOL bAmb = !(m_nFlags & (FMESHINST_FLAG_NOLIGHT_AMBIENT | FMESHINST_FLAG_LM | FMESHINST_FLAG_VERT_RADIOSITY));
+		DEVPRINTF( "[ma] TEMP shlights inst=%p name=%s rlc=%u amb=%d ambcol=(%g,%g,%g)\r\n",
+			this, m_pMesh ? m_pMesh->szName : "?", (unsigned)m_nRenderLightCount, bAmb ? 1 : 0,
+			(float)FMesh_AmbientMotif.ColorRGB.fRed, (float)FMesh_AmbientMotif.ColorRGB.fGreen, (float)FMesh_AmbientMotif.ColorRGB.fBlue );
+		for ( i = 0; i < m_nRenderLightCount && i < 4; i++ )
+		{
+			CFLight *pTempL = m_pRenderLights[i].pLight;
+			if ( !pTempL ) { continue; }
+			pTempL->ComputeColor();
+			DEVPRINTF( "[ma] TEMP shlight1 inst=%p i=%u type=%d p=(%g,%g,%g) c=(%g,%g,%g)\r\n",
+				this, (unsigned)i, (int)pTempL->m_nType,
+				(float)pTempL->m_spInfluence_WS.m_Pos.x, (float)pTempL->m_spInfluence_WS.m_Pos.y, (float)pTempL->m_spInfluence_WS.m_Pos.z,
+				(float)pTempL->m_ScaledColor.fRed, (float)pTempL->m_ScaledColor.fGreen, (float)pTempL->m_ScaledColor.fBlue );
+		}
 	}
 }
 
