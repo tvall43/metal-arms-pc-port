@@ -139,6 +139,12 @@
 #include "CompiledPShaderfdx8Molten2LayerEMBM.h"
 #include "CompiledPShaderfdx8Molten2LayerEMBMGlow.h"
 
+//R47: CubeReflect pixel shaders (liquid reflection/refraction - water).
+//Their includes were Xbox-branch-only, so the WIN table could never reference
+//them (the missing entries at [62]/[63] were a duplicate Glow + nothing).
+#include "CompiledPShaderfxbCubeReflect.h"
+#include "CompiledPShaderfxbCubeReflect_VtxAlpha.h"
+
 //Special FX pixel shaders
 #include "CompiledPShaderfdx8LMap3_EMask.h"
 #else
@@ -1238,7 +1244,14 @@ u32 *_apPShaderFunc[] =
 	(u32*)dwFdx8Molten1LayerEMBMPixelShader,
 	(u32*)dwFdx8Molten2LayerEMBMPixelShader,
 	(u32*)dwFdx8Molten2LayerEMBMGlowPixelShader,
-	(u32*)dwFdx8Molten2LayerEMBMGlowPixelShader,
+	//R47: the WIN table ended here with a *duplicate* Glow at [62] and no [63]
+	//entry at all, while the Xbox table below has CubeReflect + CubeReflect_
+	//VtxAlpha there -- with _nNumPixelShaders=64 the creation loop read an
+	//out-of-bounds pointer for [63] (failed -> handle 0, fixed-function binds)
+	//and liquid/water materials got the wrong shader. Both arrays are ps_1_1
+	//bytecode (0xffff0101 version token) and create fine on D3D8.
+	(u32*)dwCompiledPShaderfxbCubeReflectPixelShader,
+	(u32*)dwCompiledPShaderfxbCubeReflect_VtxAlphaPixelShader,
 	NULL
 };
 #else

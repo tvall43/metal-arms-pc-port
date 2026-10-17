@@ -518,6 +518,86 @@ static void _TEMPDipFail( const char *pTag, u32 nMin, u32 nRange, u32 nStart, u3
 	}
 }
 
+//R47: vertex-content dump for the tracked invisible flat-geometry meshes
+//(elevator floor slats/cables/door fence) plus one visible world control.
+//State, shaders and the DIP call itself all decode healthy for these meshes,
+//so the remaining suspects are the vertex contents (positions/normals/colors/
+//UVs) and index winding. Dumps the first-referenced vertices (read-only lock,
+//once per mesh per 600f) plus the first two triangles' indices.
+static void _TEMPVData( FMesh_t *pMesh, FDX8MeshCluster_t *pCluster, FDX8Mesh_t *pMeshIS )
+{
+	static const char *_asWatch[5] = { "godm_slat", "go_1cable01", "godm_cabl", "godm_dor01", "wedmmines01" };
+	u32 i, nV, nb, nMin;
+	FDX8VB_t *pVB;
+	const FDX8VB_Info_t *pInfo;
+	u8 *pData;
+	for ( i = 0; i < 5; i++ )
+	{
+		if ( strncmp( pMesh->szName, _asWatch[i], strlen(_asWatch[i]) ) == 0 ) { break; }
+	}
+	if ( i == 5 ) { return; }
+	if ( _TEMPMDSeen( pMesh, 'v' ) ) { return; }
+	pVB = fdx8vb_GetSelected();
+	if ( pVB == NULL || pVB->nInfoIndex < 0 || pVB->nInfoIndex >= FDX8VB_TYPE_COUNT )
+	{
+		DEVPRINTF( "[ma] TEMP vdata %s skip info=%d\r\n", pMesh->szName, pVB ? pVB->nInfoIndex : -1 );
+		return;
+	}
+	pInfo = &FDX8VB_InfoTable[ pVB->nInfoIndex ];
+	nMin = pCluster->TriList.nVtxIndexMin;
+	nV = pVB->nVtxCount;
+	nb = pVB->nBytesPerVertex;
+	{
+		static char _s_szTEMPVData[640];
+		int nOff = sprintf( _s_szTEMPVData, "[ma] TEMP vdata %s nvtx=%d stride=%d info=%d fvf=0x%08X nrm=%d col=%d tc=%d min=%d idx=",
+			pMesh->szName, pVB->nVtxCount, pVB->nBytesPerVertex, pVB->nInfoIndex,
+			(unsigned)pInfo->nFVF, pInfo->nNormalCount, pInfo->nColorCount, pInfo->nTCCount, nMin );
+		//First two triangles of the TriList (winding check).
+		if ( pMeshIS && pCluster->nIBIndex < 64 )
+		{
+			IDirect3DIndexBuffer8 *pIB = (IDirect3DIndexBuffer8 *)pMeshIS->apDXIB[ pCluster->nIBIndex ];
+			if ( pIB )
+			{
+				u16 *pIdx = NULL;
+				if ( SUCCEEDED( pIB->Lock( pCluster->TriList.nStartVindex * sizeof(u16), 6 * sizeof(u16), (u8 **)&pIdx, D3DLOCK_READONLY ) ) )
+				{
+					if ( pIdx )
+					{
+						for ( i = 0; i < 6; i++ ) { nOff += sprintf( _s_szTEMPVData + nOff, "%u%s", pIdx[i], (i==5)?"":"," ); }
+					}
+					pIB->Unlock();
+				}
+			}
+		}
+		pData = (u8 *)fdx8vb_Lock( pVB, 0, nV );
+		if ( pData )
+		{
+			for ( i = 0; i < 3; i++ )
+			{
+				u32 v = nMin + i;
+				u8 *pv;
+				f32 *pf, fN0 = 0.f, fN1 = 0.f, fN2 = 0.f, fU = 0.f, fT = 0.f;
+				u32 nCol = 0;
+				if ( v >= nV ) { break; }
+				pv = pData + v * nb;
+				pf = (f32 *)( pv + pInfo->nOffsetPos );
+				if ( pInfo->nNormalCount ) { f32 *pn = (f32 *)( pv + pInfo->nOffsetNorm ); fN0 = pn[0]; fN1 = pn[1]; fN2 = pn[2]; }
+				if ( pInfo->nColorCount ) { nCol = *(u32 *)( pv + pInfo->nOffsetColor ); }
+				if ( pInfo->nTCCount ) { f32 *pt = (f32 *)( pv + pInfo->nOffsetTC ); fU = pt[0]; fT = pt[1]; }
+				nOff += sprintf( _s_szTEMPVData + nOff, " v%u=(%g,%g,%g) n=(%g,%g,%g) c=0x%08X uv=(%g,%g)",
+					i, (float)pf[0], (float)pf[1], (float)pf[2], (float)fN0, (float)fN1, (float)fN2, nCol, (float)fU, (float)fT );
+			}
+			fdx8vb_Unlock( pVB );
+		}
+		else
+		{
+			nOff += sprintf( _s_szTEMPVData + nOff, " (lockfail)" );
+		}
+		DEVPRINTF( "%s\r\n", _s_szTEMPVData );
+	}
+}
+
+
 static const CFMtx43A *_TEMPGetPal( u32 nBoneCount, u32 nInstFlags, const CFMtx43A &PosMtx, CFMtx43A *const *ppPalette, const FMeshSeg_t *pSeg )
 {
 	if ( nBoneCount == 0 ) { return &PosMtx; }
@@ -822,6 +902,8 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 			// Render the tri-list...
 			if ( pCluster->TriList.nTriCount )
 			{
+				_TEMPVData( m_pMesh, pCluster, pMeshIS );
+
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLELIST,
 					pCluster->TriList.nVtxIndexMin,

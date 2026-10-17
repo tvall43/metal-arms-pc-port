@@ -1518,9 +1518,14 @@ void fsh_ActivateFullScrTargets(BOOL bActivate)
 //Reset fullscreen targets, render targets are cleared on each load, so this puts the reflection target back.
 void fsh_ResetFullScrRenderTarget()
 {
-#if FANG_PLATFORM_XB
-	ftex_AddRenderTarget(_pFullScrTarget, fsh_FullScrCallback, TRUE, 0, FALSE, TRUE, NULL);
-#endif
+	//R47: was #if FANG_PLATFORM_XB -- without this registration the fullscreen
+	//reflection cube target was never added to the render-target system on PC,
+	//so it never rendered and water (which samples it in stages 1-3) drew
+	//nothing.
+	if (_pFullScrTarget)
+	{
+		ftex_AddRenderTarget(_pFullScrTarget, fsh_FullScrCallback, TRUE, 0, FALSE, TRUE, NULL);
+	}
 
 	_bFullScrActive = TRUE;
 	fsh_ActivateFullScrTargets(FALSE);
@@ -6289,7 +6294,11 @@ FSTATIC BOOL _WindowCreatedCallback( FDX8VidEvent_e nEvent )
 
 void fsh_FullScrCallback(void *pUserData)
 {
-#if FANG_PLATFORM_XB
+	//R47: was #if FANG_PLATFORM_XB with no #else -- the cube-face reflection/
+	//refraction pass never ran on PC (water samples the resulting cube in
+	//stages 1-3 of _SetupWaterStatesPass0, so water was invisible by
+	//construction). Body is platform-neutral: camera/viewport/fvis.
+#if FANG_PLATFORM_XB || FANG_PLATFORM_WIN
 	u8 nCubeView;
 	s32 i, idx=-1;
 	f32 fMinDist=FMATH_MAX_FLOAT, fDist;
@@ -6325,6 +6334,19 @@ void fsh_FullScrCallback(void *pUserData)
 		{
 			if ( fdx8tex_GetCubeMapParam(nCubeView) )
 			{
+				//TEMP(R47): cube-face reflection callback fired (deduped per plane+face).
+				{
+					static u32 _anTEMPFS[64]; static u32 _nTEMPFSNext=0;
+					u32 nTEMPkFS = ((u32)idx) | ((u32)nCubeView<<8);
+					u32 nTEMPiFS;
+					for (nTEMPiFS=0; nTEMPiFS<_nTEMPFSNext; nTEMPiFS++) { if (_anTEMPFS[nTEMPiFS]==nTEMPkFS) break; }
+					if (nTEMPiFS==_nTEMPFSNext)
+					{
+						if (_nTEMPFSNext<64) { _anTEMPFS[_nTEMPFSNext++]=nTEMPkFS; }
+						DEVPRINTF( "[ma] TEMP fullscr plane=%d face=%d\n", idx, (unsigned)nCubeView );
+					}
+				}
+
 				CFVec3 vDir, vUp;
 				switch (nCubeView)
 				{
@@ -6825,9 +6847,9 @@ void fsh_RenderPlane(u32 nPlaneID, f32 fScaleU, f32 fScaleV, f32 fScrollU, f32 f
 		if (nTEMPi4==_nTEMPNext)
 		{
 			if (_nTEMPNext<64) { _anTEMPSeen[_nTEMPNext++]=pPlane; }
-			DEVPRINTF( "[ma] TEMP rplane id=%u type=%x lay=%d%d embm=%d op=%g cen=(%g,%g,%g)\n",
+			DEVPRINTF( "[ma] TEMP rplane id=%u type=%x lay=%d%d embm=%d op=%g cen=(%g,%g,%g) fs=%p\n",
 				nPlaneID, (unsigned)pPlane->nType, pPlane->pLayer0?1:0, pPlane->pLayer1?1:0, pEMBM?1:0, pPlane->fOpacity,
-				(float)pPlane->vCen.x, (float)pPlane->vCen.y, (float)pPlane->vCen.z );
+				(float)pPlane->vCen.x, (float)pPlane->vCen.y, (float)pPlane->vCen.z, (void *)_pFullScrTarget );
 		}
 	}
 
@@ -6940,8 +6962,22 @@ void fsh_RenderPlane(u32 nPlaneID, f32 fScaleU, f32 fScaleV, f32 fScrollU, f32 f
 	fdx8_SetRenderState_CLIPPING( TRUE );
 	#endif
 	fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
-	FDX8_pDev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pPlane->Quad, sizeof(RenderPlaneVtx_t));
-	
+
+	//TEMP(R47): the UP draw had no failure check -- a silent INVALIDCALL here
+	//made invisible liquids undiagnosable (logged once per plane).
+	{
+		HRESULT hrUP = FDX8_pDev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pPlane->Quad, sizeof(RenderPlaneVtx_t));
+		if ( FAILED( hrUP ) )
+		{
+			static u32 _s_nRPLDLogged = 0;
+			if ( nPlaneID < 32 && !(_s_nRPLDLogged & (1u<<nPlaneID)) )
+			{
+				_s_nRPLDLogged |= (1u<<nPlaneID);
+				DEVPRINTF( "[ma] TEMP rpldraw id=%u hr=0x%08X stride=%d\n", nPlaneID, (unsigned)hrUP, (int)sizeof(RenderPlaneVtx_t) );
+			}
+		}
+	}
+
 	if (pPlane->nType&RP_REFLECT && !(pPlane->nType&RP_REFRACT) && pPlane->pLayer0)
 	{
 		_SetupMercuryStatesPass1(pPlane, pEMBM, fScrollU, fScrollV);
