@@ -858,14 +858,20 @@ static BOOL _TEMPAABBHitPin( const CFMtx43A &posMtx, const f32 *pMin, const f32 
 //row in _aShaderRenderStates) plus the device state that row produced, and the
 //resolved stage-0 texture. A handful of lines per level; only these meshes.
 static const char *_asTEMPMatWatch[] = { "go_1cable01", "godm_cabl", "wedmmines02", "godm_nwelv", "godm_m1eld" };
+static BOOL _TEMPMatWatched( const char *pName )
+{
+	u32 i, nW = sizeof(_asTEMPMatWatch) / sizeof(_asTEMPMatWatch[0]);
+	if ( pName == NULL ) { return FALSE; }
+	for ( i = 0; i < nW; i++ ) { if ( strncmp( pName, _asTEMPMatWatch[i], strlen(_asTEMPMatWatch[i]) ) == 0 ) { return TRUE; } }
+	return FALSE;
+}
+
 static void _TEMPMatProbe( const char *pPass, const char *pName, s32 nMatIdx, FMeshMaterial_t *pMtl )
 {
 	DWORD nPS=0, nAb=0, nS=0, nD=0, nAt=0, nAf=0, nAre=0, nZ=0, nZw=0, nCull=0;
 	LPDIRECT3DTEXTURE8 pT0 = NULL;
-	u32 i, nW = sizeof(_asTEMPMatWatch) / sizeof(_asTEMPMatWatch[0]);
 	if ( pName == NULL || pMtl == NULL || pPass == NULL || nMatIdx < 0 ) { return; }
-	for ( i = 0; i < nW; i++ ) { if ( strncmp( pName, _asTEMPMatWatch[i], strlen(_asTEMPMatWatch[i]) ) == 0 ) { break; } }
-	if ( i == nW ) { return; }
+	if ( !_TEMPMatWatched( pName ) ) { return; }
 	if ( _TEMPMDSeen( (const void *)( (size_t)pName ^ ( (size_t)( nMatIdx + 4 ) << 9 ) ^ (size_t)(unsigned char)pPass[0] ), 'm' ) ) { return; }
 	FDX8_pDev->GetPixelShader( &nPS );
 	FDX8_pDev->GetRenderState( D3DRS_ALPHABLENDENABLE, &nAb );
@@ -882,12 +888,13 @@ static void _TEMPMatProbe( const char *pPass, const char *pName, s32 nMatIdx, FM
 		const char *pT0Name = NULL;
 		u32 nW0=0, nH0=0, nFmt0=0, nFl0=0;
 		if ( pT0 ) { pT0Name = fdx8tex_TEMPFindDXTex( pT0, &nW0, &nH0, &nFmt0, &nFl0 ); }
-		DEVPRINTF( "[ma] TEMP matprobe f%u %s %s mat=%d lsh=%u ssh=%u spsh=%u mflags=0x%04x dbias=%u ps=%p t0=%s t0wh=%ux%u | ab=%u s=%u d=%u at=%u af=%u aref=%u z=%u zw=%u cull=%u\r\n",
+		DEVPRINTF( "[ma] TEMP matprobe f%u %s %s mat=%d lsh=%u ssh=%u spsh=%u mflags=0x%04x dbias=%u ps=%p t0=%s t0wh=%ux%u | ab=%u s=%u d=%u at=%u af=%u aref=%u z=%u zw=%u cull=%u atten=%d\r\n",
 			(unsigned)FVid_nFrameCounter, pPass, pName, (int)nMatIdx,
 			(unsigned)pMtl->nLightShaderIdx, (unsigned)pMtl->nSurfaceShaderIdx, (unsigned)pMtl->nSpecularShaderIdx,
 			(unsigned)pMtl->nMtlFlags, (unsigned)pMtl->nDepthBiasLevel, (void *)nPS,
 			pT0 ? ( pT0Name ? pT0Name : "<NOT-IN-REGISTRY>" ) : "<NULL>", nW0, nH0,
-			nAb, nS, nD, nAt, nAf, nAre, nZ, nZw, nCull );
+			nAb, nS, nD, nAt, nAf, nAre, nZ, nZw, nCull,
+			( fsh_GetAttenMap() != NULL ) ? 1 : 0 );
 	}
 	if ( pT0 ) { pT0->Release(); }
 }
@@ -1419,6 +1426,16 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		FTEMP_pDrawMesh = m_pMesh->szName;
 		FTEMP_nDrawMat = (s32)( pMaterial - m_pMesh->aMtl );
 		fsh_ExecuteCurrent( FMesh_bRenderShadows, nShadowID ); 
+		//R64: per-PASS state for the watch list. The light pass runs several passes
+		//(a base pass plus per-pixel point/spot passes from fsh_GetNumDiffusePasses)
+		//and each selects a different row, so the last pass' state is not
+		//representative of the lighting.
+		if ( _TEMPMatWatched( m_pMesh->szName ) )
+		{
+			char szTEMPPass[16];
+			sprintf( szTEMPPass, "light%u", (unsigned)nPass );
+			_TEMPMatProbe( szTEMPPass, m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial );
+		}
 
 		//R49 magenta light-pass force retired: ride 3 (log_e) proved raster,
 		//oPos/depth fine for the gate list. R50 moves the test to the surface
@@ -1608,7 +1625,6 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 	FPerf_nMeshTris += nTrisRendered / nTotalPasses;
 #endif
 
-	_TEMPMatProbe( "light", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial );
 	_TEMPMDLog( "light", nTEMPDrawn ? 'D' : 'Z', m_pMesh, m_pMesh->szName, this, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, pSeg ), (s32)(pMaterial - m_pMesh->aMtl) );
 
 	return bFastPass;
