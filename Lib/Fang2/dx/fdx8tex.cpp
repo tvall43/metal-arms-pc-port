@@ -146,6 +146,27 @@ static FResLoadReg_t _ResLoadRegistration;
 
 static FLinkRoot_t _RootList;
 
+//R49/R50 probe: resolve a device texture pointer to its loaded-resource
+//identity (name/size/format) by walking the FTexData registry. Bounded O(n)
+//walk, called only from name-gated mdraw probes.
+const char *fdx8tex_TEMPFindDXTex( const void *pDXTex, u32 *pW, u32 *pH, u32 *pFmt, u32 *pFlags )
+{
+	FTexData_t *pData;
+	if ( !pDXTex ) { return NULL; }
+	for ( pData = (FTexData_t *)flinklist_GetHead( &_RootList ); pData; pData = (FTexData_t *)flinklist_GetNext( &_RootList, pData ) )
+	{
+		if ( pData->pD3DTexture == pDXTex )
+		{
+			if ( pW ) { *pW = (u32)pData->TexDef.TexInfo.nTexelsAcross; }
+			if ( pH ) { *pH = (u32)pData->TexDef.TexInfo.nTexelsDown; }
+			if ( pFmt ) { *pFmt = (u32)pData->nD3DFormatColor; }
+			if ( pFlags ) { *pFlags = (u32)pData->nFlags; }
+			return pData->TexDef.TexInfo.szName;
+		}
+	}
+	return NULL;
+}
+
 static DWORD _nD3DSysLockFlag;
 
 static _SetTexState_t _aSetTexState[FDX8_MAX_TEX_STAGES];

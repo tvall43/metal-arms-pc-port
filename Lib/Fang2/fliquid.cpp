@@ -1444,7 +1444,19 @@ void CFLiquidSystem::Work()
 		{
 			if ( m_LiquidVolumes[i]->m_pParentMesh->WasDrawnThisFrame() || m_LiquidVolumes[i]->m_pParentMesh->WasDrawnLastFrame() )
 			{
-				m_Active[nActive++] = m_LiquidVolumes[i];
+				//R49 CRASH FIX: the non-procedural append above is bounded by
+				//nActive < LV_POOLSIZE, this one was not. With more than four
+				//mesh-attached procedural volumes active in one frame the
+				//array overflowed straight into LiquidSystem's struct tail:
+				//CFLiquidVolume::m_pSelf (d8f220), m_fMinPScale (d8f224),
+				//FLiquid_pCollisionCallback (d8f228) -- whose slot then held
+				//a CFLiquidVolume* that CollisionCallback called (EIP=heap,
+				//0xC000001D, log_e f6433). Consumers only read the first
+				//LV_POOLSIZE slots, so bounding loses nothing.
+				if ( nActive < LV_POOLSIZE )
+				{
+					m_Active[nActive++] = m_LiquidVolumes[i];
+				}
 				m_LiquidVolumes[i]->m_bRender = TRUE;
 			}
 		}

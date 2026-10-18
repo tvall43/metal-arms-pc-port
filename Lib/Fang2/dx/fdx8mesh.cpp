@@ -472,6 +472,9 @@ static const char *_s_apTEMPFFName[] =
 	"godmdoor", "chipswitch",
 };
 
+//R49/R50: device-texture identity resolver (defined in fdx8tex.cpp).
+extern const char *fdx8tex_TEMPFindDXTex( const void *pDXTex, u32 *pW, u32 *pH, u32 *pFmt, u32 *pFlags );
+
 static BOOL _TEMPFF( const char *pName )
 {
 	u32 i;
@@ -492,7 +495,9 @@ static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
 		if ( _s_apTEMPMDKey[i] == pKey && _s_acTEMPMDBranch[i] == cBranch )
 		{
 			// TEMP round-14: expire so we get a time-series, not just first frame ever
-			if ( FVid_nFrameCounter - _s_anTEMPMDFrame[i] < 600 ) { return TRUE; }
+			//R50: expiry 600->1800f (600f cadence produced a 226MB log and
+			//perceptible drag on the user's machine).
+			if ( FVid_nFrameCounter - _s_anTEMPMDFrame[i] < 1800 ) { return TRUE; }
 			_s_anTEMPMDFrame[i] = FVid_nFrameCounter;
 			return FALSE;
 		}
@@ -785,6 +790,30 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 			(float)aTEMPma[12], (float)aTEMPma[13], (float)aTEMPma[14],
 			(float)aTEMPma[16], (float)aTEMPma[17], (float)aTEMPma[18],
 			(float)aTEMPma[20], (float)aTEMPma[21], (float)aTEMPma[22] );
+	}
+
+	//R49/R50: name-resolve the surface-pass stage-0 device texture for the
+	//gated class ('d' = drawn surface draw; the black-wire report). If the
+	//bound DX texture is not in the registry, the stage bind is broken/NULL;
+	//if the name is a wrong resource, the material layer binding is broken.
+	if ( _TEMPFF( pName ) && cBranch == 'd' )
+	{
+		LPDIRECT3DTEXTURE8 pTEMPDXTex = NULL;
+		FDX8_pDev->GetTexture( 0, &pTEMPDXTex );
+		if ( pTEMPDXTex )
+		{
+			u32 nTEMPW = 0, nTEMPH = 0, nTEMPFmt = 0, nTEMPFlags = 0;
+			const char *pTEMPName = fdx8tex_TEMPFindDXTex( pTEMPDXTex, &nTEMPW, &nTEMPH, &nTEMPFmt, &nTEMPFlags );
+			DEVPRINTF( "[ma] TEMP t0name f%u %s dev=%p name=%s w=%u h=%u fmt=%d flags=%d\r\n",
+				(unsigned)FVid_nFrameCounter, pName, (void*)pTEMPDXTex,
+				pTEMPName ? pTEMPName : "<NOT-IN-REGISTRY>", nTEMPW, nTEMPH,
+				(int)nTEMPFmt, (int)nTEMPFlags );
+		}
+		else
+		{
+			DEVPRINTF( "[ma] TEMP t0name f%u %s dev=NULL\r\n",
+				(unsigned)FVid_nFrameCounter, pName );
+		}
 	}
 }
 
