@@ -59,6 +59,13 @@ extern f32 FShader_ShadowRecieveDist;
 
 u32 FMesh_nLastSurfaceMaterialCRC;
 
+//R61: the shprobe (fdx8sh.cpp) sees the shader row but not who is drawing
+//with it, which is the one thing missing to attribute a row to a mesh+material.
+//The mesh pass sets these immediately before executing the shader.
+const char *FTEMP_pDrawMesh = NULL;
+s32 FTEMP_nDrawMat = -1;
+
+
 
 //////////////////////////////////////////////////////////////////////////////////////
 // Local defines:
@@ -1349,6 +1356,8 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 	for ( nPass = 0; nPass < nTotalPasses; nPass++ )
 	{
 		fsh_SetPassIdx( nPass );
+		FTEMP_pDrawMesh = m_pMesh->szName;
+		FTEMP_nDrawMat = (s32)( pMaterial - m_pMesh->aMtl );
 		fsh_ExecuteCurrent( FMesh_bRenderShadows, nShadowID ); 
 
 		//R49 magenta light-pass force retired: ride 3 (log_e) proved raster,
@@ -1608,6 +1617,9 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 	s32 nCurrentIB = -1;
 
 	fsh_SetSurfaceOnly( !!(m_nFlags&FMESHINST_FLAG_SURFACEONLY) );
+
+	FTEMP_pDrawMesh = m_pMesh->szName;
+	FTEMP_nDrawMat = (s32)( pMaterial - m_pMesh->aMtl );
 
 	if ( FMesh_nLastSurfaceMaterialCRC == pMaterial->nDLHashKey )
 	{

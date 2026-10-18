@@ -1027,11 +1027,19 @@ static FShaderRenderStates_t _aShaderRenderStates[] =
 		D3DMCS_MATERIAL, D3DMCS_MATERIAL, D3DMCS_COLOR1, D3DMCS_MATERIAL,
 		VSHADER_BASE_POINT1_DIR1, PSHADER_COLOR_MASK, //vshader, pshader
 		D3DBLENDOP_ADD, D3DBLEND_ONE, D3DBLEND_ONE, //blendop, srcblend factor, dstblend factor
-#if FANG_PLATFORM_XB
+		//R61: this is the alpha-cutout row family (PSHADER_COLOR_MASK /
+		//COLOR_EMASK / COLOR / COLORALPHA_MASK). The PC branch used to raise the
+		//reference to 1 where the Xbox uses 0. The emissive vertex shaders end
+		//with 'mad oT2.w, r2.z, r2.w, c[CV_EPS].w' and CV_EPS.w is exactly 1/255,
+		//so a material with no emissive (mem=(0,0,0,0) -- all of the flat-sheet
+		//class) hands these shaders a texcoord alpha of exactly 1/255, and
+		//'alpha > 1/255' is false by one ULP: every fragment was killed in the
+		//light pass, so no colour AND no depth, and the surface pass' ZFUNC EQUAL
+		//had nothing to match. Invisible from every direction with healthy state
+		//-- which is why state dumps, mclip probes and shader-pack audits all
+		//found nothing. Same value as the Xbox branch: a real zero-alpha cutout
+		//still cuts (alpha == 0 fails '> 0'), the epsilon passes.
 		TRUE, D3DCMP_GREATER, 0x00, //alphatest, alpha func, alpharef
-#else
-		TRUE, D3DCMP_GREATER, 0x01, //alphatest, alpha func, alpharef
-#endif
 		MASK_Z
 	},
 	//FSHADERS_VLIGHT_MASK_EMISSIVE, //Ca + Cv + Cm[Me]*At0 + LITD(i)*Cm[Md]
@@ -1049,11 +1057,19 @@ static FShaderRenderStates_t _aShaderRenderStates[] =
 		D3DMCS_MATERIAL, D3DMCS_MATERIAL, D3DMCS_COLOR1, D3DMCS_MATERIAL,
 		VSHADER_BASE_POINT1_DIR1, PSHADER_COLOR_EMASK, //nstages, vshader, pshader
 		D3DBLENDOP_ADD, D3DBLEND_ONE, D3DBLEND_ONE, //blendop, srcblend factor, dstblend factor
-#if FANG_PLATFORM_XB
+		//R61: this is the alpha-cutout row family (PSHADER_COLOR_MASK /
+		//COLOR_EMASK / COLOR / COLORALPHA_MASK). The PC branch used to raise the
+		//reference to 1 where the Xbox uses 0. The emissive vertex shaders end
+		//with 'mad oT2.w, r2.z, r2.w, c[CV_EPS].w' and CV_EPS.w is exactly 1/255,
+		//so a material with no emissive (mem=(0,0,0,0) -- all of the flat-sheet
+		//class) hands these shaders a texcoord alpha of exactly 1/255, and
+		//'alpha > 1/255' is false by one ULP: every fragment was killed in the
+		//light pass, so no colour AND no depth, and the surface pass' ZFUNC EQUAL
+		//had nothing to match. Invisible from every direction with healthy state
+		//-- which is why state dumps, mclip probes and shader-pack audits all
+		//found nothing. Same value as the Xbox branch: a real zero-alpha cutout
+		//still cuts (alpha == 0 fails '> 0'), the epsilon passes.
 		TRUE, D3DCMP_GREATER, 0x00, //alphatest, alpha func, alpharef
-#else
-		TRUE, D3DCMP_GREATER, 0x01, //alphatest, alpha func, alpharef
-#endif
 		MASK_Z|MASK_E
 	},
 	//FSHADERS_VSPEC_BASIC, - 53
@@ -1062,11 +1078,19 @@ static FShaderRenderStates_t _aShaderRenderStates[] =
 		D3DMCS_MATERIAL, D3DMCS_MATERIAL, D3DMCS_COLOR1, D3DMCS_MATERIAL,
 		VSHADER_BASE_DIRECTIONAL1_SPECULAR, PSHADER_COLOR, //nstages, vshader, pshader
 		D3DBLENDOP_ADD, D3DBLEND_ONE, D3DBLEND_ONE, //blendop, srcblend factor, dstblend factor
-#if FANG_PLATFORM_XB
+		//R61: this is the alpha-cutout row family (PSHADER_COLOR_MASK /
+		//COLOR_EMASK / COLOR / COLORALPHA_MASK). The PC branch used to raise the
+		//reference to 1 where the Xbox uses 0. The emissive vertex shaders end
+		//with 'mad oT2.w, r2.z, r2.w, c[CV_EPS].w' and CV_EPS.w is exactly 1/255,
+		//so a material with no emissive (mem=(0,0,0,0) -- all of the flat-sheet
+		//class) hands these shaders a texcoord alpha of exactly 1/255, and
+		//'alpha > 1/255' is false by one ULP: every fragment was killed in the
+		//light pass, so no colour AND no depth, and the surface pass' ZFUNC EQUAL
+		//had nothing to match. Invisible from every direction with healthy state
+		//-- which is why state dumps, mclip probes and shader-pack audits all
+		//found nothing. Same value as the Xbox branch: a real zero-alpha cutout
+		//still cuts (alpha == 0 fails '> 0'), the epsilon passes.
 		TRUE, D3DCMP_GREATER, 0x00, //alphatest, alpha func, alpharef
-#else
-		TRUE, D3DCMP_GREATER, 0x01, //alphatest, alpha func, alpharef
-#endif
 		MASK_NONE
 	},
 	//FSHADERS_VSPEC_MASK,
@@ -1075,11 +1099,19 @@ static FShaderRenderStates_t _aShaderRenderStates[] =
 		D3DMCS_MATERIAL, D3DMCS_MATERIAL, D3DMCS_COLOR1, D3DMCS_MATERIAL,
 		VSHADER_BASE_DIRECTIONAL1_SPECULAR, PSHADER_COLORALPHA_MASK, //nstages, vshader, pshader
 		D3DBLENDOP_ADD, D3DBLEND_ONE, D3DBLEND_ONE, //blendop, srcblend factor, dstblend factor
-#if FANG_PLATFORM_XB
+		//R61: this is the alpha-cutout row family (PSHADER_COLOR_MASK /
+		//COLOR_EMASK / COLOR / COLORALPHA_MASK). The PC branch used to raise the
+		//reference to 1 where the Xbox uses 0. The emissive vertex shaders end
+		//with 'mad oT2.w, r2.z, r2.w, c[CV_EPS].w' and CV_EPS.w is exactly 1/255,
+		//so a material with no emissive (mem=(0,0,0,0) -- all of the flat-sheet
+		//class) hands these shaders a texcoord alpha of exactly 1/255, and
+		//'alpha > 1/255' is false by one ULP: every fragment was killed in the
+		//light pass, so no colour AND no depth, and the surface pass' ZFUNC EQUAL
+		//had nothing to match. Invisible from every direction with healthy state
+		//-- which is why state dumps, mclip probes and shader-pack audits all
+		//found nothing. Same value as the Xbox branch: a real zero-alpha cutout
+		//still cuts (alpha == 0 fails '> 0'), the epsilon passes.
 		TRUE, D3DCMP_GREATER, 0x00, //alphatest, alpha func, alpharef
-#else
-		TRUE, D3DCMP_GREATER, 0x01, //alphatest, alpha func, alpharef
-#endif
 		MASK_S
 	},
 	//FSHADERS_VSPEC_BASIC_CO,
@@ -1088,11 +1120,19 @@ static FShaderRenderStates_t _aShaderRenderStates[] =
 		D3DMCS_MATERIAL, D3DMCS_MATERIAL, D3DMCS_COLOR1, D3DMCS_MATERIAL,
 		VSHADER_BASE_DIRECTIONAL1_SPECULAR, PSHADER_COLOR, //nstages, vshader, pshader
 		D3DBLENDOP_ADD, D3DBLEND_ONE, D3DBLEND_ONE, //blendop, srcblend factor, dstblend factor
-#if FANG_PLATFORM_XB
+		//R61: this is the alpha-cutout row family (PSHADER_COLOR_MASK /
+		//COLOR_EMASK / COLOR / COLORALPHA_MASK). The PC branch used to raise the
+		//reference to 1 where the Xbox uses 0. The emissive vertex shaders end
+		//with 'mad oT2.w, r2.z, r2.w, c[CV_EPS].w' and CV_EPS.w is exactly 1/255,
+		//so a material with no emissive (mem=(0,0,0,0) -- all of the flat-sheet
+		//class) hands these shaders a texcoord alpha of exactly 1/255, and
+		//'alpha > 1/255' is false by one ULP: every fragment was killed in the
+		//light pass, so no colour AND no depth, and the surface pass' ZFUNC EQUAL
+		//had nothing to match. Invisible from every direction with healthy state
+		//-- which is why state dumps, mclip probes and shader-pack audits all
+		//found nothing. Same value as the Xbox branch: a real zero-alpha cutout
+		//still cuts (alpha == 0 fails '> 0'), the epsilon passes.
 		TRUE, D3DCMP_GREATER, 0x00, //alphatest, alpha func, alpharef
-#else
-		TRUE, D3DCMP_GREATER, 0x01, //alphatest, alpha func, alpharef
-#endif
 		MASK_NONE
 	},
 	//FSHADERS_VSPEC_BASIC_MASK_CO - 38
@@ -1101,11 +1141,19 @@ static FShaderRenderStates_t _aShaderRenderStates[] =
 		D3DMCS_MATERIAL, D3DMCS_MATERIAL, D3DMCS_COLOR1, D3DMCS_MATERIAL,
 		VSHADER_BASE_DIRECTIONAL1_SPECULAR, PSHADER_COLORALPHA_MASK, //nstages, vshader, pshader
 		D3DBLENDOP_ADD, D3DBLEND_ONE, D3DBLEND_ONE, //blendop, srcblend factor, dstblend factor
-#if FANG_PLATFORM_XB
+		//R61: this is the alpha-cutout row family (PSHADER_COLOR_MASK /
+		//COLOR_EMASK / COLOR / COLORALPHA_MASK). The PC branch used to raise the
+		//reference to 1 where the Xbox uses 0. The emissive vertex shaders end
+		//with 'mad oT2.w, r2.z, r2.w, c[CV_EPS].w' and CV_EPS.w is exactly 1/255,
+		//so a material with no emissive (mem=(0,0,0,0) -- all of the flat-sheet
+		//class) hands these shaders a texcoord alpha of exactly 1/255, and
+		//'alpha > 1/255' is false by one ULP: every fragment was killed in the
+		//light pass, so no colour AND no depth, and the surface pass' ZFUNC EQUAL
+		//had nothing to match. Invisible from every direction with healthy state
+		//-- which is why state dumps, mclip probes and shader-pack audits all
+		//found nothing. Same value as the Xbox branch: a real zero-alpha cutout
+		//still cuts (alpha == 0 fails '> 0'), the epsilon passes.
 		TRUE, D3DCMP_GREATER, 0x00, //alphatest, alpha func, alpharef
-#else
-		TRUE, D3DCMP_GREATER, 0x01, //alphatest, alpha func, alpharef
-#endif
 		MASK_S
 	}
 };
@@ -4904,6 +4952,11 @@ void _HandleFastShader()
 }
 
 //TEMP shprobe (R45): per-row shader-activation snapshot for the invisible alpha-cutout investigation.
+//R61: set by the mesh pass (fdx8mesh.cpp) right before the shader executes, so a
+//shprobe row activation can be attributed to the mesh+material that caused it.
+extern const char *FTEMP_pDrawMesh;
+extern s32 FTEMP_nDrawMat;
+
 static void _TEMPShProbe( int nFast )
 {
 	static struct { u32 nID; u32 nReg0; u32 nCnt; } s_anTEMPShProbe[4096];
@@ -4972,7 +5025,8 @@ static void _TEMPShProbe( int nFast )
 	pTEMPt0 = NULL;
 	FDX8_pDev->GetTexture( 0, (IDirect3DBaseTexture8 **)&pTEMPt0 );
 
-	DEVPRINTF( "[ma] TEMP shprobe fast=%d id=%u type=%d surfonly=%d usefastpass=%d psh=%u vsh=%u src=%u dst=%u op=%u at=%d aref=%u stages=%u c2=%.3f/%.3f/%.3f/%.3f c3=%.3f t0=%s fmt=%u h=%p\n",
+	DEVPRINTF( "[ma] TEMP shprobe fast=%d id=%u type=%d surfonly=%d usefastpass=%d psh=%u vsh=%u src=%u dst=%u op=%u at=%d aref=%u stages=%u c2=%.3f/%.3f/%.3f/%.3f c3=%.3f t0=%s fmt=%u h=%p mesh=%s mat=%d\n",
+		FTEMP_pDrawMesh ? FTEMP_pDrawMesh : "-", (int)FTEMP_nDrawMat,
 		nFast, (u32)_nShaderID, (u32)FSh_shaderType, FSh_bSurfaceOnly ? 1 : 0,
 		FSh_bUseFastPass ? 1 : 0,
 		pTEMPRow->pShader, pTEMPRow->vShader,
