@@ -5026,14 +5026,14 @@ static void _TEMPShProbe( int nFast )
 	FDX8_pDev->GetTexture( 0, (IDirect3DBaseTexture8 **)&pTEMPt0 );
 
 	DEVPRINTF( "[ma] TEMP shprobe fast=%d id=%u type=%d surfonly=%d usefastpass=%d psh=%u vsh=%u src=%u dst=%u op=%u at=%d aref=%u stages=%u c2=%.3f/%.3f/%.3f/%.3f c3=%.3f t0=%s fmt=%u h=%p mesh=%s mat=%d\n",
-		FTEMP_pDrawMesh ? FTEMP_pDrawMesh : "-", (int)FTEMP_nDrawMat,
 		nFast, (u32)_nShaderID, (u32)FSh_shaderType, FSh_bSurfaceOnly ? 1 : 0,
 		FSh_bUseFastPass ? 1 : 0,
 		pTEMPRow->pShader, pTEMPRow->vShader,
 		pTEMPRow->nSrcBlend, pTEMPRow->nDstBlend, pTEMPRow->nBlendOp,
 		pTEMPRow->bAlphaTest ? 1 : 0, pTEMPRow->nAlphaRef, (u32)pTEMPRow->nStages,
 		_fFinalSurfaceColor.fRed, _fFinalSurfaceColor.fGreen, _fFinalSurfaceColor.fBlue, _fFinalSurfaceColor.fAlpha,
-		_fLayerAlpha, pszTEMPtex, nTEMPtexfmt, pTEMPt0 );
+		_fLayerAlpha, pszTEMPtex, nTEMPtexfmt, pTEMPt0,
+		FTEMP_pDrawMesh ? FTEMP_pDrawMesh : "-", (int)FTEMP_nDrawMat );
 	if ( pTEMPt0 )
 	{
 		((IDirect3DBaseTexture8 *)pTEMPt0)->Release();
