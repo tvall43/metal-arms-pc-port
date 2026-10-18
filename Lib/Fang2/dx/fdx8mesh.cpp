@@ -683,6 +683,131 @@ static BOOL _TEMPAABBGet( CFMeshInst *pInst, FDX8Mesh_t *pMeshIS, FDX8MeshCluste
 	return TRUE;
 }
 
+//R57: R56 localised per CLUSTER, but a level chunk's cluster can span 400u and
+//at the fence pin every one of the chunk's 24 materials had a cluster covering
+//the pin -- so the user still got a rainbow wall to look at, which answers
+//nothing. Narrow it to the triangles themselves: read the cluster's tri-list
+//(IB) and its vertex positions (VB, same read-only locks the vdata probe uses),
+//keep only triangles whose world centroid is within TEMPFF_PATCH_RADIUS of the
+//pin, and submit those as contiguous index-buffer runs. Result: a small bright
+//patch exactly on the pinned fixture, everything else left alone -- so "is the
+//missing floor/fence drawn?" finally has a yes/no answer for the user, and the
+//TEMP ffpatch line answers it from the log alone.
+#define TEMPFF_PATCH_RADIUS	32.f
+#define TEMPFF_PATCH_MAXRUN	32
+#define TEMPFF_PATCH_SLOTS	1024
+typedef struct
+{
+	const void *pKey;					// cluster this entry was computed for
+	u32 nPin;							// pin it was tested against
+	u32 nTri;							// triangles kept
+	u32 nRun;							// contiguous index-buffer runs
+	f32 fNear;							// nearest triangle-centroid distance seen
+	u32 aRun[TEMPFF_PATCH_MAXRUN][2];	// {first tri, tri count}
+} _TEMPPatch_t;
+static _TEMPPatch_t _aTEMPPatch[ TEMPFF_PATCH_SLOTS ];
+
+//Returns the cached entry when the cluster could be read (nTri may be 0: the
+//cluster has no geometry at the pin), or NULL when it could not be read at all
+//(skinned/bone-space, dynamic VB, strip-only) -- the caller then falls back to
+//the R56 whole-cluster behaviour.
+static _TEMPPatch_t *_TEMPPatchFind( CFMeshInst *pInst, const CFMtx43A &posMtx, FDX8Mesh_t *pMeshIS, FDX8MeshCluster_t *pCluster, u32 nPin )
+{
+	u32 nHash, nTri, nb, nLo, nHi, nRun, v;
+	u16 *pIdx;
+	u8 *pData;
+	FDX8VB_t *pVB;
+	IDirect3DIndexBuffer8 *pIB;
+	const FDX8VB_Info_t *pInfo;
+	_TEMPPatch_t *pEnt;
+	f32 fR2 = TEMPFF_PATCH_RADIUS * TEMPFF_PATCH_RADIUS;
+
+	if ( pInst == NULL || pMeshIS == NULL || pCluster == NULL || nPin > 2 ) { return NULL; }
+	nHash = ( (u32)(UINT_PTR)pCluster >> 4 ) & ( TEMPFF_PATCH_SLOTS - 1 );
+	pEnt = &_aTEMPPatch[ nHash ];
+	if ( pEnt->pKey == (const void *)pCluster && pEnt->nPin == nPin )
+	{
+		return pEnt;
+	}
+	pEnt->pKey = NULL;
+	pEnt->nTri = 0;
+	pEnt->nRun = 0;
+	pEnt->fNear = 1e30f;
+	//Skinned geometry is in bone space here and a strip-only cluster has no
+	//tri-list; both fall back to the caller's whole-cluster behaviour.
+	if ( pInst->m_pMesh->nBoneCount != 0 ) { return NULL; }
+	if ( pCluster->TriList.nTriCount == 0 ) { return NULL; }
+	if ( pCluster->nVBIndex >= pMeshIS->nVBCount || pCluster->nIBIndex >= 64 ) { return NULL; }
+	pIB = (IDirect3DIndexBuffer8 *)pMeshIS->apDXIB[ pCluster->nIBIndex ];
+	if ( pIB == NULL ) { return NULL; }
+	pVB = &pMeshIS->aVB[ pCluster->nVBIndex ];
+	if ( pVB->bDynamic || pVB->nInfoIndex < 0 || pVB->nInfoIndex >= FDX8VB_TYPE_COUNT ) { return NULL; }
+	pInfo = &FDX8VB_InfoTable[ pVB->nInfoIndex ];
+	nb = pVB->nBytesPerVertex;
+	if ( nb == 0 ) { return NULL; }
+	nLo = pCluster->TriList.nVtxIndexMin;
+	nHi = nLo + pCluster->TriList.nVtxIndexRange;
+	if ( nHi > pVB->nVtxCount || nHi <= nLo ) { return NULL; }
+
+	pIdx = NULL;
+	if ( FAILED( pIB->Lock( pCluster->TriList.nStartVindex * sizeof(u16),
+		pCluster->TriList.nTriCount * 3 * sizeof(u16), (u8 **)&pIdx, D3DLOCK_READONLY ) ) )
+	{
+		return NULL;
+	}
+	if ( pIdx == NULL ) { pIB->Unlock(); return NULL; }
+	pData = (u8 *)fdx8vb_Lock( pVB, nLo, nHi - nLo );
+	if ( pData == NULL ) { pIB->Unlock(); return NULL; }
+
+	nRun = 0;
+	for ( nTri = 0; nTri < pCluster->TriList.nTriCount; nTri++ )
+	{
+		CFVec3 vW;
+		f32 cx = 0.f, cy = 0.f, cz = 0.f, dx, dy, dz, fDist;
+		u32 k;
+		BOOL bBad = FALSE;
+		for ( k = 0; k < 3; k++ )
+		{
+			CFVec3 vPos;
+			f32 *pf;
+			v = pIdx[ nTri * 3 + k ];
+			if ( v < nLo || v >= nHi ) { bBad = TRUE; break; }
+			pf = (f32 *)( pData + ( v - nLo ) * nb + pInfo->nOffsetPos );
+			vPos.x = pf[0]; vPos.y = pf[1]; vPos.z = pf[2];
+			vW = posMtx.m44.MultPoint( vPos );
+			cx += vW.x; cy += vW.y; cz += vW.z;
+		}
+		if ( bBad ) { continue; }
+		cx *= (1.f / 3.f); cy *= (1.f / 3.f); cz *= (1.f / 3.f);
+		dx = cx - _afTEMPFFPin[nPin][0];
+		dy = cy - _afTEMPFFPin[nPin][1];
+		dz = cz - _afTEMPFFPin[nPin][2];
+		fDist = dx*dx + dy*dy + dz*dz;
+		if ( fDist < pEnt->fNear ) { pEnt->fNear = fDist; }
+		if ( fDist <= fR2 )
+		{
+			if ( nRun > 0 && (u32)pEnt->aRun[nRun-1][0] + pEnt->aRun[nRun-1][1] == nTri )
+			{
+				pEnt->aRun[nRun-1][1]++;
+			}
+			else if ( nRun < TEMPFF_PATCH_MAXRUN )
+			{
+				pEnt->aRun[nRun][0] = nTri;
+				pEnt->aRun[nRun][1] = 1;
+				nRun++;
+			}
+			pEnt->nTri++;
+		}
+	}
+	fdx8vb_Unlock( pVB );
+	pIB->Unlock();
+	pEnt->fNear = ( pEnt->fNear >= 1e30f ) ? -1.f : fmath_Sqrt( pEnt->fNear );
+	pEnt->nRun = nRun;
+	pEnt->nPin = nPin;
+	pEnt->pKey = (const void *)pCluster;
+	return pEnt;
+}
+
 //Does this cluster's (model-space AABB -> world) box reach pin nPin?
 static BOOL _TEMPAABBHitPin( const CFMtx43A &posMtx, const f32 *pMin, const f32 *pMax, u32 nPin, f32 fSlack )
 {
@@ -1516,6 +1641,23 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 	BOOL bTEMPGate = _TEMPFF( m_pMesh->szName );
 	s32 nTEMPFfPin = _TEMPFFPin( this );
 	BOOL bTEMPPinLocalize = ( nTEMPFfPin >= 0 && !bTEMPGate );
+	//R57: the force has been always-on since R55, so the user can never see the
+	//pinned fixture both with and without it -- which is exactly the comparison
+	//that answers "is the missing thing drawn?". Blink it instead: ~5s on, ~2.5s
+	//off at 60fps, no key press needed, and every screenshot is either a clean
+	//"before" or a clean "after". The log's TEMP ffpatch line is computed
+	//regardless of phase, so the geometry answer does not depend on catching the
+	//on phase.
+	{
+		static const u32 nTEMPFfBlinkOn = 300;
+		static const u32 nTEMPFfBlinkOff = 150;
+		if ( ( FVid_nFrameCounter % ( nTEMPFfBlinkOn + nTEMPFfBlinkOff ) ) >= nTEMPFfBlinkOn )
+		{
+			bTEMPGate = FALSE;
+			nTEMPFfPin = -1;
+			bTEMPPinLocalize = FALSE;
+		}
+	}
 	{
 		u32 nTEMPStage;
 		if ( bTEMPGate || nTEMPFfPin >= 0 )
@@ -1624,6 +1766,9 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 
 	for ( ;pCluster < pEndCluster; pCluster++ )
 	{
+		//R57: when the pin patch below keeps only part of a cluster's tri-list,
+		//this carries the index runs down to the DrawIndexedPrimitive site.
+		_TEMPPatch_t *pTEMPPatch = NULL;
 		nTEMPClusters++;
 		if ( !(m_nDrawnPartsMask & (1 << pCluster->nPartID)) )
 		{
@@ -1637,41 +1782,63 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			continue;
 		}
 
-		//R56: a proximity force paints ONLY the clusters whose own geometry
-		//reaches the pinned fixture. That is the whole point of localising: a
-		//level-wide mesh must not be repainted wholesale, or the user cannot
-		//tell whether the target drew at all.
+		//R56/R57: a proximity force paints ONLY the geometry that really sits at
+		//the pinned fixture. R56 gated whole CLUSTERS on their AABB, but a level
+		//chunk's cluster can span 400u and at the fence pin every one of the
+		//chunk's 24 materials had a cluster covering the pin -- the user's
+		//"rainbow vomit", which answers nothing. So gate on the TRIANGLES: if the
+		//cluster's box reaches the pin, keep just the triangles whose world
+		//centroid is within TEMPFF_PATCH_RADIUS of it and submit those index
+		//runs. A cluster that measurably has nothing at the pin draws nothing
+		//here (the light pass already drew it normally); one we cannot read
+		//(skinned/bone-space/dynamic/strip-only) falls through and is painted
+		//whole, ie R56/R55 behaviour for that mesh.
 		if ( bTEMPPinLocalize )
 		{
 			f32 aTEMPAabbMin[3], aTEMPAabbMax[3];
-			//Measured and does not reach the pin -> leave it alone (the light
-			//pass already drew it normally). A cluster we CANNOT measure
-			//(skinned/bone-space, dynamic VB) falls through and is painted, ie
-			//R55 behaviour for that mesh -- props are small, so painting one
-			//whole is itself the localisation, and it beats silently making a
-			//mesh vanish from the surface pass.
 			if ( _TEMPAABBGet( this, pMeshIS, pCluster, aTEMPAabbMin, aTEMPAabbMax ) )
 			{
-				if ( !_TEMPAABBHitPin( m_PosMtx, aTEMPAabbMin, aTEMPAabbMax, (u32)nTEMPFfPin, 8.f ) )
+				_TEMPPatch_t *pTEMPPatchEnt;
+				//The gate slack matches the patch radius: the triangle test
+				//below measures distances up to TEMPFF_PATCH_RADIUS, so a
+				//cluster whose box sits a little away from the pin must still
+				//be considered or its patch would silently not draw.
+				if ( !_TEMPAABBHitPin( m_PosMtx, aTEMPAabbMin, aTEMPAabbMax, (u32)nTEMPFfPin, TEMPFF_PATCH_RADIUS ) )
 				{
 					//`drawn=` in the mdraw line now counts only the clusters
 					//that really reach the pin.
 					continue;
 				}
-				//One line per (mesh, mat, cluster, fix): how big is the patch
-				//the user is about to see? A level-spanning cluster would put
-				//us back to R55's unreadable whole-level paint.
+				pTEMPPatchEnt = _TEMPPatchFind( this, m_PosMtx, pMeshIS, pCluster, (u32)nTEMPFfPin );
+				if ( pTEMPPatchEnt != NULL )
+				{
+					if ( pTEMPPatchEnt->nTri == 0 )
+					{
+						//The box overlap was a big cluster's, not geometry at the
+						//pin: nothing of this material is here.
+						continue;
+					}
+					pTEMPPatch = pTEMPPatchEnt;
+				}
+				//One line per (mesh, mat, cluster, fix): how much geometry does
+				//this chunk actually contribute AT the pin, and how far is its
+				//nearest triangle? reached: 1 = patch submitted (tri/runs/near
+				//describe it), 2 = read fine but no triangle at the pin (cluster
+				//skipped; near is the nearest one), 0 = unreadable (skinned/
+				//dynamic/strip-only, so the whole cluster was painted as before).
 				if ( !_TEMPMDSeen( (const void *)( (size_t)m_pMesh->szName
 					^ (size_t)( ( ( nTEMPFfPin + 2 ) * 128 + (s32)( pMaterial - m_pMesh->aMtl ) ) * 1024
 					+ (s32)( pCluster - ((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->aCluster ) ) ), 'C' ) )
 				{
-					DEVPRINTF( "[ma] TEMP ffclu f%u fix=%d %s mat=%d clu=%d pal=%s amin=(%g,%g,%g) amax=(%g,%g,%g) size=(%g,%g,%g)\r\n",
+					DEVPRINTF( "[ma] TEMP ffpatch f%u fix=%d %s mat=%d clu=%d pal=%s reached=%d tri=%u runs=%u near=%g box=(%g,%g,%g)\r\n",
 						(unsigned)FVid_nFrameCounter, nTEMPFfPin, m_pMesh->szName,
 						(s32)( pMaterial - m_pMesh->aMtl ),
 						(s32)( pCluster - ((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->aCluster ),
 						_s_apTEMPFfPalName[ (u32)( pMaterial - m_pMesh->aMtl ) % 6 ],
-						(float)aTEMPAabbMin[0], (float)aTEMPAabbMin[1], (float)aTEMPAabbMin[2],
-						(float)aTEMPAabbMax[0], (float)aTEMPAabbMax[1], (float)aTEMPAabbMax[2],
+						( pTEMPPatch != NULL ) ? 1 : ( ( pTEMPPatchEnt != NULL ) ? 2 : 0 ),
+						(unsigned)( ( pTEMPPatchEnt != NULL ) ? pTEMPPatchEnt->nTri : 0 ),
+						(unsigned)( ( pTEMPPatchEnt != NULL ) ? pTEMPPatchEnt->nRun : 0 ),
+						(float)( ( pTEMPPatchEnt != NULL ) ? pTEMPPatchEnt->fNear : -1.f ),
 						(float)( aTEMPAabbMax[0] - aTEMPAabbMin[0] ), (float)( aTEMPAabbMax[1] - aTEMPAabbMin[1] ), (float)( aTEMPAabbMax[2] - aTEMPAabbMin[2] ) );
 				}
 			}
@@ -1774,6 +1941,36 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		// Render the tri-list...
 		if ( pCluster->TriList.nTriCount )
 		{
+			if ( pTEMPPatch != NULL )
+			{
+				//R57: submit only the triangles that sit at the pin. Every run is a
+				//contiguous span of the cluster's own index buffer, so this needs no
+				//new indices -- just one DIP per run.
+				u32 nTEMPRun;
+				for ( nTEMPRun = 0; nTEMPRun < pTEMPPatch->nRun; nTEMPRun++ )
+				{
+					u32 nTEMPRunStart = pCluster->TriList.nStartVindex + pTEMPPatch->aRun[nTEMPRun][0] * 3;
+					u32 nTEMPRunTris = pTEMPPatch->aRun[nTEMPRun][1];
+					if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
+					D3DPT_TRIANGLELIST,
+					pCluster->TriList.nVtxIndexMin,
+					pCluster->TriList.nVtxIndexRange,
+					nTEMPRunStart,
+					nTEMPRunTris
+				)))
+					{
+						_TEMPDipFail("tri", pCluster->TriList.nVtxIndexMin, pCluster->TriList.nVtxIndexRange, nTEMPRunStart, nTEMPRunTris);
+					}
+
+					#if FPERF_ENABLE
+						FPerf_nRawTriListCount++;
+						FPerf_nRawListTriCount += nTEMPRunTris;
+						FPerf_nRawVertexCount += (nTEMPRunTris<<1) + nTEMPRunTris;
+					#endif
+				}
+			}
+			else
+			{
 				_TEMPMClip( __FUNCTION__, m_pMesh->szName, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount );
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 				D3DPT_TRIANGLELIST,
@@ -1791,9 +1988,14 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 				FPerf_nRawListTriCount += pCluster->TriList.nTriCount;
 				FPerf_nRawVertexCount += (pCluster->TriList.nTriCount<<1) + pCluster->TriList.nTriCount;
 			#endif
+			}
 		}
 
 		// Render the strip-list...
+		//R57: a patch is built from the cluster's tri-list only, so a cluster that
+		//has one contributes nothing from its strips (they carry no patch runs).
+		if ( pTEMPPatch == NULL )
+		{
 		FDX8MeshStrip_t *pStrip;
 		for ( nStrip=0, pStrip = pCluster->paStripBuffer; nStrip < pCluster->nStripCount; nStrip++, pStrip++ ) 
 		{
@@ -1813,6 +2015,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 				FPerf_nRawStripTriCount += pStrip->nTriCount;
 				FPerf_nRawVertexCount += pStrip->nTriCount + 2;
 			#endif
+		}
 		}
 	}
 
