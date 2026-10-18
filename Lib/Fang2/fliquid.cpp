@@ -924,7 +924,12 @@ void CFLiquidVolume::Work()
 		}
 		else
 		{
-#if FANG_PLATFORM_XB | FANG_PLATFORM_PC
+//R63: was 'FANG_PLATFORM_XB | FANG_PLATFORM_PC', but FANG_PLATFORM_PC is never
+//defined anywhere in the tree, so the expression is always 0 and the PC build
+//silently took the #else -- the *molten* (unfiltered) height->EMBM path -- for
+//water and ooze. Retail (Xbox) takes this branch and filters non-molten
+//liquids. Match the convention used by the other dx code: FANG_PLATFORM_WIN.
+#if FANG_PLATFORM_XB || FANG_PLATFORM_WIN
 			if (m_nType == LT_MOLTEN)
 			{
 				ftex_HeightMapToEMBM(m_pData->m_pEMBM, m_pData->m_pZc);
