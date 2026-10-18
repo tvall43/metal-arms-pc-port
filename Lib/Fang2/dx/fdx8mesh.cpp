@@ -599,29 +599,6 @@ static s32 _TEMPFFPin( CFMeshInst *pInst )
 	return -1;
 }
 
-//R59: the shader table turns alpha testing on for exactly the rows that use the
-//*MASK pixel shaders (PSHADER_COLOR_MASK, COLOR_EMASK, COLORALPHA_MASK), and
-//those shaders do not take their output alpha from the texture:
-//  fdx8ColorEMask.nvp :  mov r0.a, t2.a  ;t0.a        <- alpha from a TEXCOORD reg
-//  fxbColorMask.psh   :  mul r0.a, r0.a, t2.a         <- old source the prebuilt
-//  fdx8ColorMask.nvp  : ;mul r0.a, r0.a, t2.a         <- header was compiled from
-//On the Xbox the texcoord register's alpha carried the emissive/mask value
-//(RangerXT 94c6653: PC ps.1.1 texcoord alpha is not the Xbox q), so on PC the
-//test can kill every fragment: no colour AND no depth, which is why the surface
-//pass' ZFUNC EQUAL then has nothing to match and the material is invisible from
-//every direction (ride 13 orbit test). Ride-13 log evidence: godm_m1eld mat0 --
-//the platform deck the NPCs stand on, R51's invisible floor -- is the only
-//m1eld material with at=1 (af=5 aref=1) in the light pass while its sibling
-//mat1, which renders, is at=0. This is the same class of drift R42 fixed in
-//PassThru/oBase_Add_rbENV_Lit; the *MASK* shaders were not covered.
-//Diagnostic: turn the alpha test off for the gated + pinned meshes only.
-static BOOL _TEMPR59AlphaOff( CFMeshInst *pInst )
-{
-	if ( pInst == NULL ) { return FALSE; }
-	if ( _TEMPFF( pInst->m_pMesh->szName ) ) { return TRUE; }
-	return ( _TEMPFFPin( pInst ) >= 0 );
-}
-
 //R56: R55 answered "which mesh" (the LEVEL world mesh, wedmmines01/02, ~50
 //materials, one 1400u-radius instance) but painting a whole level a solid
 //colour answers nothing else: from the user's side "everything drew" and
@@ -1374,16 +1351,6 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		fsh_SetPassIdx( nPass );
 		fsh_ExecuteCurrent( FMesh_bRenderShadows, nShadowID ); 
 
-		//R59 diagnostic (see _TEMPR59AlphaOff): the per-row alpha test the shader
-		//setup just applied is what kills the pinned/gated cutout materials on PC.
-		//Uses the CACHED wrapper (fdx8_SetRenderState_*), not the device direct,
-		//so the state cache stays truthful for the next material (R52's
-		//contamination was exactly a direct SetRenderState slipping past it).
-		if ( _TEMPR59AlphaOff( this ) )
-		{
-			fdx8_SetRenderState_ALPHATESTENABLE( FALSE );
-		}
-
 		//R49 magenta light-pass force retired: ride 3 (log_e) proved raster,
 		//oPos/depth fine for the gate list. R50 moves the test to the surface
 		//side (see DrawMaterialSurface_P) to expose the REAL light result.
@@ -1656,12 +1623,6 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 #if FPERF_ENABLE
 		FPerf_nFullSurfaceShaderCount++;
 #endif
-	}
-
-	//R59 diagnostic (see _TEMPR59AlphaOff): same alpha-test kill, surface side.
-	if ( _TEMPR59AlphaOff( this ) )
-	{
-		fdx8_SetRenderState_ALPHATESTENABLE( FALSE );
 	}
 
 	//R50: surface-side force for the gate list. Replaces the surface pixel
