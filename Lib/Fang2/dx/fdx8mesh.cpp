@@ -457,6 +457,33 @@ BOOL CFMeshInst::DrawPrep_P( BOOL bFlushImmediate )
 static void *_s_apTEMPMDKey[1024];
 static char _s_acTEMPMDBranch[1024];
 static u32 _s_anTEMPMDFrame[1024];
+
+//R49: invisible-class light-pass force gate. The oBASE surface class (elevator
+//car godm_nwelv, cables, supports, doors, dead bodies, chip switch) submits
+//lightD+surfaced draws with sane states and sane light constants yet renders
+//invisible. Forge a decisive split: force this class's LIGHT pass to solid
+//magenta (pixel shader off, fixed-function TFACTOR select). Visible = the pass
+//rasterizes fine (content math is the bug). Invisible = pixels never land
+//(depth/viewport/decl). Name-gated, skipped during shadow renders.
+static const char *_s_apTEMPFFName[] =
+{
+	"godm_nwelv", "godm_cabl", "go_1cable01",
+	"godm_dead02", "godm_dead03", "godm_sprt01", "godm_sprt02",
+	"godmdoor", "chipswitch",
+};
+
+static BOOL _TEMPFF( const char *pName )
+{
+	u32 i;
+	if ( !pName ) { return FALSE; }
+	for ( i = 0; i < sizeof(_s_apTEMPFFName) / sizeof(_s_apTEMPFFName[0]); i++ )
+	{
+		if ( strncmp( pName, _s_apTEMPFFName[i], strlen( _s_apTEMPFFName[i] ) ) == 0 ) { return TRUE; }
+	}
+	return FALSE;
+}
+
+
 static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
 {
 	u32 i;
@@ -624,7 +651,9 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	IDirect3DIndexBuffer8 *pTEMPib = NULL;
 	UINT nTEMPstride = 0;
 	D3DMATRIX Wm;
-	if ( _TEMPMDSeen( pKey, cBranch ) ) { return; }
+	//R49: per-material dedupe key so every material of a mesh samples the
+	//pass (the old key collapsed multiple materials into one 600f sample).
+	if ( _TEMPMDSeen( (const void *)( (u32)(UINT_PTR)pKey ^ (u32)nMatIdx ), cBranch ) ) { return; }
 	FDX8_pDev->GetVertexShader( &dwShader );
 	FDX8_pDev->GetRenderState( D3DRS_VERTEXBLEND, &dwBlend );
 	FDX8_pDev->GetPixelShader( &dwTEMPps );
@@ -703,6 +732,60 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 		(float)aLP1c[0], (float)aLP1c[1], (float)aLP1c[2],
 		(float)aLP2[0], (float)aLP2[1], (float)aLP2[2],
 		(float)aLP2c[0], (float)aLP2c[1], (float)aLP2c[2] );
+
+	//R49: complete the constant picture for the class the review flagged.
+	//All six point slots (position c15..c20, diffuse c23..c28, attenuation
+	//c38..c43) plus the material constants the VS lighting math multiplies by.
+	//Gated to the invisible-class names, light 'D' branch only.
+	if ( _TEMPFF( pName ) && cBranch == 'D' )
+	{
+		float aTEMPmp[24], aTEMPmc[24], aTEMPma[24];
+		float aTEMPamb[4], aTEMPmatd[4], aTEMPmatem[4], aTEMPfac[4];
+		memset( aTEMPmp, 0, sizeof(aTEMPmp) );
+		memset( aTEMPmc, 0, sizeof(aTEMPmc) );
+		memset( aTEMPma, 0, sizeof(aTEMPma) );
+		memset( aTEMPamb, 0, sizeof(aTEMPamb) );
+		memset( aTEMPmatd, 0, sizeof(aTEMPmatd) );
+		memset( aTEMPmatem, 0, sizeof(aTEMPmatem) );
+		memset( aTEMPfac, 0, sizeof(aTEMPfac) );
+		FDX8_pDev->GetVertexShaderConstant( CV_LIGHT2_POSITION, aTEMPmp, 6 );
+		FDX8_pDev->GetVertexShaderConstant( CV_LIGHT2_DIFFUSE, aTEMPmc, 6 );
+		FDX8_pDev->GetVertexShaderConstant( CV_LIGHT2_ATTENUATION, aTEMPma, 6 );
+		FDX8_pDev->GetVertexShaderConstant( CV_MAT_AMBIENT, aTEMPamb, 1 );
+		FDX8_pDev->GetVertexShaderConstant( CV_MAT_DIFFUSE, aTEMPmatd, 1 );
+		FDX8_pDev->GetVertexShaderConstant( CV_MAT_EMISSIVE, aTEMPmatem, 1 );
+		FDX8_pDev->GetVertexShaderConstant( CV_FACTOR, aTEMPfac, 1 );
+		DEVPRINTF( "[ma] TEMP mlit f%u %s amb=(%g,%g,%g,%g) mdif=(%g,%g,%g,%g) mem=(%g,%g,%g,%g) fac=(%g,%g,%g,%g)\r\n",
+			(unsigned)FVid_nFrameCounter, pName,
+			(float)aTEMPamb[0], (float)aTEMPamb[1], (float)aTEMPamb[2], (float)aTEMPamb[3],
+			(float)aTEMPmatd[0], (float)aTEMPmatd[1], (float)aTEMPmatd[2], (float)aTEMPmatd[3],
+			(float)aTEMPmatem[0], (float)aTEMPmatem[1], (float)aTEMPmatem[2], (float)aTEMPmatem[3],
+			(float)aTEMPfac[0], (float)aTEMPfac[1], (float)aTEMPfac[2], (float)aTEMPfac[3] );
+		DEVPRINTF( "[ma] TEMP mlitP f%u %s p0=(%g,%g,%g) p1=(%g,%g,%g) p2=(%g,%g,%g) p3=(%g,%g,%g) p4=(%g,%g,%g) p5=(%g,%g,%g)\r\n",
+			(unsigned)FVid_nFrameCounter, pName,
+			(float)aTEMPmp[0], (float)aTEMPmp[1], (float)aTEMPmp[2],
+			(float)aTEMPmp[4], (float)aTEMPmp[5], (float)aTEMPmp[6],
+			(float)aTEMPmp[8], (float)aTEMPmp[9], (float)aTEMPmp[10],
+			(float)aTEMPmp[12], (float)aTEMPmp[13], (float)aTEMPmp[14],
+			(float)aTEMPmp[16], (float)aTEMPmp[17], (float)aTEMPmp[18],
+			(float)aTEMPmp[20], (float)aTEMPmp[21], (float)aTEMPmp[22] );
+		DEVPRINTF( "[ma] TEMP mlitC f%u %s c0=(%g,%g,%g) c1=(%g,%g,%g) c2=(%g,%g,%g) c3=(%g,%g,%g) c4=(%g,%g,%g) c5=(%g,%g,%g)\r\n",
+			(unsigned)FVid_nFrameCounter, pName,
+			(float)aTEMPmc[0], (float)aTEMPmc[1], (float)aTEMPmc[2],
+			(float)aTEMPmc[4], (float)aTEMPmc[5], (float)aTEMPmc[6],
+			(float)aTEMPmc[8], (float)aTEMPmc[9], (float)aTEMPmc[10],
+			(float)aTEMPmc[12], (float)aTEMPmc[13], (float)aTEMPmc[14],
+			(float)aTEMPmc[16], (float)aTEMPmc[17], (float)aTEMPmc[18],
+			(float)aTEMPmc[20], (float)aTEMPmc[21], (float)aTEMPmc[22] );
+		DEVPRINTF( "[ma] TEMP mlitA f%u %s a0=(%g,%g,%g) a1=(%g,%g,%g) a2=(%g,%g,%g) a3=(%g,%g,%g) a4=(%g,%g,%g) a5=(%g,%g,%g)\r\n",
+			(unsigned)FVid_nFrameCounter, pName,
+			(float)aTEMPma[0], (float)aTEMPma[1], (float)aTEMPma[2],
+			(float)aTEMPma[4], (float)aTEMPma[5], (float)aTEMPma[6],
+			(float)aTEMPma[8], (float)aTEMPma[9], (float)aTEMPma[10],
+			(float)aTEMPma[12], (float)aTEMPma[13], (float)aTEMPma[14],
+			(float)aTEMPma[16], (float)aTEMPma[17], (float)aTEMPma[18],
+			(float)aTEMPma[20], (float)aTEMPma[21], (float)aTEMPma[22] );
+	}
 }
 
 BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, FMeshMaterial_t *pMaterial, u32 nLODIndex )
@@ -801,6 +884,23 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 	{
 		fsh_SetPassIdx( nPass );
 		fsh_ExecuteCurrent( FMesh_bRenderShadows, nShadowID ); 
+
+		//R49: magenta force for the invisible class (see _TEMPFF above). Pass
+		//0 only; never during shadow draws. The POINTn light VS is left in
+		//place so oPos/depth stay identical to the real light path.
+		if ( nPass == 0 && !FMesh_bRenderShadows && _TEMPFF( m_pMesh->szName ) )
+		{
+			float aTEMPWhite[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+			FDX8_pDev->SetPixelShader( NULL );
+			FDX8_pDev->SetTexture( 0, NULL );
+			FDX8_pDev->SetTexture( 1, NULL );
+			FDX8_pDev->SetTextureStageState( 0, D3DTSS_COLOROP, D3DTOP_SELECTARG1 );
+			FDX8_pDev->SetTextureStageState( 0, D3DTSS_COLORARG1, D3DTA_TFACTOR );
+			FDX8_pDev->SetTextureStageState( 0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1 );
+			FDX8_pDev->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TFACTOR );
+			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(255,255,0,255) );
+			FDX8_pDev->SetVertexShaderConstant( CV_MAT_AMBIENT, aTEMPWhite, 1 );
+		}
 
 		// Progress through all the clusters for this material, submitting for render the relevant ones
 		FDX8MeshCluster_t *pCluster = ((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->aCluster;
@@ -2462,13 +2562,17 @@ void CFMeshInst::AddShaderLights( void )
 		DEVPRINTF( "[ma] TEMP shlights inst=%p name=%s rlc=%u amb=%d ambcol=(%g,%g,%g)\r\n",
 			this, m_pMesh ? m_pMesh->szName : "?", (unsigned)m_nRenderLightCount, bAmb ? 1 : 0,
 			(float)FMesh_AmbientMotif.ColorRGB.fRed, (float)FMesh_AmbientMotif.ColorRGB.fGreen, (float)FMesh_AmbientMotif.ColorRGB.fBlue );
-		for ( i = 0; i < m_nRenderLightCount && i < 4; i++ )
+		//R49: cap raised 4->8 (review round: cable draws selected POINT6
+		//after collecting six lights; slots 4+ were never dumped) and each
+		//entry now reports m_fOOR_WS -- the inverse range _BuildD3DLight
+		//multiplies the attenuation K1/K2 constants by.
+		for ( i = 0; i < m_nRenderLightCount && i < 8; i++ )
 		{
 			CFLight *pTempL = m_pRenderLights[i].pLight;
 			if ( !pTempL ) { continue; }
 			pTempL->ComputeColor();
-			DEVPRINTF( "[ma] TEMP shlight1 inst=%p i=%u type=%d p=(%g,%g,%g) c=(%g,%g,%g)\r\n",
-				this, (unsigned)i, (int)pTempL->m_nType,
+			DEVPRINTF( "[ma] TEMP shlight1 inst=%p i=%u type=%d oor=%g p=(%g,%g,%g) c=(%g,%g,%g)\r\n",
+				this, (unsigned)i, (int)pTempL->m_nType, (float)pTempL->m_fOOR_WS,
 				(float)pTempL->m_spInfluence_WS.m_Pos.x, (float)pTempL->m_spInfluence_WS.m_Pos.y, (float)pTempL->m_spInfluence_WS.m_Pos.z,
 				(float)pTempL->m_ScaledColor.fRed, (float)pTempL->m_ScaledColor.fGreen, (float)pTempL->m_ScaledColor.fBlue );
 		}
