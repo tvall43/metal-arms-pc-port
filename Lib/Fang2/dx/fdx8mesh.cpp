@@ -559,14 +559,24 @@ static const f32 _afTEMPFFPin[3][3] =
 //magenta / cyan / yellow. Name-gate hits stay WHITE so the old control group
 //is still distinguishable from the newly discovered ones.
 static const DWORD _anTEMPFFPinCol[3] = { 0xFFFF00FF, 0xFF00FFFF, 0xFFFFFF00 };
-#define TEMPFF_PIN_RADIUS_CAP 500.f
+//R56: colour for a LOCALISED proximity hit. Painting a whole level one colour was
+//R55's dead end (everything drew, everything was magenta). Instead the colour
+//encodes the material index, so when the user says "the missing floor panel is
+//now green" the log line (same name+mat+fix, loc=1) names the material outright.
+static const DWORD _anTEMPFFPal[6] =
+{
+	0xFFFF0000,	//red
+	0xFF00FF00,	//green
+	0xFF0000FF,	//blue
+	0xFFFFFF00,	//yellow
+	0xFF00FFFF,	//cyan
+	0xFFFF00FF	//magenta
+};
+static const char *_s_apTEMPFfPalName[6] = { "red", "green", "blue", "yellow", "cyan", "magenta" };
 //last hit's bounding radius, surfaced in the ffpin log line
 static f32 _fTEMPFfPinRadius = 0.f;
 
 //-1 = not near any pin; else the pin index whose spot this mesh's bounds reach.
-//Meshes too big to force without painting half the level are skipped, but said
-//so once (TEMP fftoobig) -- that line is itself an answer if the invisible
-//geometry turns out to live inside a huge world mesh.
 static s32 _TEMPFFPin( CFMeshInst *pInst )
 {
 	u32 i;
@@ -582,21 +592,125 @@ static s32 _TEMPFFPin( CFMeshInst *pInst )
 		fReach = spTest.m_fRadius + 12.f;
 		if ( dx*dx + dy*dy + dz*dz <= fReach*fReach )
 		{
-			if ( spTest.m_fRadius > TEMPFF_PIN_RADIUS_CAP )
-			{
-				if ( !_TEMPMDSeen( (const void *)( (size_t)pInst->m_pMesh->szName ^ (size_t)(i + 0x100) ), 'B' ) )
-				{
-					DEVPRINTF( "[ma] TEMP fftoobig f%u fix=%u %s radius=%g pos=(%g,%g,%g)\r\n",
-						(unsigned)FVid_nFrameCounter, i, pInst->m_pMesh->szName, (float)spTest.m_fRadius,
-						(float)spTest.m_Pos.x, (float)spTest.m_Pos.y, (float)spTest.m_Pos.z );
-				}
-				continue;
-			}
 			_fTEMPFfPinRadius = spTest.m_fRadius;
 			return (s32)i;
 		}
 	}
 	return -1;
+}
+
+//R56: R55 answered "which mesh" (the LEVEL world mesh, wedmmines01/02, ~50
+//materials, one 1400u-radius instance) but painting a whole level a solid
+//colour answers nothing else: from the user's side "everything drew" and
+//"nothing drew" look identical. So localise: per cluster, read the vertex
+//window that draw will consume (FDX8MeshCluster_t::TriList.nVtxIndexMin/Range)
+//with the same read-only VB lock the vdata probe uses, cache the model-space
+//AABB (subsampled, static geometry only), transform its corners by m_PosMtx and
+//test the pins. A material is only forced if its own geometry reaches a pin, and
+//inside the cluster loop only the clusters that reach the pin are submitted --
+//so just the fence/floor turn colour and everything else keeps rendering.
+typedef struct { const void *pKey; f32 aMin[3]; f32 aMax[3]; } _TEMPAABB_t;
+static _TEMPAABB_t _aTEMPAABB[4096];
+
+static BOOL _TEMPAABBGet( CFMeshInst *pInst, FDX8Mesh_t *pMeshIS, FDX8MeshCluster_t *pCluster, f32 *pMin, f32 *pMax )
+{
+	u32 nHash, i, nLo, nHi, nCount, nStep, nAt, nStrip;
+	u8 *pData;
+	FDX8VB_t *pVB;
+	const FDX8VB_Info_t *pInfo;
+	_TEMPAABB_t *pEnt;
+
+	if ( pMeshIS == NULL || pCluster == NULL || pInst == NULL ) { return FALSE; }
+	//skinned geometry is stored in bone space here, so the AABB would not
+	//reflect the posed mesh; only trust the unskinned (static/world) case.
+	if ( pInst->m_pMesh->nBoneCount != 0 ) { return FALSE; }
+	if ( pCluster->nVBIndex >= pMeshIS->nVBCount ) { return FALSE; }
+	pVB = &pMeshIS->aVB[ pCluster->nVBIndex ];
+	if ( pVB->bDynamic ) { return FALSE; }
+	if ( pVB->nInfoIndex < 0 || pVB->nInfoIndex >= FDX8VB_TYPE_COUNT ) { return FALSE; }
+	pInfo = &FDX8VB_InfoTable[ pVB->nInfoIndex ];
+	if ( pVB->nBytesPerVertex == 0 ) { return FALSE; }
+
+	nHash = ( (u32)(UINT_PTR)pCluster >> 4 ) & 4095;
+	pEnt = &_aTEMPAABB[ nHash ];
+	if ( pEnt->pKey == (const void *)pCluster )
+	{
+		for ( i = 0; i < 3; i++ ) { pMin[i] = pEnt->aMin[i]; pMax[i] = pEnt->aMax[i]; }
+		return TRUE;
+	}
+	pEnt->pKey = NULL;
+
+	//The cluster can submit a tri-list and/or a strip-list, each with its own
+	//vertex window; union them so a strip-only cluster is still measured.
+	nLo = 0x7fffffff;
+	nHi = 0;
+	if ( pCluster->TriList.nTriCount )
+	{
+		nLo = pCluster->TriList.nVtxIndexMin;
+		nHi = pCluster->TriList.nVtxIndexMin + pCluster->TriList.nVtxIndexRange;
+	}
+	for ( nStrip = 0; nStrip < pCluster->nStripCount; nStrip++ )
+	{
+		FDX8MeshStrip_t *pStrip = &pCluster->paStripBuffer[ nStrip ];
+		if ( pStrip->nTriCount == 0 ) { continue; }
+		if ( (u32)pStrip->nVtxIndexMin < nLo ) { nLo = pStrip->nVtxIndexMin; }
+		if ( (u32)pStrip->nVtxIndexMin + pStrip->nVtxIndexRange > nHi ) { nHi = pStrip->nVtxIndexMin + pStrip->nVtxIndexRange; }
+	}
+	if ( nHi <= nLo ) { return FALSE; }
+	if ( nHi > pVB->nVtxCount ) { nHi = pVB->nVtxCount; }
+	if ( nHi <= nLo ) { return FALSE; }
+	nCount = nHi - nLo;
+
+	nStep = nCount / 48;
+	if ( nStep == 0 ) { nStep = 1; }
+	//fdx8vb_Lock returns a pointer to the start of the LOCKED WINDOW.
+	pData = (u8 *)fdx8vb_Lock( pVB, nLo, nCount );
+	if ( pData == NULL ) { return FALSE; }
+	pMin[0] = pMin[1] = pMin[2] = 1e30f;
+	pMax[0] = pMax[1] = pMax[2] = -1e30f;
+	for ( nAt = 0; nAt < nCount; nAt += nStep )
+	{
+		f32 *pf = (f32 *)( pData + nAt * pVB->nBytesPerVertex + pInfo->nOffsetPos );
+		for ( i = 0; i < 3; i++ )
+		{
+			if ( pf[i] < pMin[i] ) { pMin[i] = pf[i]; }
+			if ( pf[i] > pMax[i] ) { pMax[i] = pf[i]; }
+		}
+	}
+	fdx8vb_Unlock( pVB );
+	for ( i = 0; i < 3; i++ ) { pEnt->aMin[i] = pMin[i]; pEnt->aMax[i] = pMax[i]; }
+	pEnt->pKey = (const void *)pCluster;
+	return TRUE;
+}
+
+//Does this cluster's (model-space AABB -> world) box reach pin nPin?
+static BOOL _TEMPAABBHitPin( const CFMtx43A &posMtx, const f32 *pMin, const f32 *pMax, u32 nPin, f32 fSlack )
+{
+	f32 bMin[3], bMax[3];
+	u32 i, k;
+	if ( nPin > 2 ) { return FALSE; }
+	bMin[0] = bMin[1] = bMin[2] = 1e30f;
+	bMax[0] = bMax[1] = bMax[2] = -1e30f;
+	for ( i = 0; i < 8; i++ )
+	{
+		CFVec3 v, w;
+		v.x = (i & 1) ? pMax[0] : pMin[0];
+		v.y = (i & 2) ? pMax[1] : pMin[1];
+		v.z = (i & 4) ? pMax[2] : pMin[2];
+		w = posMtx.m44.MultPoint( v );
+		if ( w.x < bMin[0] ) { bMin[0] = w.x; }
+		if ( w.y < bMin[1] ) { bMin[1] = w.y; }
+		if ( w.z < bMin[2] ) { bMin[2] = w.z; }
+		if ( w.x > bMax[0] ) { bMax[0] = w.x; }
+		if ( w.y > bMax[1] ) { bMax[1] = w.y; }
+		if ( w.z > bMax[2] ) { bMax[2] = w.z; }
+	}
+	for ( k = 0; k < 3; k++ )
+	{
+		if ( _afTEMPFFPin[nPin][k] < bMin[k] - fSlack ) { return FALSE; }
+		if ( _afTEMPFFPin[nPin][k] > bMax[k] + fSlack ) { return FALSE; }
+	}
+	return TRUE;
 }
 
 //R46b: DrawIndexedPrimitive failure probe. All 12 draw sites swallow DIP
@@ -1394,10 +1508,17 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 	//content is zero (vertex-lighting math). Missing => the surface pass
 	//lands selectively (depth/decl by material). Cutout meshes will show
 	//as solid quads (alpha test bypassed with the PS off) -- expected.
+	//R56: proximity-force state, shared with the cluster loop below. A mesh
+	//pulled in by the name gate is painted whole (they are small props); a mesh
+	//pulled in by proximity has its clusters tested individually so only the
+	//geometry that actually reaches the pinned fixture is drawn under the
+	//forced state.
+	BOOL bTEMPGate = _TEMPFF( m_pMesh->szName );
+	s32 nTEMPFfPin = _TEMPFFPin( this );
+	BOOL bTEMPPinLocalize = ( nTEMPFfPin >= 0 && !bTEMPGate );
 	{
 		u32 nTEMPStage;
-		s32 nTEMPFfPin = _TEMPFFPin( this );
-		if ( _TEMPFF( m_pMesh->szName ) || nTEMPFfPin >= 0 )
+		if ( bTEMPGate || nTEMPFfPin >= 0 )
 		{
 			//R52: capture everything we are about to bypass (restored at the
 			//function tail so the state cache's model stays truthful).
@@ -1440,11 +1561,25 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			//fixture 0/1/2. ZFUNC is back to LESSEQUAL (R54's ALWAYS only
 			//made far forced meshes draw through walls, which told us
 			//nothing).
-			//R55: log the discovery + the ambient the render sort actually
-			//set for this entry (fmesh_Ambient_Set runs just before this
-			//call), which tests the "class ambient is zero" theory directly.
 			{
 				u32 nTEMPMatIdx = (u32)( pMaterial - m_pMesh->aMtl );
+				DWORD nTEMPFfCol = 0xFFFFFFFF;	//white = name gate (control group)
+				const char *pTEMPFfColName = "white";
+				if ( nTEMPFfPin >= 0 )
+				{
+					if ( bTEMPPinLocalize )
+					{
+						//Localised: colour names the material index (see the
+						//_anTEMPFFPal comment) so the user's report is decodable.
+						nTEMPFfCol = _anTEMPFFPal[ nTEMPMatIdx % 6 ];
+						pTEMPFfColName = _s_apTEMPFfPalName[ nTEMPMatIdx % 6 ];
+					}
+					else
+					{
+						nTEMPFfCol = _anTEMPFFPinCol[ nTEMPFfPin ];
+						pTEMPFfColName = "pincol";
+					}
+				}
 				//Once per (name, mat, fix) -- otherwise this repeats for every
 				//material of every pinned mesh on every frame.
 				if ( !_TEMPMDSeen( (const void *)( (size_t)m_pMesh->szName ^ (size_t)( (nTEMPFfPin + 2) * 8192 + (s32)nTEMPMatIdx ) ), 'N' ) )
@@ -1452,17 +1587,14 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 					float aTEMPAmb[4];
 					memset( aTEMPAmb, 0, sizeof(aTEMPAmb) );
 					FDX8_pDev->GetVertexShaderConstant( CV_MAT_AMBIENT, aTEMPAmb, 1 );
-					DEVPRINTF( "[ma] TEMP ffpin f%u gate=%d fix=%d rad=%g %s mat=%d pos=(%g,%g,%g) scale=%g cvamb=(%g,%g,%g) final=(%g,%g,%g) motif=(%g,%g,%g)\r\n",
-						(unsigned)FVid_nFrameCounter, _TEMPFF( m_pMesh->szName ) ? 1 : 0, nTEMPFfPin, (float)_fTEMPFfPinRadius, m_pMesh->szName, (int)nTEMPMatIdx,
+					DEVPRINTF( "[ma] TEMP ffpin f%u gate=%d fix=%d loc=%d pal=%s rad=%g %s mat=%d nclu=%u pos=(%g,%g,%g) scale=%g cvamb=(%g,%g,%g) final=(%g,%g,%g) motif=(%g,%g,%g)\r\n",
+						(unsigned)FVid_nFrameCounter, bTEMPGate ? 1 : 0, nTEMPFfPin, bTEMPPinLocalize ? 1 : 0, pTEMPFfColName, (float)_fTEMPFfPinRadius, m_pMesh->szName, (int)nTEMPMatIdx,
+						(unsigned)((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->nClusterCount,
 						(float)m_PosMtx.m_vP.x, (float)m_PosMtx.m_vP.y, (float)m_PosMtx.m_vP.z, (float)m_fMatrixScale,
 						(float)aTEMPAmb[0], (float)aTEMPAmb[1], (float)aTEMPAmb[2],
 						(float)m_FinalAmbientRGB.fRed, (float)m_FinalAmbientRGB.fGreen, (float)m_FinalAmbientRGB.fBlue,
 						(float)FWorld_AmbientMotif.ColorRGB.fRed, (float)FWorld_AmbientMotif.ColorRGB.fGreen, (float)FWorld_AmbientMotif.ColorRGB.fBlue );
 				}
-			}
-			{
-				DWORD nTEMPFfCol = 0xFFFFFFFF;	//white = name gate
-				if ( nTEMPFfPin >= 0 ) { nTEMPFfCol = _anTEMPFFPinCol[ nTEMPFfPin ]; }
 				FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, nTEMPFfCol );
 			}
 			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
@@ -1503,6 +1635,46 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		{
 			nTEMPLodSkip++;
 			continue;
+		}
+
+		//R56: a proximity force paints ONLY the clusters whose own geometry
+		//reaches the pinned fixture. That is the whole point of localising: a
+		//level-wide mesh must not be repainted wholesale, or the user cannot
+		//tell whether the target drew at all.
+		if ( bTEMPPinLocalize )
+		{
+			f32 aTEMPAabbMin[3], aTEMPAabbMax[3];
+			//Measured and does not reach the pin -> leave it alone (the light
+			//pass already drew it normally). A cluster we CANNOT measure
+			//(skinned/bone-space, dynamic VB) falls through and is painted, ie
+			//R55 behaviour for that mesh -- props are small, so painting one
+			//whole is itself the localisation, and it beats silently making a
+			//mesh vanish from the surface pass.
+			if ( _TEMPAABBGet( this, pMeshIS, pCluster, aTEMPAabbMin, aTEMPAabbMax ) )
+			{
+				if ( !_TEMPAABBHitPin( m_PosMtx, aTEMPAabbMin, aTEMPAabbMax, (u32)nTEMPFfPin, 8.f ) )
+				{
+					//`drawn=` in the mdraw line now counts only the clusters
+					//that really reach the pin.
+					continue;
+				}
+				//One line per (mesh, mat, cluster, fix): how big is the patch
+				//the user is about to see? A level-spanning cluster would put
+				//us back to R55's unreadable whole-level paint.
+				if ( !_TEMPMDSeen( (const void *)( (size_t)m_pMesh->szName
+					^ (size_t)( ( ( nTEMPFfPin + 2 ) * 128 + (s32)( pMaterial - m_pMesh->aMtl ) ) * 1024
+					+ (s32)( pCluster - ((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->aCluster ) ) ), 'C' ) )
+				{
+					DEVPRINTF( "[ma] TEMP ffclu f%u fix=%d %s mat=%d clu=%d pal=%s amin=(%g,%g,%g) amax=(%g,%g,%g) size=(%g,%g,%g)\r\n",
+						(unsigned)FVid_nFrameCounter, nTEMPFfPin, m_pMesh->szName,
+						(s32)( pMaterial - m_pMesh->aMtl ),
+						(s32)( pCluster - ((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->aCluster ),
+						_s_apTEMPFfPalName[ (u32)( pMaterial - m_pMesh->aMtl ) % 6 ],
+						(float)aTEMPAabbMin[0], (float)aTEMPAabbMin[1], (float)aTEMPAabbMin[2],
+						(float)aTEMPAabbMax[0], (float)aTEMPAabbMax[1], (float)aTEMPAabbMax[2],
+						(float)( aTEMPAabbMax[0] - aTEMPAabbMin[0] ), (float)( aTEMPAabbMax[1] - aTEMPAabbMin[1] ), (float)( aTEMPAabbMax[2] - aTEMPAabbMin[2] ) );
+				}
+			}
 		}
 		nTEMPDrawn++;
 
