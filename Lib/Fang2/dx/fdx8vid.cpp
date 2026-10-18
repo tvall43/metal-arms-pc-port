@@ -549,6 +549,15 @@ BOOL fvid_CreateWindow( const FVidWin_t *pWinInfo )
 	for( i=0; i<_nAdapterArrayCount; i++ ) 
 	{
 		pCurAdapterInfo = &_pAdapterArray[i];
+		//R66: "Default" is this port's own sentinel -- main_win.cpp:984 sets
+		//it, and VidMode.cpp can carry a stale name out of the ini -- so it means
+		//"first enumerated adapter", not a name that has to match. Matching it
+		//with strcmp printed an alarming "(1 enumerated)" warning on every
+		//native Windows run while the real failure was CreateDevice below.
+		if( pWinInfo->VidDev.szName[0] == 0 || !strcmp( pWinInfo->VidDev.szName, "Default" ) )
+		{
+			break;
+		}
 
 		if( !strcmp( pCurAdapterInfo->VidDev.szName, pWinInfo->VidDev.szName ) ) 
 		{
@@ -2990,6 +2999,16 @@ static BOOL _CreateWindow( void )
 		_PresentationParms.BackBufferWidth = _ClientRect.right - _ClientRect.left;
 		_PresentationParms.BackBufferHeight = _ClientRect.bottom - _ClientRect.top;
 	} 
+		if( _PresentationParms.BackBufferWidth == 0 || _PresentationParms.BackBufferHeight == 0 )
+		{
+			//A minimised or failed-to-size window leaves an empty client rect,
+			//and a 0-sized backbuffer makes CreateDevice fail with no other clue.
+			DEVPRINTF( "fvid: windowed client rect is %dx%d; using the requested %ux%u backbuffer instead.\n",
+				(int)( _ClientRect.right - _ClientRect.left ), (int)( _ClientRect.bottom - _ClientRect.top ),
+				(unsigned)FVid_Mode.nPixelsAcross, (unsigned)FVid_Mode.nPixelsDown );
+			_PresentationParms.BackBufferWidth = FVid_Mode.nPixelsAcross;
+			_PresentationParms.BackBufferHeight = FVid_Mode.nPixelsDown;
+		}
 	else 
 	{
 		_PresentationParms.BackBufferWidth = FVid_Mode.nPixelsAcross;
@@ -3023,15 +3042,66 @@ static BOOL _CreateWindow( void )
 	FDX8_pD3D->SetPushBufferSize( (DWORD)(1.5f * 1024.f * 1024.f), 64 * 1024 );
 #endif
 
-	if( FAILED( FDX8_pD3D->CreateDevice( _CurAdapterInfo.nD3DAdapterIndex, _D3DDevType, _hWnd, _nBehaviorFlags, &_PresentationParms, &FDX8_pDev ) ) ) {
-#if FANG_PLATFORM_WIN
-		DestroyWindow( _hWnd );
-		return FALSE;
-	}
-	else
+	//R66: this CreateDevice failure used to be silent -- the caller only prints
+	//"Could not use the current video mode", so a native Windows box that cannot
+	//create the device produced no HRESULT and no parameters to act on. Log every
+	//attempt and retry with progressively safer parameters, each a known D3D8
+	//restriction rather than a guess: multisampling off (FSAA combined with a
+	//lockable backbuffer, or at an odd size, is a common INVALIDCALL), then the
+	//lockable-backbuffer flag off, then software vertex processing, then the
+	//desktop backbuffer format.
 	{
-		_D3DSubclassedWndProc = (WNDPROC)SetWindowLong(_hWnd, GWL_WNDPROC,(LONG) _UnSubclassD3DsWndProc);
+		D3DPRESENT_PARAMETERS aTEMPAttempt[5];
+		const char *apTEMPTry[5];
+		u32 nTEMPAttempts = 0, nTEMPTry;
+		HRESULT hTEMPCreate = E_FAIL;
+
+		aTEMPAttempt[nTEMPAttempts] = _PresentationParms;
+		apTEMPTry[nTEMPAttempts++] = "as requested";
+		aTEMPAttempt[nTEMPAttempts] = _PresentationParms;
+		aTEMPAttempt[nTEMPAttempts].MultiSampleType = D3DMULTISAMPLE_NONE;
+		apTEMPTry[nTEMPAttempts++] = "multisample off";
+		aTEMPAttempt[nTEMPAttempts] = aTEMPAttempt[nTEMPAttempts-1];
+		aTEMPAttempt[nTEMPAttempts].Flags = 0;
+		apTEMPTry[nTEMPAttempts++] = "multisample off, no lockable backbuffer";
+		aTEMPAttempt[nTEMPAttempts] = aTEMPAttempt[nTEMPAttempts-1];
+		apTEMPTry[nTEMPAttempts++] = "... + software vertex processing";
+		aTEMPAttempt[nTEMPAttempts] = aTEMPAttempt[nTEMPAttempts-1];
+		aTEMPAttempt[nTEMPAttempts].BackBufferFormat = _OrigDisplayMode.Format;
+		apTEMPTry[nTEMPAttempts++] = "... + desktop backbuffer format";
+
+		for( nTEMPTry = 0; nTEMPTry < nTEMPAttempts; nTEMPTry++ )
+		{
+			DWORD nTEMPBehavior = ( nTEMPTry >= 3 ) ? D3DCREATE_SOFTWARE_VERTEXPROCESSING : _nBehaviorFlags;
+			DEVPRINTF( "fvid: CreateDevice try %u/%u [%s] adapter %u type %u %ux%u fmt %u depth %u ms %u flags 0x%02X beh 0x%08X\n",
+				(unsigned)( nTEMPTry + 1 ), (unsigned)nTEMPAttempts, apTEMPTry[nTEMPTry],
+				(unsigned)_CurAdapterInfo.nD3DAdapterIndex, (unsigned)_D3DDevType,
+				(unsigned)aTEMPAttempt[nTEMPTry].BackBufferWidth, (unsigned)aTEMPAttempt[nTEMPTry].BackBufferHeight,
+				(unsigned)aTEMPAttempt[nTEMPTry].BackBufferFormat, (unsigned)aTEMPAttempt[nTEMPTry].AutoDepthStencilFormat,
+				(unsigned)aTEMPAttempt[nTEMPTry].MultiSampleType, (unsigned)aTEMPAttempt[nTEMPTry].Flags,
+				(unsigned)nTEMPBehavior );
+			hTEMPCreate = FDX8_pD3D->CreateDevice( _CurAdapterInfo.nD3DAdapterIndex, _D3DDevType, _hWnd, nTEMPBehavior, &aTEMPAttempt[nTEMPTry], &FDX8_pDev );
+			if( SUCCEEDED( hTEMPCreate ) )
+			{
+				if( nTEMPTry > 0 )
+				{
+					DEVPRINTF( "fvid: CreateDevice succeeded on try %u/%u [%s].\n",
+						(unsigned)( nTEMPTry + 1 ), (unsigned)nTEMPAttempts, apTEMPTry[nTEMPTry] );
+				}
+				_PresentationParms = aTEMPAttempt[nTEMPTry];
+				_nBehaviorFlags = nTEMPBehavior;
+				break;
+			}
+			DEVPRINTF( "fvid: CreateDevice try %u/%u failed, hr=0x%08X\n",
+				(unsigned)( nTEMPTry + 1 ), (unsigned)nTEMPAttempts, (unsigned)hTEMPCreate );
+		}
+		if( nTEMPTry == nTEMPAttempts )
+		{
+#if FANG_PLATFORM_WIN
+			DestroyWindow( _hWnd );
 #endif
+			return FALSE;
+		}
 	}
 
 
