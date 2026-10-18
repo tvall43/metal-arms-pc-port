@@ -2998,17 +2998,20 @@ static BOOL _CreateWindow( void )
 	{
 		_PresentationParms.BackBufferWidth = _ClientRect.right - _ClientRect.left;
 		_PresentationParms.BackBufferHeight = _ClientRect.bottom - _ClientRect.top;
-	} 
+		//R66b: a minimised or failed-to-size window leaves an empty client rect,
+		//and a 0-sized backbuffer makes CreateDevice fail with no other clue. This
+		//has to sit INSIDE the windowed branch: placed between this block and its
+		//'else' it stole the else, so the fullscreen sizing never ran and the
+		//message below printed for fullscreen runs (ride 20's log).
 		if( _PresentationParms.BackBufferWidth == 0 || _PresentationParms.BackBufferHeight == 0 )
 		{
-			//A minimised or failed-to-size window leaves an empty client rect,
-			//and a 0-sized backbuffer makes CreateDevice fail with no other clue.
 			DEVPRINTF( "fvid: windowed client rect is %dx%d; using the requested %ux%u backbuffer instead.\n",
 				(int)( _ClientRect.right - _ClientRect.left ), (int)( _ClientRect.bottom - _ClientRect.top ),
 				(unsigned)FVid_Mode.nPixelsAcross, (unsigned)FVid_Mode.nPixelsDown );
 			_PresentationParms.BackBufferWidth = FVid_Mode.nPixelsAcross;
 			_PresentationParms.BackBufferHeight = FVid_Mode.nPixelsDown;
 		}
+	} 
 	else 
 	{
 		_PresentationParms.BackBufferWidth = FVid_Mode.nPixelsAcross;
@@ -3037,6 +3040,16 @@ static BOOL _CreateWindow( void )
 #endif
 	_PresentationParms.FullScreen_RefreshRateInHz = _nRefreshRate;
 	_PresentationParms.FullScreen_PresentationInterval = _nPresentationInterval;
+	//R67: D3D8 requires both of those to be 0 in a windowed present, and this
+	//port always presents windowed (see the Windowed = TRUE comment above).
+	//Wine ignores the pair; a real driver does not, and on native Windows every
+	//CreateDevice attempt failed with D3DERR_INVALIDCALL (0x8876086C) until
+	//they were zeroed (ride 20's log).
+	if( _PresentationParms.Windowed )
+	{
+		_PresentationParms.FullScreen_RefreshRateInHz = 0;
+		_PresentationParms.FullScreen_PresentationInterval = 0;
+	}
 
 #if FANG_PLATFORM_XB
 	FDX8_pD3D->SetPushBufferSize( (DWORD)(1.5f * 1024.f * 1024.f), 64 * 1024 );
@@ -3073,13 +3086,15 @@ static BOOL _CreateWindow( void )
 		for( nTEMPTry = 0; nTEMPTry < nTEMPAttempts; nTEMPTry++ )
 		{
 			DWORD nTEMPBehavior = ( nTEMPTry >= 3 ) ? D3DCREATE_SOFTWARE_VERTEXPROCESSING : _nBehaviorFlags;
-			DEVPRINTF( "fvid: CreateDevice try %u/%u [%s] adapter %u type %u %ux%u fmt %u depth %u ms %u flags 0x%02X beh 0x%08X\n",
+			DEVPRINTF( "fvid: CreateDevice try %u/%u [%s] adapter %u type %u %ux%u fmt %u depth %u ms %u flags 0x%02X beh 0x%08X hz %u int 0x%08X\n",
 				(unsigned)( nTEMPTry + 1 ), (unsigned)nTEMPAttempts, apTEMPTry[nTEMPTry],
 				(unsigned)_CurAdapterInfo.nD3DAdapterIndex, (unsigned)_D3DDevType,
 				(unsigned)aTEMPAttempt[nTEMPTry].BackBufferWidth, (unsigned)aTEMPAttempt[nTEMPTry].BackBufferHeight,
 				(unsigned)aTEMPAttempt[nTEMPTry].BackBufferFormat, (unsigned)aTEMPAttempt[nTEMPTry].AutoDepthStencilFormat,
 				(unsigned)aTEMPAttempt[nTEMPTry].MultiSampleType, (unsigned)aTEMPAttempt[nTEMPTry].Flags,
-				(unsigned)nTEMPBehavior );
+				(unsigned)nTEMPBehavior,
+				(unsigned)aTEMPAttempt[nTEMPTry].FullScreen_RefreshRateInHz,
+				(unsigned)aTEMPAttempt[nTEMPTry].FullScreen_PresentationInterval );
 			hTEMPCreate = FDX8_pD3D->CreateDevice( _CurAdapterInfo.nD3DAdapterIndex, _D3DDevType, _hWnd, nTEMPBehavior, &aTEMPAttempt[nTEMPTry], &FDX8_pDev );
 			if( SUCCEEDED( hTEMPCreate ) )
 			{
