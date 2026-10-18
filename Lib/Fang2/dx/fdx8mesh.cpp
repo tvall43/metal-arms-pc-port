@@ -469,11 +469,16 @@ static const char *_s_apTEMPFFName[] =
 {
 	"godm_nwelv", "godm_cabl", "go_1cable01",
 	"godm_dead02", "godm_dead03", "godm_sprt01", "godm_sprt02",
-	"godmdoor", "chipswitch",
+	"godmdoor", "chipswitch", "godm_m1eld",
 };
 
 //R49/R50: device-texture identity resolver (defined in fdx8tex.cpp).
 extern const char *fdx8tex_TEMPFindDXTex( const void *pDXTex, u32 *pW, u32 *pH, u32 *pFmt, u32 *pFlags );
+
+//R51: stash of the stage-0 texture captured INSIDE the surface force right
+//before SetTexture(0,NULL) -- the device readback after the draw used to be
+//self-nulled by the force (t0name dev=NULL was our own doing).
+static void *_s_pTEMPSurfDXTex = NULL;
 
 static BOOL _TEMPFF( const char *pName )
 {
@@ -556,19 +561,22 @@ static void _TEMPDipFail( const char *pTag, u32 nMin, u32 nRange, u32 nStart, u3
 //so the remaining suspects are the vertex contents (positions/normals/colors/
 //UVs) and index winding. Dumps the first-referenced vertices (read-only lock,
 //once per mesh per 600f) plus the first two triangles' indices.
-static void _TEMPVData( FMesh_t *pMesh, FDX8MeshCluster_t *pCluster, FDX8Mesh_t *pMeshIS )
+static void _TEMPVData( FMesh_t *pMesh, FDX8MeshCluster_t *pCluster, FDX8Mesh_t *pMeshIS, u32 nMatIdx )
 {
-	static const char *_asWatch[5] = { "godm_slat", "go_1cable01", "godm_cabl", "godm_dor01", "wedmmines01" };
+	static const char *_asWatch[12] = { "godm_slat", "go_1cable01", "godm_cabl", "godm_dor01", "wedmmines01",
+		"godm_m1eld", "godm_nwelv", "godmdoor", "chipswitch", "godm_dead02", "godm_dead03", "godm_sprt01" };
 	u32 i, nV, nb, nMin;
 	FDX8VB_t *pVB;
 	const FDX8VB_Info_t *pInfo;
 	u8 *pData;
-	for ( i = 0; i < 5; i++ )
+	for ( i = 0; i < 12; i++ )
 	{
 		if ( strncmp( pMesh->szName, _asWatch[i], strlen(_asWatch[i]) ) == 0 ) { break; }
 	}
-	if ( i == 5 ) { return; }
-	if ( _TEMPMDSeen( pMesh, 'v' ) ) { return; }
+	if ( i == 12 ) { return; }
+	//R51: key folds in the material index so each material of the mesh logs its
+	//own vertex content (m1eld mat0 = invisible floor, mat1 = fine deck).
+	if ( _TEMPMDSeen( (const void *)( (size_t)pMesh ^ nMatIdx ), 'v' ) ) { return; }
 	pVB = fdx8vb_GetSelected();
 	if ( pVB == NULL || pVB->nInfoIndex < 0 || pVB->nInfoIndex >= FDX8VB_TYPE_COUNT )
 	{
@@ -618,6 +626,21 @@ static void _TEMPVData( FMesh_t *pMesh, FDX8MeshCluster_t *pCluster, FDX8Mesh_t 
 				if ( pInfo->nTCCount ) { f32 *pt = (f32 *)( pv + pInfo->nOffsetTC ); fU = pt[0]; fT = pt[1]; }
 				nOff += sprintf( _s_szTEMPVData + nOff, " v%u=(%g,%g,%g) n=(%g,%g,%g) c=0x%08X uv=(%g,%g)",
 					i, (float)pf[0], (float)pf[1], (float)pf[2], (float)fN0, (float)fN1, (float)fN2, nCol, (float)fU, (float)fT );
+			}
+			//R51: brightest color over the first 8 verts of the cluster range.
+			//Radiosity check: bright V_COLOR => light content should be visible.
+			{
+				u32 nMaxCol = 0;
+				for ( i = 0; i < 8; i++ )
+				{
+					u32 v = nMin + i;
+					if ( v < nV && pInfo->nColorCount )
+					{
+						u32 nC = *(u32 *)( pData + v * nb + pInfo->nOffsetColor );
+						if ( (nC & 0x00FFFFFF) > (nMaxCol & 0x00FFFFFF) ) { nMaxCol = nC; }
+					}
+				}
+				nOff += sprintf( _s_szTEMPVData + nOff, " cmax=0x%08X", nMaxCol );
 			}
 			fdx8vb_Unlock( pVB );
 		}
@@ -674,7 +697,7 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 			fTEMPdx = fM0 - _aTEMPFx[nTEMPf][0];
 			fTEMPdy = fM1 - _aTEMPFx[nTEMPf][1];
 			fTEMPdz = fM2 - _aTEMPFx[nTEMPf][2];
-			if ( fTEMPdx*fTEMPdx + fTEMPdy*fTEMPdy + fTEMPdz*fTEMPdz < 25.f )
+			if ( fTEMPdx*fTEMPdx + fTEMPdy*fTEMPdy + fTEMPdz*fTEMPdz < 14400.f ) //R51: 5->120 units (mesh pivots sit far from visual fixtures)
 			{
 				DEVPRINTF( "[ma] TEMP lockon f%u fix=%u %s pos=(%g,%g,%g) pass=%s mat=%d\r\n",
 					(unsigned)FVid_nFrameCounter, nTEMPf, pName,
@@ -824,6 +847,7 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	{
 		LPDIRECT3DTEXTURE8 pTEMPDXTex = NULL;
 		FDX8_pDev->GetTexture( 0, &pTEMPDXTex );
+		if ( pTEMPDXTex == NULL && _s_pTEMPSurfDXTex ) { pTEMPDXTex = (LPDIRECT3DTEXTURE8)_s_pTEMPSurfDXTex; } //R51: force nulled the device bind; use the pre-force stash
 		if ( pTEMPDXTex )
 		{
 			u32 nTEMPW = 0, nTEMPH = 0, nTEMPFmt = 0, nTEMPFlags = 0;
@@ -1066,7 +1090,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 			// Render the tri-list...
 			if ( pCluster->TriList.nTriCount )
 			{
-				_TEMPVData( m_pMesh, pCluster, pMeshIS );
+				_TEMPVData( m_pMesh, pCluster, pMeshIS, (u32)( pMaterial - m_pMesh->aMtl ) );
 
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLELIST,
@@ -1225,6 +1249,12 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		if ( _TEMPFF( m_pMesh->szName ) )
 		{
 			FDX8_pDev->SetPixelShader( NULL );
+			{
+				//R51: read the bound t0 BEFORE nulling it (t0name needs it).
+				LPDIRECT3DTEXTURE8 pTEMPStashTex = NULL;
+				FDX8_pDev->GetTexture( 0, &pTEMPStashTex );
+				_s_pTEMPSurfDXTex = (void *)pTEMPStashTex;
+			}
 			FDX8_pDev->SetTexture( 0, NULL );
 			FDX8_pDev->SetTexture( 1, NULL );
 			for ( nTEMPStage = 0; nTEMPStage < 4; nTEMPStage++ )
