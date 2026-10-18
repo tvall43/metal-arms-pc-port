@@ -684,6 +684,59 @@ static const CFMtx43A *_TEMPGetPal( u32 nBoneCount, u32 nInstFlags, const CFMtx4
 	return ppPalette[ pSeg->anBoneMtxIndex[0] ];
 }
 
+//R54: clip-space probe for the invisible flat-geometry class. R53 proved the
+//loud force reaches the surface pass (PS off, cull NONE, z=LESSEQUAL+write,
+//magenta TFACTOR) yet some gated meshes (fence/floor) still produce no pixels.
+//"No fragments" (clipped/degenerate/empty VB) and "drawn but z-rejected" look
+//identical from the outside. This reads the vertex buffer AND index buffer the
+//DRAW will actually consume (device state, not the mesh's own segment data),
+//transforms the first vertex of the draw by the same CV_WORLDVIEWPROJ rows the
+//vertex shader dp4's against, and prints the clip position. w<=0, |x|>w, |y|>w
+//or z outside [0,w] => the hardware clips it before any pixel is made. The
+//stride/vb/start also let us cross-check the mdraw line's bound stream.
+static void _TEMPMClip( const char *pPass, const char *pName, u32 nStartIndex, u32 nTriCount )
+{
+	IDirect3DVertexBuffer8 *pVB = NULL;
+	IDirect3DIndexBuffer8 *pIB = NULL;
+	UINT nStride = 0, nBase = 0;
+	u16 *pIdx = NULL;
+	u8 *pData = NULL;
+	float aWvp[16];
+
+	if ( !_TEMPFF( pName ) ) { return; }
+	FDX8_pDev->GetStreamSource( 0, &pVB, &nStride );
+	FDX8_pDev->GetIndices( &pIB, &nBase );
+	if ( pVB && pIB && nStride >= 12 && (nStride & 3) == 0
+		&& !_TEMPMDSeen( (const void *)( (size_t)pVB ^ nStartIndex ^ (size_t)pPass[0] ), 'c' ) )
+	{
+		memset( aWvp, 0, sizeof(aWvp) );
+		FDX8_pDev->GetVertexShaderConstant( CV_WORLDVIEWPROJ_0, aWvp, 4 );
+		if ( SUCCEEDED( pIB->Lock( nStartIndex * sizeof(u16), sizeof(u16), (u8 **)&pIdx, D3DLOCK_READONLY ) ) )
+		{
+			u32 nIdx = (u32)(*pIdx) + nBase;
+			pIB->Unlock();
+			if ( SUCCEEDED( pVB->Lock( nIdx * nStride, nStride, &pData, D3DLOCK_READONLY ) ) )
+			{
+				const float *pP = (const float *)pData;
+				float x = pP[0], y = pP[1], z = pP[2];
+				float cx = x*aWvp[0] + y*aWvp[1] + z*aWvp[2]  + aWvp[3];
+				float cy = x*aWvp[4] + y*aWvp[5] + z*aWvp[6]  + aWvp[7];
+				float cz = x*aWvp[8] + y*aWvp[9] + z*aWvp[10] + aWvp[11];
+				float cw = x*aWvp[12]+ y*aWvp[13]+ z*aWvp[14] + aWvp[15];
+				DEVPRINTF( "[ma] TEMP mclip f%u %s %s start=%u tris=%u stride=%u base=%u idx=%u p=(%g,%g,%g) clip=(%g,%g,%g,%g) ndc=(%g,%g) in=%d\r\n",
+					(unsigned)FVid_nFrameCounter, pPass, pName, nStartIndex, nTriCount, nStride, nBase, nIdx,
+					(float)x, (float)y, (float)z, (float)cx, (float)cy, (float)cz, (float)cw,
+					(cw != 0.f) ? cx/cw : 0.f, (cw != 0.f) ? cy/cw : 0.f,
+					(cw > 0.000001f && cx >= -cw && cx <= cw && cy >= -cw && cy <= cw && cz >= 0.f && cz <= cw) ? 1 : 0 );
+				pVB->Unlock();
+			}
+		}
+	}
+	if ( pVB ) { pVB->Release(); }
+	if ( pIB ) { pIB->Release(); }
+}
+
+
 static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const char *pName,
 	const void *pInst, u32 nClusters, u32 nPartSkip, u32 nLodSkip, u32 nDrawn, u32 nSeg0, u32 nSeg1, u32 nSegSkin,
 	u32 nBoneCount, u32 nPartsMask, u32 nLODIndex, f32 fScale, f32 fM0, f32 fM1, f32 fM2,
@@ -1130,6 +1183,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 			if ( pCluster->TriList.nTriCount )
 			{
 				_TEMPVData( m_pMesh, pCluster, pMeshIS, (u32)( pMaterial - m_pMesh->aMtl ) );
+				_TEMPMClip( "light", m_pMesh->szName, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount );
 
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 					D3DPT_TRIANGLELIST,
@@ -1322,11 +1376,16 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			//equal-or-nearer z with write. Nothing about the light-pass
 			//content can hide this; if it is not magenta on screen, the
 			//geometry produced no fragments at all.
+			//R54: z test moved to ALWAYS. LESSEQUAL still left some gated
+			//meshes (fence) invisible, which is ambiguous: "no fragments"
+			//and "drawn but z-rejected" look the same on screen. ALWAYS
+			//removes the test entirely -- whatever shows now is a fragment
+			//that was previously rejected by depth.
 			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(255,255,0,255) );
 			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
 			FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, FALSE );
 			FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
-			FDX8_pDev->SetRenderState( D3DRS_ZFUNC, D3DCMP_LESSEQUAL );
+			FDX8_pDev->SetRenderState( D3DRS_ZFUNC, D3DCMP_ALWAYS );
 			FDX8_pDev->SetRenderState( D3DRS_ZWRITEENABLE, TRUE );
 		}
 	}
@@ -1460,6 +1519,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		// Render the tri-list...
 		if ( pCluster->TriList.nTriCount )
 		{
+				_TEMPMClip( __FUNCTION__, m_pMesh->szName, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount );
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 				D3DPT_TRIANGLELIST,
 				pCluster->TriList.nVtxIndexMin,
@@ -1721,6 +1781,7 @@ void CFMeshInst::DrawMaterialSpecular_P( FViewportPlanesMask_t nCrossesPlanesMas
 		// Render the tri-list...
 		if ( pCluster->TriList.nTriCount )
 		{
+				_TEMPMClip( __FUNCTION__, m_pMesh->szName, pCluster->TriList.nStartVindex, pCluster->TriList.nTriCount );
 				if (FAILED(FDX8_pDev->DrawIndexedPrimitive(
 				D3DPT_TRIANGLELIST,
 				pCluster->TriList.nVtxIndexMin,
