@@ -872,7 +872,11 @@ static void _TEMPMatProbe( const char *pPass, const char *pName, s32 nMatIdx, FM
 	LPDIRECT3DTEXTURE8 pT0 = NULL;
 	if ( pName == NULL || pMtl == NULL || pPass == NULL || nMatIdx < 0 ) { return; }
 	if ( !_TEMPMatWatched( pName ) ) { return; }
-	if ( _TEMPMDSeen( (const void *)( (size_t)pName ^ ( (size_t)( nMatIdx + 4 ) << 9 ) ^ (size_t)(unsigned char)pPass[0] ), 'm' ) ) { return; }
+	//Key folds the first AND last character of the pass name: the light pass logs
+	//light0/light1/... and only the trailing index separates them.
+	if ( _TEMPMDSeen( (const void *)( (size_t)pName ^ ( (size_t)( nMatIdx + 4 ) << 9 )
+		^ (size_t)(unsigned char)pPass[0]
+		^ ( (size_t)(unsigned char)pPass[ strlen( pPass ) - 1 ] << 4 ) ), 'm' ) ) { return; }
 	FDX8_pDev->GetPixelShader( &nPS );
 	FDX8_pDev->GetRenderState( D3DRS_ALPHABLENDENABLE, &nAb );
 	FDX8_pDev->GetRenderState( D3DRS_SRCBLEND, &nS );
