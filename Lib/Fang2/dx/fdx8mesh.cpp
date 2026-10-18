@@ -541,6 +541,64 @@ static BOOL _TEMPMDSeen( const void *pKey, char cBranch )
 	return FALSE;
 }
 
+//R55: the name gate can only ever confirm a guess. Two of the user's three
+//fixtures (the fence, the platform floor) have never turned magenta under ANY
+//surface state force (R53 cull-off, R54 z-ALWAYS) -- and ride 9's log shows
+//every mesh the engine SUBMITS is also DRAWN (78/78 frs names appear in the
+//mdraw stream, zero addfails), so that geometry is simply not in our gate
+//list. Force by GEOMETRY PROXIMITY instead: if the instance's transformed
+//bounding sphere reaches one of the pinned spots, force its surface pass in
+//that pin's colour and log its name + the ambient the render sort set for it.
+//Whatever owns the invisible geometry then shows up, in colour, and in the log.
+static const f32 _afTEMPFFPin[3][3] =
+{
+	{ 133.f, 4.f, -330.f },		// fix 0: platform in front of the elevator
+	{ 1544.f, -592.f, 1020.f },	// fix 1: fence
+	{ 404.f, 49.f, 248.f },		// fix 2: wires in the next level
+};
+//magenta / cyan / yellow. Name-gate hits stay WHITE so the old control group
+//is still distinguishable from the newly discovered ones.
+static const DWORD _anTEMPFFPinCol[3] = { 0xFFFF00FF, 0xFF00FFFF, 0xFFFFFF00 };
+#define TEMPFF_PIN_RADIUS_CAP 500.f
+//last hit's bounding radius, surfaced in the ffpin log line
+static f32 _fTEMPFfPinRadius = 0.f;
+
+//-1 = not near any pin; else the pin index whose spot this mesh's bounds reach.
+//Meshes too big to force without painting half the level are skipped, but said
+//so once (TEMP fftoobig) -- that line is itself an answer if the invisible
+//geometry turns out to live inside a huge world mesh.
+static s32 _TEMPFFPin( CFMeshInst *pInst )
+{
+	u32 i;
+	if ( pInst == NULL ) { return -1; }
+	for ( i = 0; i < 3; i++ )
+	{
+		CFSphere spTest;
+		f32 dx, dy, dz, fReach;
+		pInst->m_Xfm.TransformSphereF( spTest, pInst->m_BoundSphere_MS );
+		dx = spTest.m_Pos.x - _afTEMPFFPin[i][0];
+		dy = spTest.m_Pos.y - _afTEMPFFPin[i][1];
+		dz = spTest.m_Pos.z - _afTEMPFFPin[i][2];
+		fReach = spTest.m_fRadius + 12.f;
+		if ( dx*dx + dy*dy + dz*dz <= fReach*fReach )
+		{
+			if ( spTest.m_fRadius > TEMPFF_PIN_RADIUS_CAP )
+			{
+				if ( !_TEMPMDSeen( (const void *)( (size_t)pInst->m_pMesh->szName ^ (size_t)(i + 0x100) ), 'B' ) )
+				{
+					DEVPRINTF( "[ma] TEMP fftoobig f%u fix=%u %s radius=%g pos=(%g,%g,%g)\r\n",
+						(unsigned)FVid_nFrameCounter, i, pInst->m_pMesh->szName, (float)spTest.m_fRadius,
+						(float)spTest.m_Pos.x, (float)spTest.m_Pos.y, (float)spTest.m_Pos.z );
+				}
+				continue;
+			}
+			_fTEMPFfPinRadius = spTest.m_fRadius;
+			return (s32)i;
+		}
+	}
+	return -1;
+}
+
 //R46b: DrawIndexedPrimitive failure probe. All 12 draw sites swallow DIP
 //failures behind the retail no-op fang_DevPrintf() -- an invisible mesh whose
 //transform/state/shaders all decode healthy could simply be failing its draw
@@ -1338,7 +1396,8 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 	//as solid quads (alpha test bypassed with the PS off) -- expected.
 	{
 		u32 nTEMPStage;
-		if ( _TEMPFF( m_pMesh->szName ) )
+		s32 nTEMPFfPin = _TEMPFFPin( this );
+		if ( _TEMPFF( m_pMesh->szName ) || nTEMPFfPin >= 0 )
 		{
 			//R52: capture everything we are about to bypass (restored at the
 			//function tail so the state cache's model stays truthful).
@@ -1376,16 +1435,40 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			//equal-or-nearer z with write. Nothing about the light-pass
 			//content can hide this; if it is not magenta on screen, the
 			//geometry produced no fragments at all.
-			//R54: z test moved to ALWAYS. LESSEQUAL still left some gated
-			//meshes (fence) invisible, which is ambiguous: "no fragments"
-			//and "drawn but z-rejected" look the same on screen. ALWAYS
-			//removes the test entirely -- whatever shows now is a fragment
-			//that was previously rejected by depth.
-			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(255,255,0,255) );
+			//R55: colour now encodes WHY it was forced: white = old name
+			//gate (control), magenta/cyan/yellow = geometry within reach of
+			//fixture 0/1/2. ZFUNC is back to LESSEQUAL (R54's ALWAYS only
+			//made far forced meshes draw through walls, which told us
+			//nothing).
+			//R55: log the discovery + the ambient the render sort actually
+			//set for this entry (fmesh_Ambient_Set runs just before this
+			//call), which tests the "class ambient is zero" theory directly.
+			{
+				u32 nTEMPMatIdx = (u32)( pMaterial - m_pMesh->aMtl );
+				//Once per (name, mat, fix) -- otherwise this repeats for every
+				//material of every pinned mesh on every frame.
+				if ( !_TEMPMDSeen( (const void *)( (size_t)m_pMesh->szName ^ (size_t)( (nTEMPFfPin + 2) * 8192 + (s32)nTEMPMatIdx ) ), 'N' ) )
+				{
+					float aTEMPAmb[4];
+					memset( aTEMPAmb, 0, sizeof(aTEMPAmb) );
+					FDX8_pDev->GetVertexShaderConstant( CV_MAT_AMBIENT, aTEMPAmb, 1 );
+					DEVPRINTF( "[ma] TEMP ffpin f%u gate=%d fix=%d rad=%g %s mat=%d pos=(%g,%g,%g) scale=%g cvamb=(%g,%g,%g) final=(%g,%g,%g) motif=(%g,%g,%g)\r\n",
+						(unsigned)FVid_nFrameCounter, _TEMPFF( m_pMesh->szName ) ? 1 : 0, nTEMPFfPin, (float)_fTEMPFfPinRadius, m_pMesh->szName, (int)nTEMPMatIdx,
+						(float)m_PosMtx.m_vP.x, (float)m_PosMtx.m_vP.y, (float)m_PosMtx.m_vP.z, (float)m_fMatrixScale,
+						(float)aTEMPAmb[0], (float)aTEMPAmb[1], (float)aTEMPAmb[2],
+						(float)m_FinalAmbientRGB.fRed, (float)m_FinalAmbientRGB.fGreen, (float)m_FinalAmbientRGB.fBlue,
+						(float)FWorld_AmbientMotif.ColorRGB.fRed, (float)FWorld_AmbientMotif.ColorRGB.fGreen, (float)FWorld_AmbientMotif.ColorRGB.fBlue );
+				}
+			}
+			{
+				DWORD nTEMPFfCol = 0xFFFFFFFF;	//white = name gate
+				if ( nTEMPFfPin >= 0 ) { nTEMPFfCol = _anTEMPFFPinCol[ nTEMPFfPin ]; }
+				FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, nTEMPFfCol );
+			}
 			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
 			FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, FALSE );
 			FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
-			FDX8_pDev->SetRenderState( D3DRS_ZFUNC, D3DCMP_ALWAYS );
+			FDX8_pDev->SetRenderState( D3DRS_ZFUNC, D3DCMP_LESSEQUAL );
 			FDX8_pDev->SetRenderState( D3DRS_ZWRITEENABLE, TRUE );
 		}
 	}
