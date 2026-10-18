@@ -480,6 +480,19 @@ extern const char *fdx8tex_TEMPFindDXTex( const void *pDXTex, u32 *pW, u32 *pH, 
 //self-nulled by the force (t0name dev=NULL was our own doing).
 static void *_s_pTEMPSurfDXTex = NULL;
 
+//R52: the surface-white force must restore what it bypasses. The engine's
+//shader-state cache keeps "last set" values, and our direct device calls
+//made it skip re-applying real states to the draws AFTER each gated one
+//(R50/R51 rides: elevators/NPCs/other props turned white -- contamination,
+//not their light content).
+static const DWORD _s_anTEMPTSS[4] = { D3DTSS_COLOROP, D3DTSS_COLORARG1, D3DTSS_ALPHAOP, D3DTSS_ALPHAARG1 };
+static DWORD _s_nTEMPSavedPS = 0;
+static DWORD _s_anTEMPSavedTSS[4] = { 0, 0, 0, 0 };
+static DWORD _s_nTEMPSavedTF = 0;
+static LPDIRECT3DBASETEXTURE8 _s_pTEMPSavedTex0 = NULL;
+static LPDIRECT3DBASETEXTURE8 _s_pTEMPSavedTex1 = NULL;
+static BOOL _s_bTEMPSurfForced = FALSE;
+
 static BOOL _TEMPFF( const char *pName )
 {
 	u32 i;
@@ -861,6 +874,24 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 		{
 			DEVPRINTF( "[ma] TEMP t0name f%u %s dev=NULL\r\n",
 				(unsigned)FVid_nFrameCounter, pName );
+		}
+
+		//R52: texture-matrix readback. The surface VS computes
+		//oT0 = CV_TEXMTX0 * (V_TEX0,1); the wires (godm_cabl) bind the right
+		//texture (tewj_wire01) yet sample black texels under the magenta
+		//force -- a stale non-identity TEXMTX0 (scroll/project matrix left
+		//behind by another shader execute) would sample the wrong region.
+		{
+			float aTEMPmt[12];
+			memset( aTEMPmt, 0, sizeof(aTEMPmt) );
+			if ( FDX8_pDev->GetVertexShaderConstant( CV_TEXMTX0_0, aTEMPmt, 3 ) == D3D_OK )
+			{
+				DEVPRINTF( "[ma] TEMP mtex f%u %s m0=(%g,%g,%g,%g) m1=(%g,%g,%g,%g) m2=(%g,%g,%g,%g)\r\n",
+					(unsigned)FVid_nFrameCounter, pName,
+					(float)aTEMPmt[0], (float)aTEMPmt[1], (float)aTEMPmt[2], (float)aTEMPmt[3],
+					(float)aTEMPmt[4], (float)aTEMPmt[5], (float)aTEMPmt[6], (float)aTEMPmt[7],
+					(float)aTEMPmt[8], (float)aTEMPmt[9], (float)aTEMPmt[10], (float)aTEMPmt[11] );
+			}
 		}
 	}
 }
@@ -1245,9 +1276,20 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 	//as solid quads (alpha test bypassed with the PS off) -- expected.
 	{
 		u32 nTEMPStage;
-		static const DWORD dwTEMPStageState[4] = { D3DTSS_COLOROP, D3DTSS_COLORARG1, D3DTSS_ALPHAOP, D3DTSS_ALPHAARG1 };
 		if ( _TEMPFF( m_pMesh->szName ) )
 		{
+			//R52: capture everything we are about to bypass (restored at the
+			//function tail so the state cache's model stays truthful).
+			FDX8_pDev->GetPixelShader( &_s_nTEMPSavedPS );
+			FDX8_pDev->GetTexture( 0, &_s_pTEMPSavedTex0 );
+			FDX8_pDev->GetTexture( 1, &_s_pTEMPSavedTex1 );
+			for ( nTEMPStage = 0; nTEMPStage < 4; nTEMPStage++ )
+			{
+				FDX8_pDev->GetTextureStageState( 0, _s_anTEMPTSS[nTEMPStage], &_s_anTEMPSavedTSS[nTEMPStage] );
+			}
+			FDX8_pDev->GetRenderState( D3DRS_TEXTUREFACTOR, &_s_nTEMPSavedTF );
+			_s_bTEMPSurfForced = TRUE;
+
 			FDX8_pDev->SetPixelShader( NULL );
 			{
 				//R51: read the bound t0 BEFORE nulling it (t0name needs it).
@@ -1259,7 +1301,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			FDX8_pDev->SetTexture( 1, NULL );
 			for ( nTEMPStage = 0; nTEMPStage < 4; nTEMPStage++ )
 			{
-				FDX8_pDev->SetTextureStageState( 0, dwTEMPStageState[nTEMPStage], (nTEMPStage & 1) ? D3DTA_TFACTOR : D3DTOP_SELECTARG1 );
+				FDX8_pDev->SetTextureStageState( 0, _s_anTEMPTSS[nTEMPStage], (nTEMPStage & 1) ? D3DTA_TFACTOR : D3DTOP_SELECTARG1 );
 			}
 			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(255,255,255,255) );
 		}
@@ -1449,6 +1491,23 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 	#if FPERF_ENABLE
 		FPerf_nTotalTrisSurface += (FPerf_nRawStripTriCount - nPreStripCount) + (FPerf_nRawListTriCount - nPreListCount);
 	#endif
+
+	//R52: restore the bypassed state (see the force block at the top of this
+	//function). DrawMaterialSurface_P has no early returns after the force,
+	//so this tail is the only restore point needed.
+	if ( _s_bTEMPSurfForced )
+	{
+		u32 nTEMPStageR;
+		FDX8_pDev->SetPixelShader( _s_nTEMPSavedPS );
+		FDX8_pDev->SetTexture( 0, _s_pTEMPSavedTex0 );
+		FDX8_pDev->SetTexture( 1, _s_pTEMPSavedTex1 );
+		for ( nTEMPStageR = 0; nTEMPStageR < 4; nTEMPStageR++ )
+		{
+			FDX8_pDev->SetTextureStageState( 0, _s_anTEMPTSS[nTEMPStageR], _s_anTEMPSavedTSS[nTEMPStageR] );
+		}
+		FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, _s_nTEMPSavedTF );
+		_s_bTEMPSurfForced = FALSE;
+	}
 }
 
 
