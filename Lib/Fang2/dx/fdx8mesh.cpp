@@ -659,6 +659,30 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	//R49: per-material dedupe key so every material of a mesh samples the
 	//pass (the old key collapsed multiple materials into one 600f sample).
 	if ( _TEMPMDSeen( (const void *)( (u32)(UINT_PTR)pKey ^ (u32)nMatIdx ), cBranch ) ) { return; }
+
+	//R50: fixture-coords lockon -- the user pinned three fixtures with the
+	//debug cam: platform missing its floor in front of the elevator
+	//(133,4,-330), a fence (1544,-592,1020), and the wires in the next
+	//level (404,49,248). Identify the mesh/material at each pin so the
+	//next gate list is grounded in data, not guesses.
+	{
+		static const f32 _aTEMPFx[3][3] = { {133.f, 4.f, -330.f}, {1544.f, -592.f, 1020.f}, {404.f, 49.f, 248.f} };
+		u32 nTEMPf;
+		f32 fTEMPdx, fTEMPdy, fTEMPdz;
+		for ( nTEMPf = 0; nTEMPf < 3; nTEMPf++ )
+		{
+			fTEMPdx = fM0 - _aTEMPFx[nTEMPf][0];
+			fTEMPdy = fM1 - _aTEMPFx[nTEMPf][1];
+			fTEMPdz = fM2 - _aTEMPFx[nTEMPf][2];
+			if ( fTEMPdx*fTEMPdx + fTEMPdy*fTEMPdy + fTEMPdz*fTEMPdz < 25.f )
+			{
+				DEVPRINTF( "[ma] TEMP lockon f%u fix=%u %s pos=(%g,%g,%g) pass=%s mat=%d\r\n",
+					(unsigned)FVid_nFrameCounter, nTEMPf, pName,
+					(float)fM0, (float)fM1, (float)fM2, pPass, nMatIdx );
+				break;
+			}
+		}
+	}
 	FDX8_pDev->GetVertexShader( &dwShader );
 	FDX8_pDev->GetRenderState( D3DRS_VERTEXBLEND, &dwBlend );
 	FDX8_pDev->GetPixelShader( &dwTEMPps );
@@ -914,22 +938,9 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		fsh_SetPassIdx( nPass );
 		fsh_ExecuteCurrent( FMesh_bRenderShadows, nShadowID ); 
 
-		//R49: magenta force for the invisible class (see _TEMPFF above). Pass
-		//0 only; never during shadow draws. The POINTn light VS is left in
-		//place so oPos/depth stay identical to the real light path.
-		if ( nPass == 0 && !FMesh_bRenderShadows && _TEMPFF( m_pMesh->szName ) )
-		{
-			float aTEMPWhite[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-			FDX8_pDev->SetPixelShader( NULL );
-			FDX8_pDev->SetTexture( 0, NULL );
-			FDX8_pDev->SetTexture( 1, NULL );
-			FDX8_pDev->SetTextureStageState( 0, D3DTSS_COLOROP, D3DTOP_SELECTARG1 );
-			FDX8_pDev->SetTextureStageState( 0, D3DTSS_COLORARG1, D3DTA_TFACTOR );
-			FDX8_pDev->SetTextureStageState( 0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1 );
-			FDX8_pDev->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TFACTOR );
-			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(255,255,0,255) );
-			FDX8_pDev->SetVertexShaderConstant( CV_MAT_AMBIENT, aTEMPWhite, 1 );
-		}
+		//R49 magenta light-pass force retired: ride 3 (log_e) proved raster,
+		//oPos/depth fine for the gate list. R50 moves the test to the surface
+		//side (see DrawMaterialSurface_P) to expose the REAL light result.
 
 		// Progress through all the clusters for this material, submitting for render the relevant ones
 		FDX8MeshCluster_t *pCluster = ((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->aCluster;
@@ -1198,6 +1209,30 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 #if FPERF_ENABLE
 		FPerf_nFullSurfaceShaderCount++;
 #endif
+	}
+
+	//R50: surface-side force for the gate list. Replaces the surface pixel
+	//shader with a fixed-function white select so the multiplicative blend
+	//(DESTCOLOR/SRCCOLOR under FANG_LIGHTING_2X) yields dst*2 -- what the
+	//user then sees IS the unmodified light-pass result, brightened 2x.
+	//Visible-but-black wires/deadwalls under this force => light-pass
+	//content is zero (vertex-lighting math). Missing => the surface pass
+	//lands selectively (depth/decl by material). Cutout meshes will show
+	//as solid quads (alpha test bypassed with the PS off) -- expected.
+	{
+		u32 nTEMPStage;
+		static const DWORD dwTEMPStageState[4] = { D3DTSS_COLOROP, D3DTSS_COLORARG1, D3DTSS_ALPHAOP, D3DTSS_ALPHAARG1 };
+		if ( _TEMPFF( m_pMesh->szName ) )
+		{
+			FDX8_pDev->SetPixelShader( NULL );
+			FDX8_pDev->SetTexture( 0, NULL );
+			FDX8_pDev->SetTexture( 1, NULL );
+			for ( nTEMPStage = 0; nTEMPStage < 4; nTEMPStage++ )
+			{
+				FDX8_pDev->SetTextureStageState( 0, dwTEMPStageState[nTEMPStage], (nTEMPStage & 1) ? D3DTA_TFACTOR : D3DTOP_SELECTARG1 );
+			}
+			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(255,255,255,255) );
+		}
 	}
 	
 	// Progress through all the clusters for this material, submitting for render the relevant ones
