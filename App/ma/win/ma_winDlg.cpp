@@ -179,7 +179,37 @@ END_MESSAGE_MAP()
 static CWinPrintf *_pWinPrintf;
 CMa_winDlg *CMa_winDlg::m_pMainDialog = NULL;
 
+//R62: R45-R61 were the invisible-flat-geometry hunt, and its probe families are
+//very chatty (a single ride produced 100-250 MB of log). The bug is fixed
+//(R61), so they are gated behind their own switch instead of being deleted:
+//set [Debug] TempProbes=1 in ma_win.ini, or flip FWin_bTEMPDebugProbes, to get
+//them back. Logging in general is still the existing [Debug] LogFile option.
+extern BOOL FWin_bTEMPDebugProbes;
+
+static const char *_asFWinTEMPProbeTags[] =
+{
+	"mlight", "mdraw", "vdata", "shlight1", "shlights", "mlit", "mlitP", "mlitC",
+	"mclip", "shprobe", "t0name", "mtex", "atrest", "fvis", "cmpal", "lockon",
+	"ffpin", "ffpatch", "ffclu", "fftoobig", "frs", "frsvol", "palette",
+	"vset", "pset", "vsh", "psh", "cmax", "dipfail"
+};
+
+static BOOL _FWinTEMPDebugProbe( cchar *pszFormat )
+{
+	u32 i;
+	if ( pszFormat == NULL ) { return FALSE; }
+	//Every probe in the hunt logs as "[ma] TEMP <tag> ...".
+	if ( strncmp( pszFormat, "[ma] TEMP ", 10 ) != 0 ) { return FALSE; }
+	for ( i = 0; i < sizeof(_asFWinTEMPProbeTags) / sizeof(_asFWinTEMPProbeTags[0]); i++ )
+	{
+		if ( strncmp( pszFormat + 10, _asFWinTEMPProbeTags[i], strlen( _asFWinTEMPProbeTags[i] ) ) == 0 ) { return TRUE; }
+	}
+	return FALSE;
+}
+
 static void _DevPrintf( cchar *pszFormat, FANG_VA_LIST Args ) {
+	//R62: the invisibility-hunt probes are off unless [Debug] TempProbes=1.
+	if ( !FWin_bTEMPDebugProbes && _FWinTEMPDebugProbe( pszFormat ) ) { return; }
 	_pWinPrintf->Printf( pszFormat, Args );
 }
 

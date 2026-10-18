@@ -59,6 +59,11 @@ extern f32 FShader_ShadowRecieveDist;
 
 u32 FMesh_nLastSurfaceMaterialCRC;
 
+//R62: the invisibility-hunt probe/force switch. Defined here (this object is in
+//fang2win, which is what references it -- defining it in the app made the link
+//order matter). The app reads [Debug] TempProbes into it at startup.
+BOOL FWin_bTEMPDebugProbes = FALSE;
+
 //R61: the shprobe (fdx8sh.cpp) sees the shader row but not who is drawing
 //with it, which is the one thing missing to attribute a row to a mesh+material.
 //The mesh pass sets these immediately before executing the shader.
@@ -852,6 +857,9 @@ static BOOL _TEMPAABBHitPin( const CFMtx43A &posMtx, const f32 *pMin, const f32 
 //VB's vertex count for range validation.
 static void _TEMPDipFail( const char *pTag, u32 nMin, u32 nRange, u32 nStart, u32 nTris )
 {
+	//R62: invisibility-hunt probe, off unless [Debug] TempProbes=1.
+	if ( !FWin_bTEMPDebugProbes ) { return; }
+
 	static u32 _s_anKey[16];
 	static u32 _s_anAge[16];
 	static u32 _s_nTick = 0;
@@ -888,6 +896,9 @@ static void _TEMPDipFail( const char *pTag, u32 nMin, u32 nRange, u32 nStart, u3
 //once per mesh per 600f) plus the first two triangles' indices.
 static void _TEMPVData( FMesh_t *pMesh, FDX8MeshCluster_t *pCluster, FDX8Mesh_t *pMeshIS, u32 nMatIdx )
 {
+	//R62: invisibility-hunt probe (locks the VB), off unless [Debug] TempProbes=1.
+	if ( !FWin_bTEMPDebugProbes ) { return; }
+
 	static const char *_asWatch[12] = { "godm_slat", "go_1cable01", "godm_cabl", "godm_dor01", "wedmmines01",
 		"godm_m1eld", "godm_nwelv", "godmdoor", "chipswitch", "godm_dead02", "godm_dead03", "godm_sprt01" };
 	u32 i, nV, nb, nMin;
@@ -1000,6 +1011,10 @@ static const CFMtx43A *_TEMPGetPal( u32 nBoneCount, u32 nInstFlags, const CFMtx4
 //stride/vb/start also let us cross-check the mdraw line's bound stream.
 static void _TEMPMClip( const char *pPass, const char *pName, u32 nStartIndex, u32 nTriCount )
 {
+	//R62: invisibility-hunt probe (locks the IB and VB every draw), off unless
+	//[Debug] TempProbes=1.
+	if ( !FWin_bTEMPDebugProbes ) { return; }
+
 	IDirect3DVertexBuffer8 *pVB = NULL;
 	IDirect3DIndexBuffer8 *pIB = NULL;
 	UINT nStride = 0, nBase = 0;
@@ -1046,6 +1061,8 @@ static void _TEMPMDLog( const char *pPass, char cBranch, const void *pKey, const
 	u32 nBoneCount, u32 nPartsMask, u32 nLODIndex, f32 fScale, f32 fM0, f32 fM1, f32 fM2,
 	int nVol, u32 nInstFlags, const CFMtx43A *pPal, s32 nMatIdx )
 {
+	//R62: invisibility-hunt probe, off unless [Debug] TempProbes=1.
+	if ( !FWin_bTEMPDebugProbes ) { return; }
 	DWORD dwShader = 0xFFFFFFFF;
 	DWORD dwBlend = 0xFFFFFFFF;
 	DWORD dwTEMPps = 0xffffffff, dwTEMPcull = 0xffffffff, dwTEMPzfunc = 0xffffffff, dwTEMPzwrite = 0xffffffff;
@@ -1669,6 +1686,15 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			nTEMPFfPin = -1;
 			bTEMPPinLocalize = FALSE;
 		}
+	}
+	//R62: the pin force (and its 'blinky' A/B phase) was a debug feature of the
+	//invisibility hunt. Off by default so normal play renders untouched; set
+	//[Debug] TempProbes=1 to bring it back.
+	if ( !FWin_bTEMPDebugProbes )
+	{
+		bTEMPGate = FALSE;
+		nTEMPFfPin = -1;
+		bTEMPPinLocalize = FALSE;
 	}
 	{
 		u32 nTEMPStage;

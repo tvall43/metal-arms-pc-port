@@ -4957,8 +4957,14 @@ void _HandleFastShader()
 extern const char *FTEMP_pDrawMesh;
 extern s32 FTEMP_nDrawMat;
 
+//R62: defined in App/ma/win/ma_winDlg.cpp; see the [Debug] TempProbes option.
+extern BOOL FWin_bTEMPDebugProbes;
+
 static void _TEMPShProbe( int nFast )
 {
+	//R62: invisibility-hunt probe (reads back device state per activation),
+	//off unless [Debug] TempProbes=1.
+	if ( !FWin_bTEMPDebugProbes ) { return; }
 	static struct { u32 nID; u32 nReg0; u32 nCnt; } s_anTEMPShProbe[4096];
 	static BOOL s_bTEMPShProbeInit = FALSE;
 	const FShaderRenderStates_t *pTEMPRow;

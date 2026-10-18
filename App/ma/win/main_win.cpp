@@ -68,6 +68,9 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 static BOOL _bLogFileEnabled = FALSE;
+
+//R62: defined in ma_winDlg.cpp (next to the _DevPrintf choke point).
+extern BOOL FWin_bTEMPDebugProbes;
 #define _LOGFILE_DEFAULT 0
 
 // PC port: development mode (-dev / autorun) vs retail mode (default / play).
@@ -394,6 +397,8 @@ static void _LoadConfig( void )
 	_nColorBits    = oSettings.ReadCustomInt( "Video", "ColorBits", 32 );
 	_bFullscreen   = oSettings.ReadCustomInt( "Video", "Fullscreen", 0 ) ? TRUE : FALSE;
 	_bLogFileEnabled = oSettings.ReadCustomInt( "Debug", "LogFile", _LOGFILE_DEFAULT ) ? TRUE : FALSE;
+	//R62: the R45-R61 invisibility-hunt probes are opt-in (see ma_winDlg.cpp).
+	FWin_bTEMPDebugProbes = oSettings.ReadCustomInt( "Debug", "TempProbes", 0 ) ? TRUE : FALSE;
 
 	// Retail mode disables debug: the file log stays off regardless of the ini.
 	// The stored value survives for dev runs - _SaveConfig only writes it there.
@@ -480,6 +485,7 @@ static void _SaveConfig( void )
 	oSettings.WriteCustomInt( "Video", "Fullscreen", _bFullscreen ? 1 : 0 );
 	if( _bDevMode ) {
 		oSettings.WriteCustomInt( "Debug", "LogFile", _bLogFileEnabled ? 1 : 0 );
+		oSettings.WriteCustomInt( "Debug", "TempProbes", FWin_bTEMPDebugProbes ? 1 : 0 );
 	}
 	oSettings.WriteCustomFloat( "Audio", "Volume2D", FAudio_f2DVolumeScale );
 	oSettings.WriteCustomFloat( "Audio", "MinDistanceFraction", FAudio_fMinDistanceFraction );
