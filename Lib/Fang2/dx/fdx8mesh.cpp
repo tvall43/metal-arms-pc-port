@@ -1741,7 +1741,22 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			}
 			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
 			FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, FALSE );
-			FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
+			//R58: controlled one-factor cull test. R57's force paints the pinned
+			//sheets bright, which proves they RASTERISE -- but ride-12's shots also
+			//show they are not simply dark in the normal path: the OFF-phase pixels
+			//where the fence sheet sits are brown rock (R/G=1.78) and the wires
+			//sheet's pixels match the surrounding rock (inside lum 9.6 vs ring
+			//10.6), ie the geometry is not rasterised at all, in BOTH passes. So for
+			//pins 0/1 leave the material's own cull mode alone (the R57 force
+			//overrode it with NONE): if the bright patch then stops appearing, the
+			//cull state alone decides whether these sheets are drawn, and everything
+			//else the force touches is exonerated in the same ride. Pin 2 keeps the
+			//R57 behaviour as the in-build control (the wires sheet is known to
+			//paint there).
+			if ( nTEMPFfPin == 2 )
+			{
+				FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
+			}
 			FDX8_pDev->SetRenderState( D3DRS_ZFUNC, D3DCMP_LESSEQUAL );
 			FDX8_pDev->SetRenderState( D3DRS_ZWRITEENABLE, TRUE );
 		}
