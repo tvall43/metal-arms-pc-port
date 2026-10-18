@@ -491,6 +491,14 @@ static DWORD _s_anTEMPSavedTSS[4] = { 0, 0, 0, 0 };
 static DWORD _s_nTEMPSavedTF = 0;
 static LPDIRECT3DBASETEXTURE8 _s_pTEMPSavedTex0 = NULL;
 static LPDIRECT3DBASETEXTURE8 _s_pTEMPSavedTex1 = NULL;
+//R53: the loud force also overrides raster states.
+static DWORD _s_nTEMPSavedCull = 0;
+static DWORD _s_nTEMPSavedZfunc = 0;
+static DWORD _s_nTEMPSavedZwrite = 0;
+static DWORD _s_nTEMPSavedAbEnable = 0;
+static DWORD _s_nTEMPSavedSrcBlend = 0;
+static DWORD _s_nTEMPSavedDstBlend = 0;
+static DWORD _s_nTEMPSavedAtEnable = 0;
 static BOOL _s_bTEMPSurfForced = FALSE;
 
 static BOOL _TEMPFF( const char *pName )
@@ -1288,6 +1296,13 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 				FDX8_pDev->GetTextureStageState( 0, _s_anTEMPTSS[nTEMPStage], &_s_anTEMPSavedTSS[nTEMPStage] );
 			}
 			FDX8_pDev->GetRenderState( D3DRS_TEXTUREFACTOR, &_s_nTEMPSavedTF );
+			FDX8_pDev->GetRenderState( D3DRS_CULLMODE, &_s_nTEMPSavedCull );
+			FDX8_pDev->GetRenderState( D3DRS_ZFUNC, &_s_nTEMPSavedZfunc );
+			FDX8_pDev->GetRenderState( D3DRS_ZWRITEENABLE, &_s_nTEMPSavedZwrite );
+			FDX8_pDev->GetRenderState( D3DRS_ALPHABLENDENABLE, &_s_nTEMPSavedAbEnable );
+			FDX8_pDev->GetRenderState( D3DRS_SRCBLEND, &_s_nTEMPSavedSrcBlend );
+			FDX8_pDev->GetRenderState( D3DRS_DESTBLEND, &_s_nTEMPSavedDstBlend );
+			FDX8_pDev->GetRenderState( D3DRS_ALPHATESTENABLE, &_s_nTEMPSavedAtEnable );
 			_s_bTEMPSurfForced = TRUE;
 
 			FDX8_pDev->SetPixelShader( NULL );
@@ -1303,7 +1318,16 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			{
 				FDX8_pDev->SetTextureStageState( 0, _s_anTEMPTSS[nTEMPStage], (nTEMPStage & 1) ? D3DTA_TFACTOR : D3DTOP_SELECTARG1 );
 			}
-			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(255,255,255,255) );
+			//R53: LOUD -- opaque magenta, not blended by dst, never culled,
+			//equal-or-nearer z with write. Nothing about the light-pass
+			//content can hide this; if it is not magenta on screen, the
+			//geometry produced no fragments at all.
+			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(255,255,0,255) );
+			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
+			FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, FALSE );
+			FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
+			FDX8_pDev->SetRenderState( D3DRS_ZFUNC, D3DCMP_LESSEQUAL );
+			FDX8_pDev->SetRenderState( D3DRS_ZWRITEENABLE, TRUE );
 		}
 	}
 	
@@ -1506,6 +1530,13 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 			FDX8_pDev->SetTextureStageState( 0, _s_anTEMPTSS[nTEMPStageR], _s_anTEMPSavedTSS[nTEMPStageR] );
 		}
 		FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, _s_nTEMPSavedTF );
+		FDX8_pDev->SetRenderState( D3DRS_CULLMODE, _s_nTEMPSavedCull );
+		FDX8_pDev->SetRenderState( D3DRS_ZFUNC, _s_nTEMPSavedZfunc );
+		FDX8_pDev->SetRenderState( D3DRS_ZWRITEENABLE, _s_nTEMPSavedZwrite );
+		FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, _s_nTEMPSavedAbEnable );
+		FDX8_pDev->SetRenderState( D3DRS_SRCBLEND, _s_nTEMPSavedSrcBlend );
+		FDX8_pDev->SetRenderState( D3DRS_DESTBLEND, _s_nTEMPSavedDstBlend );
+		FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, _s_nTEMPSavedAtEnable );
 		_s_bTEMPSurfForced = FALSE;
 	}
 }

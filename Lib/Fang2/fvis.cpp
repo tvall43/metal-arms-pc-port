@@ -1229,6 +1229,25 @@ void fvis_Draw( const CFMtx43A *pCamera, BOOL bDrawEntireWorld, u32 nFVisDataBuf
 	
 	// Set the ambient world light
 	fworld_Ambient_Set( &FVis_pVisData->AmbientLightColor, FVis_pVisData->fAmbientLightIntensity );
+
+	//R53: the level's own ambient/fog, once per vis-data bind. The invisible
+	//prop class reads CV_MAT_AMBIENT==0; this is the only per-frame ambient
+	//source, so if it is black here the whole non-lightmapped prop set has
+	//no ambient at all.
+	{
+		static FVisData_t *spTEMPAmbLogged = NULL;
+		if ( FVis_pVisData && spTEMPAmbLogged != FVis_pVisData )
+		{
+			spTEMPAmbLogged = FVis_pVisData;
+			DEVPRINTF( "[ma] TEMP fwamb ambcol=(%g,%g,%g) ambint=%g fogz=(%g,%g) nlights=%u\r\n",
+				(float)FVis_pVisData->AmbientLightColor.fRed,
+				(float)FVis_pVisData->AmbientLightColor.fGreen,
+				(float)FVis_pVisData->AmbientLightColor.fBlue,
+				(float)FVis_pVisData->fAmbientLightIntensity,
+				(float)FVis_pVisData->fFogStartZ, (float)FVis_pVisData->fFogEndZ,
+				(unsigned)FVis_pVisData->nLightCount );
+		}
+	}
 	
 	// Build the display list
 	if ( !_DL_Create( pCamera, bDrawEntireWorld ) )
