@@ -70,6 +70,13 @@ BOOL FWin_bTEMPDebugProbes = FALSE;
 //pin force stays off. See [Debug] WireLightForce.
 BOOL FWin_bTEMPDebugLightForce = FALSE;
 
+//R70: R69's force changed two things at once (white diffuse pixels AND culling),
+//so the ride that finally drew the wires cannot say which mattered. This is the
+//cull half on its own switch: disable culling for the watched meshes in both
+//passes and touch nothing else, so the wires render normally if culling was it.
+BOOL FWin_bTEMPDebugCullNone = FALSE;
+
+
 //R61: the shprobe (fdx8sh.cpp) sees the shader row but not who is drawing
 //with it, which is the one thing missing to attribute a row to a mesh+material.
 //The mesh pass sets these immediately before executing the shader.
@@ -864,6 +871,19 @@ static BOOL _TEMPAABBHitPin( const CFMtx43A &posMtx, const f32 *pMin, const f32 
 //row in _aShaderRenderStates) plus the device state that row produced, and the
 //resolved stage-0 texture. A handful of lines per level; only these meshes.
 static const char *_asTEMPMatWatch[] = { "go_1cable01", "godm_cabl", "wedmmines02", "godm_nwelv", "godm_m1eld" };
+//R70: the logging list (above) is wide because it is cheap and reads only. The
+//FORCE list must be narrow: R69's ride forced the diffuse pass of wedmmines02,
+//which is the whole level mesh (~50 materials), and the user's words for the
+//result were "the lighting in that test is all kinds of chaos".
+static const char *_asTEMPMatForce[] = { "go_1cable01", "godm_cabl" };
+static BOOL _TEMPMatForced( const char *pName )
+{
+	u32 i, nW = sizeof(_asTEMPMatForce) / sizeof(_asTEMPMatForce[0]);
+	if ( pName == NULL ) { return FALSE; }
+	for ( i = 0; i < nW; i++ ) { if ( strncmp( pName, _asTEMPMatForce[i], strlen(_asTEMPMatForce[i]) ) == 0 ) { return TRUE; } }
+	return FALSE;
+}
+
 static BOOL _TEMPMatWatched( const char *pName )
 {
 	u32 i, nW = sizeof(_asTEMPMatWatch) / sizeof(_asTEMPMatWatch[0]);
@@ -1455,7 +1475,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		//whether dst is ~0. This keeps the vertex shader, the geometry and the depth
 		//exactly as normal (so the surface pass' ZFUNC EQUAL still matches) and only
 		//replaces what the pixels come out as.
-		if ( FWin_bTEMPDebugLightForce && !FMesh_bRenderShadows && _TEMPMatWatched( m_pMesh->szName ) )
+		if ( FWin_bTEMPDebugLightForce && !FMesh_bRenderShadows && _TEMPMatForced( m_pMesh->szName ) )
 		{
 			u32 nTEMPStageF;
 			FDX8_pDev->GetPixelShader( &_s_nTEMPSavedPS );
@@ -1466,13 +1486,9 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 				FDX8_pDev->GetTextureStageState( 0, _s_anTEMPTSS[nTEMPStageF], &_s_anTEMPSavedTSS[nTEMPStageF] );
 			}
 			FDX8_pDev->GetRenderState( D3DRS_TEXTUREFACTOR, &_s_nTEMPSavedTF );
-			//R69: log_v showed the light force never fired, so that ride learned nothing.
-			//For when it does fire, the next suspect is culling: the light pass runs
-			//with the engine's global CW cull and a thin cable may well be a
-			//single-sided ribbon, while every surface force that DID reveal it set
-			//CULL_NONE. Save the mode and disable culling for this test.
-			FDX8_pDev->GetRenderState( D3DRS_CULLMODE, &_s_nTEMPSavedCull );
-			FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
+			//R70: culling is no longer part of this force -- R69 folded both changes
+			//together and the ride could not separate them. [Debug] WireCullNone
+			//now owns the cull half (see the cluster loop below).
 			FDX8_pDev->SetPixelShader( NULL );
 			FDX8_pDev->SetTexture( 0, NULL );
 			FDX8_pDev->SetTexture( 1, NULL );
@@ -1494,6 +1510,14 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		//R49 magenta light-pass force retired: ride 3 (log_e) proved raster,
 		//oPos/depth fine for the gate list. R50 moves the test to the surface
 		//side (see DrawMaterialSurface_P) to expose the REAL light result.
+		//R70: [Debug] WireCullNone -- culling off for the wire props only, in both
+		//passes (a culled light pass writes no depth, so the surface pass' ZFUNC
+		//EQUAL would fail even if its own cull were fixed). Cached wrapper, so the
+		//engine's state model stays truthful.
+		if ( FWin_bTEMPDebugCullNone && _TEMPMatForced( m_pMesh->szName ) )
+		{
+			fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
+		}
 
 		// Progress through all the clusters for this material, submitting for render the relevant ones
 		FDX8MeshCluster_t *pCluster = ((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->aCluster;
@@ -1682,7 +1706,6 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, _s_nTEMPSavedTF );
 		FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, _s_nTEMPSavedAbEnable );
 		FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, _s_nTEMPSavedAtEnable );
-		FDX8_pDev->SetRenderState( D3DRS_CULLMODE, _s_nTEMPSavedCull );
 		if ( _s_pTEMPSavedTex0 ) { _s_pTEMPSavedTex0->Release(); _s_pTEMPSavedTex0 = NULL; }
 		if ( _s_pTEMPSavedTex1 ) { _s_pTEMPSavedTex1->Release(); _s_pTEMPSavedTex1 = NULL; }
 		_s_bTEMPSurfForced = FALSE;
@@ -1771,6 +1794,12 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 	s32 nCurrentIB = -1;
 
 	fsh_SetSurfaceOnly( !!(m_nFlags&FMESHINST_FLAG_SURFACEONLY) );
+
+	//R70: same cull override on the surface side (see the light pass).
+	if ( FWin_bTEMPDebugCullNone && _TEMPMatForced( m_pMesh->szName ) )
+	{
+		fdx8_SetRenderState_CULLMODE( D3DCULL_NONE );
+	}
 
 	FTEMP_pDrawMesh = m_pMesh->szName;
 	FTEMP_nDrawMat = (s32)( pMaterial - m_pMesh->aMtl );

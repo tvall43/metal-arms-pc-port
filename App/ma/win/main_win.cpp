@@ -68,7 +68,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R69"
+#define MA_PORT_ROUND	"R70"
 
 static BOOL _bLogFileEnabled = FALSE;
 
@@ -76,6 +76,8 @@ static BOOL _bLogFileEnabled = FALSE;
 extern BOOL FWin_bTEMPDebugProbes;
 //R68: separate diagnostic for the wire/light-pass question (see fdx8mesh.cpp).
 extern BOOL FWin_bTEMPDebugLightForce;
+//R70: cull-only half of the wire diagnostic (see fdx8mesh.cpp).
+extern BOOL FWin_bTEMPDebugCullNone;
 #define _LOGFILE_DEFAULT 0
 
 // PC port: development mode (-dev / autorun) vs retail mode (default / play).
@@ -408,6 +410,8 @@ static void _LoadConfig( void )
 	//Independent of TempProbes on purpose: that one also enables the pin force,
 	//which paints the very meshes this diagnostic is meant to observe.
 	FWin_bTEMPDebugLightForce = oSettings.ReadCustomInt( "Debug", "WireLightForce", 0 ) ? TRUE : FALSE;
+	//R70: cull-only variant of the same diagnostic.
+	FWin_bTEMPDebugCullNone = oSettings.ReadCustomInt( "Debug", "WireCullNone", 0 ) ? TRUE : FALSE;
 
 	// Retail mode disables debug: the file log stays off regardless of the ini.
 	// The stored value survives for dev runs - _SaveConfig only writes it there.
@@ -496,6 +500,7 @@ static void _SaveConfig( void )
 		oSettings.WriteCustomInt( "Debug", "LogFile", _bLogFileEnabled ? 1 : 0 );
 		oSettings.WriteCustomInt( "Debug", "TempProbes", FWin_bTEMPDebugProbes ? 1 : 0 );
 		oSettings.WriteCustomInt( "Debug", "WireLightForce", FWin_bTEMPDebugLightForce ? 1 : 0 );
+		oSettings.WriteCustomInt( "Debug", "WireCullNone", FWin_bTEMPDebugCullNone ? 1 : 0 );
 	}
 	oSettings.WriteCustomFloat( "Audio", "Volume2D", FAudio_f2DVolumeScale );
 	oSettings.WriteCustomFloat( "Audio", "MinDistanceFraction", FAudio_fMinDistanceFraction );
@@ -896,8 +901,8 @@ static BOOL _RunGame( void )
 	//Two rides were spent on "is the new exe actually running" and "did the ini key get
 	//read"; this answers both in the first three lines.
 	_Trace( "[ma] port build  : %s\n", MA_PORT_ROUND );
-	_Trace( "[ma] diagnostics : TempProbes=%d WireLightForce=%d\n",
-		FWin_bTEMPDebugProbes ? 1 : 0, FWin_bTEMPDebugLightForce ? 1 : 0 );
+	_Trace( "[ma] diagnostics : TempProbes=%d WireLightForce=%d WireCullNone=%d\n",
+		FWin_bTEMPDebugProbes ? 1 : 0, FWin_bTEMPDebugLightForce ? 1 : 0, FWin_bTEMPDebugCullNone ? 1 : 0 );
 	_Trace( "[ma] ---- startup ----\n" );
 	_Trace( "[ma] master file : %s\n", _szMasterFile );
 	_Trace( "[ma] level       : %s\n", _szLevelFile[0] ? _szLevelFile : "(none)" );
