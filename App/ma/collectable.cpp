@@ -37,6 +37,7 @@
 #include "ItemRepository.h"
 #include "weapon.h"
 #include "MultiplayerMgr.h"
+#include "FScriptSystem.h"
 #include "sas_user.h"
 
 #define _COLLECTABLE_CSV					( "goodies.csv" )
@@ -48,6 +49,7 @@
 #define _CORING_CHARGE_COLLECT				( "coring charge" )
 #define _PICKUP_SPECIAL_SOUND				( "SpecialSound" )
 #define _COLLECTABLE_ARM_SERVO				( "Arm Servo" )
+#define _COLLECTABLE_GOFF_PART				( "goff part" )
 #define _REST_HEIGHT						( 2.5f )
 #define _PUSH_VEL							( 1.0f )
 #define _SPAWN_POOL_SIZE					( 10 )
@@ -60,6 +62,17 @@
 #define _EUK_MESH_ID						( 50 )
 
 #define ITEM_UNKNOWN						( -1 )
+
+//The three Agent Goff pieces are separate goodie types but a single item in
+//itemlist.csv ("goff part"), exactly like the three arm servos share
+//"Arm Servo". Without this alias _AddToInventory cannot find them, the pieces
+//never reach the inventory, and the level script cannot see all three.
+static BOOL _IsGoffPartName( cchar *pszName ) {
+	return( pszName != NULL &&
+		( !fclib_stricmp( pszName, "gofftorso" ) ||
+		  !fclib_stricmp( pszName, "goffleg" ) ||
+		  !fclib_stricmp( pszName, "goffhead" ) ) );
+}
 
 typedef struct {
 	cchar *pszName;
@@ -2172,6 +2185,10 @@ void CCollectable::_LoadFromGameData( FGameDataTableHandle_t hTable ) {
 
 	pItem = CItemRepository::RetrieveEntry( pType->m_pszName, &pType->m_uItemRepositoryIndex );
 
+	if( !pItem && _IsGoffPartName( pType->m_pszName ) ) {
+		pItem = CItemRepository::RetrieveEntry( _COLLECTABLE_GOFF_PART, &pType->m_uItemRepositoryIndex );
+	}
+
 	if( !pItem ) {
 		pType->m_uItemRepositoryIndex = ITEM_UNKNOWN;
 	}
@@ -3360,6 +3377,15 @@ BOOL CCollectable::_PlayerPickupCollectable( void ) {
 		_AddToInventory();
 	}
 
+	//The three Agent Goff pieces are counted by the level script through the
+	//global 'goffpickup' event (the level's only script, xecr_xplode.sma, has
+	//OnEvent and calls Game_WinLevel). The engine owns the trigger; without it
+	//the pieces vanish into the inventory and the level never completes.
+	if( _IsGoffPartName( m_pCollectableType->m_pszName ) ) {
+		CFScriptSystem::TriggerEvent( CFScriptSystem::GetEventNumFromName( "goffpickup" ),
+									  0, (u32)this, 0 );
+	}
+
 	// If we've got a collection callback, call it
 	if( m_pCollectionCallback ) {
 		m_pCollectionCallback( m_pCollectableType->m_eType, m_pCollectBot );
@@ -3541,6 +3567,7 @@ BOOL CCollectable::_PickupArmServo( CollectableType_e eType ) {
 void CCollectable::_AddToInventory( void ) {
 	CItem *pItem = NULL;
 	BOOL bIsArmServo = FALSE;
+	BOOL bIsGoffPart = _IsGoffPartName( m_pCollectableType->m_pszName );
 
 	switch( m_pCollectableType->m_eType ) {
 		case COLLECTABLE_ARM_SERVO_L1:
@@ -3552,7 +3579,12 @@ void CCollectable::_AddToInventory( void ) {
 			bIsArmServo = TRUE;
 		break;
 		default:
-			pItem = CItemRepository::RetrieveEntry( m_pCollectableType->m_uItemRepositoryIndex );
+			//Same for the three Agent Goff pieces and their single shared item.
+			if( bIsGoffPart ) {
+				pItem = CItemRepository::RetrieveEntry( _COLLECTABLE_GOFF_PART, NULL );
+			} else {
+				pItem = CItemRepository::RetrieveEntry( m_pCollectableType->m_uItemRepositoryIndex );
+			}
 		break;
 	}
 
@@ -3569,10 +3601,12 @@ void CCollectable::_AddToInventory( void ) {
 	CInventory *pInv = m_pCollectBot->m_pInventory;
 	CItemInst *pItemInst = NULL;
 	
-	if( !bIsArmServo ) {
-		pItemInst = pInv->IsItemInInventory( m_pCollectableType->m_pszName );
-	} else {
+	if( bIsArmServo ) {
 		pItemInst = pInv->IsItemInInventory( _COLLECTABLE_ARM_SERVO );
+	} else if( bIsGoffPart ) {
+		pItemInst = pInv->IsItemInInventory( _COLLECTABLE_GOFF_PART );
+	} else {
+		pItemInst = pInv->IsItemInInventory( m_pCollectableType->m_pszName );
 	}
 
 	if( pItemInst == NULL ) {
