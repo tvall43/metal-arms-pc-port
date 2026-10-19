@@ -2885,13 +2885,21 @@ BOOL CHud2::Create(s32 nPlayerIndex)
 		m_pviewPerspective[uSide] = fviewport_Create();
 		if (m_pviewPerspective[uSide] == NULL)
 			goto _HudCreateExitWithError;
-		FViewport_t* pVp = rPlayer.m_pViewportPersp3D;
+		//The weapon-select preview is authored in the same 4:3 space as the
+		//HUD. Recover the full canvas rect from the safe viewport (its central
+		//85%) instead of using the widescreen camera viewport, or the preview
+		//box drifts to one side.
+		FViewport_t* pSafe = rPlayer.m_pViewportSafeOrtho3D;
+		u32 uCanvasW = (u32)(pSafe->Res.x * (1.0f / 0.85f) + 0.5f);
+		u32 uCanvasH = (u32)(pSafe->Res.y * (1.0f / 0.85f) + 0.5f);
+		u32 uCanvasL = pSafe->nScreenLeftX - ((uCanvasW - pSafe->nWidth) >> 1);
+		u32 uCanvasT = pSafe->nScreenTopY - ((uCanvasH - pSafe->nHeight) >> 1);
 		f32 fOffsetFactor = -(2.0f * (f32)(uSide) - 1.0f);
 
-		u32 uMeshLE_PC = pVp->nScreenLeftX + (u32)(((fWSInfoBoxMeshLE + fWSInfoBoxOffset * fOffsetFactor + 1.0f) * 0.5f) * (f32)(pVp->nWidth));
-		u32 uMeshWidth_PC = (u32)(((fWSInfoBoxMeshRE - fWSInfoBoxMeshLE) * 0.5f) * (f32)(pVp->nWidth));
-		u32 uMeshTE_PC = pVp->nScreenTopY + (u32)(((-fWSInfoBoxMeshTE + 0.75f) * (2.0f / 3.0f)) * (f32)(pVp->nHeight));
-		u32 uMeshHeight_PC = (u32)(((fWSInfoBoxMeshTE - fWSInfoBoxMeshBE) * (2.0f / 3.0f)) * (f32)(pVp->nHeight));
+		u32 uMeshLE_PC = uCanvasL + (u32)(((fWSInfoBoxMeshLE + fWSInfoBoxOffset * fOffsetFactor + 1.0f) * 0.5f) * (f32)(uCanvasW));
+		u32 uMeshWidth_PC = (u32)(((fWSInfoBoxMeshRE - fWSInfoBoxMeshLE) * 0.5f) * (f32)(uCanvasW));
+		u32 uMeshTE_PC = uCanvasT + (u32)(((-fWSInfoBoxMeshTE + 0.75f) * (2.0f / 3.0f)) * (f32)(uCanvasH));
+		u32 uMeshHeight_PC = (u32)(((fWSInfoBoxMeshTE - fWSInfoBoxMeshBE) * (2.0f / 3.0f)) * (f32)(uCanvasH));
 
 		fviewport_InitPersp(m_pviewPerspective[uSide], FMATH_QUARTER_PI, 0.1f, 1000.0f, uMeshLE_PC, uMeshTE_PC, uMeshWidth_PC, uMeshHeight_PC);
 	}
@@ -4828,7 +4836,11 @@ void CHud2::Draw( CInventory *pInventory ) {
 	//---------------------
 	// The battery bar system. We use the full-size battery, because it is already
 	// too small.
-	fScale = (f32)(FVid_Mode.nPixelsAcross >> 1);
+	// The HUD transform is authored on the full 640x480 canvas while the safe
+	// viewport is the central 85% of it, so the canvas half-width is
+	// HalfRes.x / 0.85. Using the backbuffer width here (the old code) made the
+	// top row overflow the safe viewport on widescreen modes.
+	fScale = pVP->HalfRes.x * (1.0f / 0.85f);
 
 	xfmScale.BuildScale(fScale);
 
@@ -4871,7 +4883,7 @@ void CHud2::Draw( CInventory *pInventory ) {
 	// Upper right corner of the viewport
 	//---------------------
 	// Draw the radar a bit smaller than normal if our window is small
-	fScale = 0.5f * pVP->HalfRes.x + ((f32)(FVid_Mode.nPixelsAcross >> 2));
+	fScale = 0.5f * pVP->HalfRes.x + 0.5f * (pVP->HalfRes.x * (1.0f / 0.85f));
 	xfmScale.BuildScale(fScale);
 
 	fTransX = pVP->HalfRes.x - fScale;

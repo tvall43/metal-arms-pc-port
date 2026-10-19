@@ -144,12 +144,48 @@ BOOL splitscreen_SetupViewports( int nPlayerNum, int nTotalPlayers ) {
 
 	// Tweak the ortho viewport boundary for safe area. That way the hud can
 	// just fill the viewport up and not worry about the edges.
-	s32 nTweakH = (s32)(0.075f * FVid_Mode.nPixelsAcross);
-	s32 nTweakV = (s32)(0.075f * FVid_Mode.nPixelsDown);
-	u32 nSafeLeft = nTweakH;
-	u32 nSafeTop = nTweakV;
-	u32 nSafeWidth = nWidth - (nTweakH << 1);
-	u32 nSafeHeight = nHeight - (nTweakV << 1);
+	s32 nTweakH;
+	s32 nTweakV;
+	u32 nSafeLeft;
+	u32 nSafeTop;
+	u32 nSafeWidth;
+	u32 nSafeHeight;
+
+	if (nTotalPlayers == 1) {
+		//The HUD is authored on a 640x480 canvas: P2AX and P2AY both divide by
+		//640, and the element transform assumes x in [-1,1] and y in
+		//[-0.75,0.75]. On a widescreen mode the safe viewport must therefore be
+		//4:3, or every bottom row (ammo counts, transmission text) lands below
+		//the viewport and disappears. Build it inside a centred 4:3 rect; the
+		//player's camera viewport keeps the full screen, so the world is still
+		//widescreen.
+		u32 nSafeBaseLeft = nLeft;
+		u32 nSafeBaseTop = nTop;
+		u32 nSafeBaseWidth = nWidth;
+		u32 nSafeBaseHeight = nHeight;
+
+		if (nSafeBaseWidth * 3 > nSafeBaseHeight * 4) {
+			nSafeBaseWidth = (nSafeBaseHeight * 4) / 3;
+			nSafeBaseLeft += (nWidth - nSafeBaseWidth) / 2;
+		} else if (nSafeBaseWidth * 3 < nSafeBaseHeight * 4) {
+			nSafeBaseHeight = (nSafeBaseWidth * 3) / 4;
+			nSafeBaseTop += (nHeight - nSafeBaseHeight) / 2;
+		}
+
+		nTweakH = (s32)(0.075f * nSafeBaseWidth);
+		nTweakV = (s32)(0.075f * nSafeBaseHeight);
+		nSafeLeft = nSafeBaseLeft + nTweakH;
+		nSafeTop = nSafeBaseTop + nTweakV;
+		nSafeWidth = nSafeBaseWidth - (nTweakH << 1);
+		nSafeHeight = nSafeBaseHeight - (nTweakV << 1);
+	} else {
+		nTweakH = (s32)(0.075f * FVid_Mode.nPixelsAcross);
+		nTweakV = (s32)(0.075f * FVid_Mode.nPixelsDown);
+		nSafeLeft = nTweakH;
+		nSafeTop = nTweakV;
+		nSafeWidth = nWidth - (nTweakH << 1);
+		nSafeHeight = nHeight - (nTweakV << 1);
+	}
 
 	if (nTotalPlayers > 1) {
 
