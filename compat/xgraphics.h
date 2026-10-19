@@ -63,8 +63,20 @@ static inline HRESULT XGUnswizzleRect(const VOID*  pSource,
     BYTE* dst = (BYTE*)pDestination;
 
     const size_t rowBytes = (size_t)w * (size_t)BytesPerPixel;
+
+    // The Xbox SDK reads DestinationPitch == 0 as "tightly packed" (the rows are
+    // contiguous, pixel width * bytes per pixel apart). fdx8tex.cpp's 32-bit path
+    // relies on that and passes 0, while its 16-bit path passes nWidth * 2. Taking
+    // 0 literally wrote every row to the SAME destination offset, so only the last
+    // source row survived and the rest of the destination stayed at its zero fill:
+    // a texture whose whole body is transparent black. That is what made the mine
+    // wires invisible (their 8x8 A8R8G8B8 texture came through as one valid row
+    // plus seven zero rows, and the cutout row's alpha test then rejected every
+    // fragment). Treat 0 as tight packing, as the call site expects.
+    const size_t dstPitch = ( DestinationPitch != 0 ) ? (size_t)DestinationPitch : rowBytes;
+
     for (LONG y = 0; y < h; ++y)
-        memcpy(dst + (ptrdiff_t)y * (ptrdiff_t)DestinationPitch,
+        memcpy(dst + (ptrdiff_t)y * (ptrdiff_t)dstPitch,
                src + (ptrdiff_t)y * (ptrdiff_t)Width * (ptrdiff_t)BytesPerPixel,
                rowBytes);
 

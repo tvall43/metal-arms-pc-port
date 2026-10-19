@@ -4592,7 +4592,7 @@ BOOL _CopyImageToTexture( FTexData_t *pTexData, const void *pSrcImage, FTexFmt_e
 				FASSERT( !(LockedRect.Pitch & 3) );
 				if ( pTexData->TexDef.TexInfo.nFlags & FTEX_FLAG_LOAD_IN_PLACE )
 				{
-					XGUnswizzleRect( pSrcImage, nWidth, nHeight, NULL, pAlignedTempMemory, 0, NULL, 4 );
+					XGUnswizzleRect( pSrcImage, nWidth, nHeight, NULL, pAlignedTempMemory, nWidth * 4, NULL, 4 );
 					_CopyImageToPitched32( (const u32 *)pAlignedTempMemory, (u32 *)LockedRect.pBits, LockedRect.Pitch>>2, nWidth, nHeight );
 				}
 				else
