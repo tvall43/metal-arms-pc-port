@@ -275,7 +275,11 @@ FViewportPlanesMask_t CFPSpriteGroup::Render( BOOL bPerformFrustumTest, FViewpor
 
 	//set up any HW rendering specific renderstates
 	fdx8_SetRenderState_POINTSPRITEENABLE( TRUE );
-	fdx8_SetRenderState_POINTSCALEENABLE( TRUE );
+	//POINTSCALEENABLE must be FALSE: the point sprite vertex shader computes the
+	//final pixel size itself and writes it to oPts. With this TRUE, D3D applies
+	//its own distance function on top, and POINTSCALE_A/B/C are only ever
+	//initialised to 0, so sqrt(1/0) clamped every sprite to MaxPointSize.
+	fdx8_SetRenderState_POINTSCALEENABLE( FALSE );
 
 	// Set blend mode...
 	switch( m_nBlend ) {

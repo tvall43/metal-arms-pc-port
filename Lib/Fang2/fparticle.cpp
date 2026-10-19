@@ -1390,6 +1390,14 @@ BOOL CPEmitter::Work( f32 fSecsSinceLastWork ) {
 					pPart->fAge = 0.0f;
 					pPart->fUnitAge = 0.0f;
 					pPart->fOOLifeSpan = FMATH_FPOT( fURand3, _pFrame->OOLifeSecs.x, _pFrame->OOLifeSecs.y );
+					//OOLifeSecs is "1 / lifetime". It is authored as (0,0) in 142 of
+					//the 235 shipped defs, which would be 1/0: the particle would
+					//never age and never die. With BURST_FOREVER and bubble motion
+					//that filled the level with immortal, accelerating particles, so
+					//treat 0 as the one-second default the sparkle defs use.
+					if( pPart->fOOLifeSpan <= 0.0f ) {
+						pPart->fOOLifeSpan = 1.0f;
+					}
 
 					if( m_pDef->nFlags & FPARTICLE_DEF_FLAGS_RANDOM_INIT_COLOR ) {
 						pPart->InitRGB.RandomRGB();
@@ -1985,7 +1993,11 @@ FINLINE void CPEmitter::UpdatePosAndVelocity( f32 fSecsSinceLastWork ) {
 
 		// calculate the bubble force
 		if( pBurst->nFlags & _BURST_FLAGS_APPLY_BUBBLE_FORCE ) {
-			fBubbleDrag = pBurst->fBubbleDragPerSec * fSecsSinceLastWork;			
+			fBubbleDrag = pBurst->fBubbleDragPerSec * fSecsSinceLastWork;
+			//Drag removes force. fBubbleDragPerSec is authored positive in every
+			//shipped def; clamp the first-order factor so a long frame cannot flip
+			//its sign and make the force grow.
+			if( fBubbleDrag > 1.0f ) { fBubbleDrag = 1.0f; }
 		}
 
 		if( pBurst->nFlags & _BURST_FLAGS_INITIAL_VEL_ADDED ) {
@@ -2053,8 +2065,10 @@ FINLINE void CPEmitter::UpdatePosAndVelocity( f32 fSecsSinceLastWork ) {
 					pPart->BubbleForce.Add( Delta );
 				} else {
 					// apply drag to the bubble force 
+					//Subtract: adding made the force integrate (1 + drag*dt) per
+					//frame, so bubble-motion particles accelerated without bound.
 					Delta.Mul( pPart->BubbleForce, fBubbleDrag );
-					pPart->BubbleForce.Add( Delta );
+					pPart->BubbleForce.Sub( Delta );
 				}
 				// make sure that the bubble force isn't outrageous
 				fMag2 = pPart->BubbleForce.MagSq();
@@ -2286,6 +2300,18 @@ void CPEmitter::InitBurst( _Burst_t *pBurst, const FParticleKeyFrame_t *pKeyFram
 		pBurst->fOOMaxVel = fmath_InvSqrt( pBurst->fMaxVel2 );
 		pBurst->fAlphaStepPerSprite = pKeyFrame->fAlphaStepPerSprite;
 		pBurst->fSizeStepPerSprite = pKeyFrame->fSizeStepPerSprite;
+		//A multi-sprite tail must shrink, never grow. fSizeStepPerSprite is
+		//multiplied into each successive sprite's dimension, and the shipped
+		//MULTIPLE_SPRITES defs author 400 and 550 -- "N times smaller". Read
+		//them that way; clamping to 1.0 alone left the tail head-sized.
+		if( pBurst->fSizeStepPerSprite > 1.0f ) {
+			pBurst->fSizeStepPerSprite = 1.0f / pBurst->fSizeStepPerSprite;
+		}
+		//The alpha step uses the same convention (6 and 8 authored). Additive
+		//sprite RGB is premultiplied by alpha, so a 6x tail was 6x too bright.
+		if( pBurst->fAlphaStepPerSprite > 1.0f ) {
+			pBurst->fAlphaStepPerSprite = 1.0f / pBurst->fAlphaStepPerSprite;
+		}
 		pBurst->fPosStepPerSprite = pKeyFrame->fPosStepPerSprite;
 	} else {
 		pBurst->nMaxSprites = 1;

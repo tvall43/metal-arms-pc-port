@@ -3048,6 +3048,16 @@ void CCollectable::_ReturnWorldMesh( void ) {
 		return;
 	}
 
+	//Kill the emitter before the mesh goes back to the pool. The glow is spawned
+	//with the 5-arg fparticle_SpawnEmitter overload, which keeps a pointer to
+	//m_pWorldMesh->GetBoundingSphere().m_Pos. StopEmitter() only stops emission;
+	//the live particles would keep following a block the pool immediately reuses,
+	//dragging the cloud to unrelated places on PC.
+	if( m_hParticleEmitter != FPARTICLE_INVALID_HANDLE ) {
+		fparticle_KillEmitter( m_hParticleEmitter );
+		m_hParticleEmitter = FPARTICLE_INVALID_HANDLE;
+	}
+
 	m_pCollectableType->ReturnWorldMesh( m_pWorldMesh );
 	m_pWorldMesh = NULL;
 }

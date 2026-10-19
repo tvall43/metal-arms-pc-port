@@ -1091,7 +1091,7 @@ static void _TEMPVData( FMesh_t *pMesh, FDX8MeshCluster_t *pCluster, FDX8Mesh_t 
 		{
 			nOff += sprintf( _s_szTEMPVData + nOff, " (lockfail)" );
 		}
-		DEVPRINTF( "%s\r\n", _s_szTEMPVData );
+		DEVPRINTF( "[ma] TEMP vdata %s\r\n", _s_szTEMPVData );
 	}
 }
 
