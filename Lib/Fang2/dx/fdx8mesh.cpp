@@ -1072,7 +1072,9 @@ static void _TEMPMClip( const char *pPass, const char *pName, u32 nStartIndex, u
 {
 	//R62: invisibility-hunt probe (locks the IB and VB every draw), off unless
 	//[Debug] TempProbes=1.
-	if ( !FWin_bTEMPDebugProbes ) { return; }
+	//R69: the watched wire meshes keep their clip dump regardless -- vertex 0's
+	//clip/ndc is the datum that separates 'culled' from 'projected away'.
+	if ( !FWin_bTEMPDebugProbes && !_TEMPMatWatched( pName ) ) { return; }
 
 	IDirect3DVertexBuffer8 *pVB = NULL;
 	IDirect3DIndexBuffer8 *pIB = NULL;
@@ -1464,6 +1466,13 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 				FDX8_pDev->GetTextureStageState( 0, _s_anTEMPTSS[nTEMPStageF], &_s_anTEMPSavedTSS[nTEMPStageF] );
 			}
 			FDX8_pDev->GetRenderState( D3DRS_TEXTUREFACTOR, &_s_nTEMPSavedTF );
+			//R69: log_v showed the light force never fired, so that ride learned nothing.
+			//For when it does fire, the next suspect is culling: the light pass runs
+			//with the engine's global CW cull and a thin cable may well be a
+			//single-sided ribbon, while every surface force that DID reveal it set
+			//CULL_NONE. Save the mode and disable culling for this test.
+			FDX8_pDev->GetRenderState( D3DRS_CULLMODE, &_s_nTEMPSavedCull );
+			FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
 			FDX8_pDev->SetPixelShader( NULL );
 			FDX8_pDev->SetTexture( 0, NULL );
 			FDX8_pDev->SetTexture( 1, NULL );
@@ -1673,6 +1682,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, _s_nTEMPSavedTF );
 		FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, _s_nTEMPSavedAbEnable );
 		FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, _s_nTEMPSavedAtEnable );
+		FDX8_pDev->SetRenderState( D3DRS_CULLMODE, _s_nTEMPSavedCull );
 		if ( _s_pTEMPSavedTex0 ) { _s_pTEMPSavedTex0->Release(); _s_pTEMPSavedTex0 = NULL; }
 		if ( _s_pTEMPSavedTex1 ) { _s_pTEMPSavedTex1->Release(); _s_pTEMPSavedTex1 = NULL; }
 		_s_bTEMPSurfForced = FALSE;

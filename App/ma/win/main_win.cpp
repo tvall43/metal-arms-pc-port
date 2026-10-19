@@ -67,6 +67,9 @@ static char _szMoviePath[512] = "MOVIES\\";
 // box for a run you intend to read. The crash handler flushes whichever is
 // open.
 static FILE *_pLogFile = NULL;
+//R69: bump this every round; it is printed in the log header (see the banner).
+#define MA_PORT_ROUND	"R69"
+
 static BOOL _bLogFileEnabled = FALSE;
 
 //R62: defined in ma_winDlg.cpp (next to the _DevPrintf choke point).
@@ -889,6 +892,12 @@ static BOOL _RunGame( void )
 		strncpy( _szMoviePath, szDir, sizeof(_szMoviePath) - 1 );
 	}
 
+	//R69: the log now identifies the build and the state of the diagnostic switches.
+	//Two rides were spent on "is the new exe actually running" and "did the ini key get
+	//read"; this answers both in the first three lines.
+	_Trace( "[ma] port build  : %s\n", MA_PORT_ROUND );
+	_Trace( "[ma] diagnostics : TempProbes=%d WireLightForce=%d\n",
+		FWin_bTEMPDebugProbes ? 1 : 0, FWin_bTEMPDebugLightForce ? 1 : 0 );
 	_Trace( "[ma] ---- startup ----\n" );
 	_Trace( "[ma] master file : %s\n", _szMasterFile );
 	_Trace( "[ma] level       : %s\n", _szLevelFile[0] ? _szLevelFile : "(none)" );
