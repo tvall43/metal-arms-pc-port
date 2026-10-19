@@ -892,11 +892,11 @@ static BOOL _TEMPMatWatched( const char *pName )
 	return FALSE;
 }
 
-static void _TEMPMatProbe( const char *pPass, const char *pName, s32 nMatIdx, FMeshMaterial_t *pMtl )
+static void _TEMPMatProbe( const char *pPass, const char *pName, s32 nMatIdx, FMeshMaterial_t *pMtl, CFMeshInst *pInst )
 {
 	DWORD nPS=0, nAb=0, nS=0, nD=0, nAt=0, nAf=0, nAre=0, nZ=0, nZw=0, nCull=0;
 	LPDIRECT3DTEXTURE8 pT0 = NULL;
-	if ( pName == NULL || pMtl == NULL || pPass == NULL || nMatIdx < 0 ) { return; }
+	if ( pName == NULL || pMtl == NULL || pPass == NULL || pInst == NULL || nMatIdx < 0 ) { return; }
 	if ( !_TEMPMatWatched( pName ) ) { return; }
 	//Key folds the first AND last character of the pass name: the light pass logs
 	//light0/light1/... and only the trailing index separates them.
@@ -914,6 +914,34 @@ static void _TEMPMatProbe( const char *pPass, const char *pName, s32 nMatIdx, FM
 	FDX8_pDev->GetRenderState( D3DRS_ZWRITEENABLE, &nZw );
 	FDX8_pDev->GetRenderState( D3DRS_CULLMODE, &nCull );
 	FDX8_pDev->GetTexture( 0, &pT0 );
+	//R71: the two things left that can make a wire black even with dst forced white.
+	//The final colour is 2*texture*dst, so a black texture still yields black; and the
+	//material/mesh tint is the plausible source of the red the user expects.
+	{
+		IDirect3DTexture8 *pTEMPIdx8 = (IDirect3DTexture8 *)pT0;
+		IDirect3DSurface8 *pTEMPSurf8 = NULL;
+		D3DSURFACE_DESC oTEMPDesc;
+		if ( pTEMPIdx8 != NULL && SUCCEEDED( pTEMPIdx8->GetSurfaceLevel( 0, &pTEMPSurf8 ) ) && pTEMPSurf8 != NULL )
+		{
+			D3DLOCKED_RECT oTEMPRect;
+			if ( SUCCEEDED( pTEMPSurf8->GetDesc( &oTEMPDesc ) ) &&
+				 SUCCEEDED( pTEMPSurf8->LockRect( &oTEMPRect, NULL, D3DLOCK_READONLY ) ) && oTEMPRect.pBits != NULL )
+			{
+				u32 anTEMPB[4];
+				u32 nTEMPB;
+				for ( nTEMPB = 0; nTEMPB < 4; nTEMPB++ ) { anTEMPB[nTEMPB] = ((u32 *)oTEMPRect.pBits)[nTEMPB]; }
+				DEVPRINTF( "[ma] TEMP texprobe f%u %s mat=%d fmt=0x%08X wh=%ux%u b0=%08X %08X %08X %08X tint=(%g,%g,%g) meshtint=(%g,%g,%g,%g)\r\n",
+					(unsigned)FVid_nFrameCounter, pName, (int)nMatIdx, (unsigned)oTEMPDesc.Format,
+					(unsigned)oTEMPDesc.Width, (unsigned)oTEMPDesc.Height,
+					(unsigned)anTEMPB[0], (unsigned)anTEMPB[1], (unsigned)anTEMPB[2], (unsigned)anTEMPB[3],
+					(float)pMtl->MaterialTint.fRed, (float)pMtl->MaterialTint.fGreen, (float)pMtl->MaterialTint.fBlue,
+					(float)pInst->GetMeshTintAndAlpha()->fRed, (float)pInst->GetMeshTintAndAlpha()->fGreen,
+					(float)pInst->GetMeshTintAndAlpha()->fBlue, (float)pInst->GetMeshTintAndAlpha()->fAlpha );
+				pTEMPSurf8->UnlockRect();
+			}
+			pTEMPSurf8->Release();
+		}
+	}
 	{
 		const char *pT0Name = NULL;
 		u32 nW0=0, nH0=0, nFmt0=0, nFl0=0;
@@ -1425,7 +1453,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 
 	if ( !SetupShaderParameters( pMaterial, FSHADERS_PASS_LIGHTING ) )
 	{
-	_TEMPMatProbe( "lightF", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial );
+	_TEMPMatProbe( "lightF", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial, this );
 		_TEMPMDLog( "light", 'F', m_pMesh, m_pMesh->szName, this, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, NULL ), (s32)(pMaterial - m_pMesh->aMtl) );
 		return FALSE;
 	}
@@ -1466,7 +1494,7 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 		{
 			char szTEMPPass[16];
 			sprintf( szTEMPPass, "light%u", (unsigned)nPass );
-			_TEMPMatProbe( szTEMPPass, m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial );
+			_TEMPMatProbe( szTEMPPass, m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial, this );
 		}
 		//R68: force the diffuse pass' PIXEL side to flat white for the watched
 		//meshes. Everything that ever 'revealed' these wires forced the SURFACE
@@ -1777,7 +1805,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 
 	if ( !SetupShaderParameters( pMaterial, FSHADERS_PASS_SURFACE ) )
 	{
-	_TEMPMatProbe( "surfacef", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial );
+	_TEMPMatProbe( "surfacef", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial, this );
 		_TEMPMDLog( "surface", 'f', m_pMesh, m_pMesh->szName, this, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, NULL ), (s32)(pMaterial - m_pMesh->aMtl) );
 		return;
 	}
@@ -2247,7 +2275,7 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 		fsh_TexOverride_ResetList();
 	}
 
-	_TEMPMatProbe( "surface", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial );
+	_TEMPMatProbe( "surface", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial, this );
 	_TEMPMDLog( "surface", nTEMPDrawn ? 'd' : 'z', m_pMesh, m_pMesh->szName, this, nTEMPClusters, nTEMPPartSkip, nTEMPLodSkip, nTEMPDrawn, nTEMPSeg0, nTEMPSeg1, nTEMPSegSkin, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, pSeg ), (s32)(pMaterial - m_pMesh->aMtl) );
 
 	#if FPERF_ENABLE
@@ -2777,7 +2805,7 @@ void CFMeshInst::DrawMaterialTranslucency_P( FViewportPlanesMask_t nCrossesPlane
 	//TEMP(R46): translucent path decode - which materials (incl. liquid surf=38-42) draw here, with device state.
 	//R46b: keyed per-material (not per-mesh) so the liquid material's translucent
 	//draw logs separately from its siblings.
-	_TEMPMatProbe( "transl", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial );
+	_TEMPMatProbe( "transl", m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial, this );
 	_TEMPMDLog( "transl", 'T', pMaterial, m_pMesh->szName, this, 0, 0, 0, 0, 0, 0, 0, m_pMesh->nBoneCount, m_nDrawnPartsMask, nLODIndex, m_fMatrixScale, m_PosMtx.m_vP.x, m_PosMtx.m_vP.y, m_PosMtx.m_vP.z, (m_pMesh->nFlags & FMESH_FLAGS_VOLUME_MESH) ? 1 : 0, m_nFlags, _TEMPGetPal( m_pMesh->nBoneCount, m_nFlags, m_PosMtx, m_apBoneMtxPalette, NULL ), (s32)(pMaterial - m_pMesh->aMtl) );
 
 #if FPERF_ENABLE
