@@ -68,7 +68,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R102"
+#define MA_PORT_ROUND	"R103"
 
 static BOOL _bLogFileEnabled = FALSE;
 
@@ -520,8 +520,13 @@ struct _ModeEntry_t {
 };
 
 static const _ModeEntry_t _aModes[] = {
-	{ 640, 480 }, { 800, 600 }, { 1024, 768 }, { 1280, 960 },
-	{ 1280, 1024 }, { 1600, 1200 }
+	// 4:3 / 5:4
+	{ 640, 480 }, { 800, 600 }, { 1024, 768 },
+	{ 1280, 960 }, { 1280, 1024 }, { 1600, 1200 },
+	// 16:9 -- these were missing, so 1280x720 and every other widescreen
+	// desktop mode could not be selected at all.
+	{ 960, 540 }, { 1280, 720 }, { 1366, 768 },
+	{ 1600, 900 }, { 1920, 1080 }
 };
 static const u32 _cModes = sizeof(_aModes) / sizeof(_aModes[0]);
 
