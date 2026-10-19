@@ -2053,7 +2053,26 @@ static BOOL _Init( void ) {
 			DEVPRINTF( "wpr_system::_Init() : Could not create an rendering viewport.\n" );
 			goto _EXIT_WITH_ERROR;
 		}
-		fviewport_InitOrtho3D( _pViewportOrtho3D, 0.1f, 100.0f );
+		//The menu layer is authored for a 4:3 640x480 canvas. Give its ortho
+		//viewport that shape (centred) instead of stretching it to the whole
+		//backbuffer: the 3D scene still fills a widescreen display because it is
+		//drawn with the camera viewport before this one is made active, but the
+		//text, panels and arrows keep their authored proportions.
+		{
+			FViewport_t *pFullScreen = fviewport_GetActive();
+			u32 nW = pFullScreen ? (u32)pFullScreen->Res.x : 640;
+			u32 nH = pFullScreen ? (u32)pFullScreen->Res.y : 480;
+			u32 nUIW = nW, nUIH = nH, nLeft = 0, nTop = 0;
+			if( nW * 3 > nH * 4 ) {
+				nUIW = ( nH * 4 ) / 3;
+				nLeft = ( nW - nUIW ) / 2;
+			} else if( nW * 3 < nH * 4 ) {
+				nUIH = ( nW * 3 ) / 4;
+				nTop = ( nH - nUIH ) / 2;
+			}
+			fviewport_InitOrtho3D( _pViewportOrtho3D, 0.1f, 100.0f,
+								   nLeft, nTop, nUIW, nUIH );
+		}
 
 #if FANG_PLATFORM_WIN
 		// PC port: the main menu's "Quit Game" row text. A text area sizes its
@@ -2782,8 +2801,10 @@ static BOOL _Draw( void ) {
 	case WPR_DATATYPES_MODES_MMI_LOGO:			//CPS 5.5.03
 #endif											//ARG
 		FXfm_Identity.InitStackWithView();
-		pPrevViewport = fviewport_SetActive( _pViewportOrtho3D );
+		//Clear the whole backbuffer before switching to the 4:3 menu viewport;
+		//clearing while it is active would leave the side bars untouched.
 		fviewport_Clear( FVIEWPORT_CLEARFLAG_ALL, 0.0f, 0.0f, 0.0f, 1.0f, 0 );
+		pPrevViewport = fviewport_SetActive( _pViewportOrtho3D );
 
 		fmovie2_Draw();	
 

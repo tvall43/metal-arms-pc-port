@@ -66,8 +66,15 @@ static f32 _fPhysicalAspectRatio_HoW = 1.0f;
 
 static void _UpdatePhysicalAspectRatio( void )
 {
-	const f32 fAcross = (f32)FVid_Mode.nPixelsAcross;
-	const f32 fDown   = (f32)FVid_Mode.nPixelsDown;
+	//Use the viewport the text is being laid out in, not the backbuffer. On a
+	//widescreen mode the menu layer renders into a centred 4:3 sub-rect (the 3D
+	//scene uses the full backbuffer), and the layout maths below assumes the
+	//viewport's aspect ratio.
+	FViewport_t *pVP = fviewport_GetActive();
+	if( pVP == NULL ) { pVP = FViewport_pDefaultOrtho; }
+
+	const f32 fAcross = pVP ? pVP->Res.x : 0.0f;
+	const f32 fDown   = pVP ? pVP->Res.y : 0.0f;
 	if( fAcross > 0.0f && fDown > 0.0f ) {
 		_fPhysicalAspectRatio_WoH = fAcross / fDown;
 		_fPhysicalAspectRatio_HoW = fDown / fAcross;
@@ -1674,6 +1681,9 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 	if (pVP == NULL) {
 		pVP = FViewport_pDefaultOrtho;
 	}
+
+	//Keep the layout ratio in step with the viewport this printf targets.
+	_UpdatePhysicalAspectRatio();
 
 	float fVpLeft = pVP->ScreenCorners.UpperLeft.x * _FRAMEBUFFER_X_SCALEFACTOR;
 	float fVpTop  = pVP->ScreenCorners.UpperLeft.y;
