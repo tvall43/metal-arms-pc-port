@@ -71,6 +71,8 @@ static BOOL _bLogFileEnabled = FALSE;
 
 //R62: defined in ma_winDlg.cpp (next to the _DevPrintf choke point).
 extern BOOL FWin_bTEMPDebugProbes;
+//R68: separate diagnostic for the wire/light-pass question (see fdx8mesh.cpp).
+extern BOOL FWin_bTEMPDebugLightForce;
 #define _LOGFILE_DEFAULT 0
 
 // PC port: development mode (-dev / autorun) vs retail mode (default / play).
@@ -399,6 +401,10 @@ static void _LoadConfig( void )
 	_bLogFileEnabled = oSettings.ReadCustomInt( "Debug", "LogFile", _LOGFILE_DEFAULT ) ? TRUE : FALSE;
 	//R62: the R45-R61 invisibility-hunt probes are opt-in (see ma_winDlg.cpp).
 	FWin_bTEMPDebugProbes = oSettings.ReadCustomInt( "Debug", "TempProbes", 0 ) ? TRUE : FALSE;
+	//R68: forces only the diffuse (light) pass of the watched meshes to flat white.
+	//Independent of TempProbes on purpose: that one also enables the pin force,
+	//which paints the very meshes this diagnostic is meant to observe.
+	FWin_bTEMPDebugLightForce = oSettings.ReadCustomInt( "Debug", "WireLightForce", 0 ) ? TRUE : FALSE;
 
 	// Retail mode disables debug: the file log stays off regardless of the ini.
 	// The stored value survives for dev runs - _SaveConfig only writes it there.
@@ -486,6 +492,7 @@ static void _SaveConfig( void )
 	if( _bDevMode ) {
 		oSettings.WriteCustomInt( "Debug", "LogFile", _bLogFileEnabled ? 1 : 0 );
 		oSettings.WriteCustomInt( "Debug", "TempProbes", FWin_bTEMPDebugProbes ? 1 : 0 );
+		oSettings.WriteCustomInt( "Debug", "WireLightForce", FWin_bTEMPDebugLightForce ? 1 : 0 );
 	}
 	oSettings.WriteCustomFloat( "Audio", "Volume2D", FAudio_f2DVolumeScale );
 	oSettings.WriteCustomFloat( "Audio", "MinDistanceFraction", FAudio_fMinDistanceFraction );

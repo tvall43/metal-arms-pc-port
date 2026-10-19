@@ -64,6 +64,12 @@ u32 FMesh_nLastSurfaceMaterialCRC;
 //order matter). The app reads [Debug] TempProbes into it at startup.
 BOOL FWin_bTEMPDebugProbes = FALSE;
 
+//R68: separate switch from FWin_bTEMPDebugProbes on purpose. That one also turns
+//the pin force on, which paints exactly the meshes we are trying to observe.
+//This one forces only the DIFFUSE (light) pass of the watched meshes, so the
+//pin force stays off. See [Debug] WireLightForce.
+BOOL FWin_bTEMPDebugLightForce = FALSE;
+
 //R61: the shprobe (fdx8sh.cpp) sees the shader row but not who is drawing
 //with it, which is the one thing missing to attribute a row to a mesh+material.
 //The mesh pass sets these immediately before executing the shader.
@@ -1440,6 +1446,41 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 			sprintf( szTEMPPass, "light%u", (unsigned)nPass );
 			_TEMPMatProbe( szTEMPPass, m_pMesh->szName, (s32)( pMaterial - m_pMesh->aMtl ), pMaterial );
 		}
+		//R68: force the diffuse pass' PIXEL side to flat white for the watched
+		//meshes. Everything that ever 'revealed' these wires forced the SURFACE
+		//pass (R50-R57), which bypasses the light-pass result entirely: the surface
+		//row is a plain multiply (2*tex*dst), so the one thing never measured is
+		//whether dst is ~0. This keeps the vertex shader, the geometry and the depth
+		//exactly as normal (so the surface pass' ZFUNC EQUAL still matches) and only
+		//replaces what the pixels come out as.
+		if ( FWin_bTEMPDebugLightForce && !FMesh_bRenderShadows && _TEMPMatWatched( m_pMesh->szName ) )
+		{
+			u32 nTEMPStageF;
+			FDX8_pDev->GetPixelShader( &_s_nTEMPSavedPS );
+			FDX8_pDev->GetTexture( 0, &_s_pTEMPSavedTex0 );
+			FDX8_pDev->GetTexture( 1, &_s_pTEMPSavedTex1 );
+			for ( nTEMPStageF = 0; nTEMPStageF < 4; nTEMPStageF++ )
+			{
+				FDX8_pDev->GetTextureStageState( 0, _s_anTEMPTSS[nTEMPStageF], &_s_anTEMPSavedTSS[nTEMPStageF] );
+			}
+			FDX8_pDev->GetRenderState( D3DRS_TEXTUREFACTOR, &_s_nTEMPSavedTF );
+			FDX8_pDev->SetPixelShader( NULL );
+			FDX8_pDev->SetTexture( 0, NULL );
+			FDX8_pDev->SetTexture( 1, NULL );
+			for ( nTEMPStageF = 0; nTEMPStageF < 4; nTEMPStageF++ )
+			{
+				FDX8_pDev->SetTextureStageState( 0, _s_anTEMPTSS[nTEMPStageF], (nTEMPStageF & 1) ? D3DTA_TFACTOR : D3DTOP_SELECTARG1 );
+			}
+			FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, 0xFFFFFFFF );
+			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
+			FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, FALSE );
+			_s_bTEMPSurfForced = TRUE;
+			if ( !_TEMPMDSeen( (const void *)( (size_t)m_pMesh->szName ^ ( (size_t)( (s32)( pMaterial - m_pMesh->aMtl ) + 4 ) << 9 ) ), 'L' ) )
+			{
+				DEVPRINTF( "[ma] TEMP lightforce f%u %s mat=%d pass=%u: diffuse pixel side forced to white.\r\n",
+					(unsigned)FVid_nFrameCounter, m_pMesh->szName, (int)( pMaterial - m_pMesh->aMtl ), (unsigned)nPass );
+			}
+		}
 
 		//R49 magenta light-pass force retired: ride 3 (log_e) proved raster,
 		//oPos/depth fine for the gate list. R50 moves the test to the surface
@@ -1615,6 +1656,27 @@ BOOL CFMeshInst::DrawMaterialLight_P( FViewportPlanesMask_t nCrossesPlanesMask, 
 	}
 
 	fsh_EndExecute();
+
+	//R68: restore what the light-pass force bypassed (see above). Same rule as
+	//R52: the engine's state cache must stay truthful, so put back every state
+	//we changed with the device-direct calls.
+	if ( _s_bTEMPSurfForced )
+	{
+		u32 nTEMPStageR2;
+		FDX8_pDev->SetPixelShader( _s_nTEMPSavedPS );
+		FDX8_pDev->SetTexture( 0, _s_pTEMPSavedTex0 );
+		FDX8_pDev->SetTexture( 1, _s_pTEMPSavedTex1 );
+		for ( nTEMPStageR2 = 0; nTEMPStageR2 < 4; nTEMPStageR2++ )
+		{
+			FDX8_pDev->SetTextureStageState( 0, _s_anTEMPTSS[nTEMPStageR2], _s_anTEMPSavedTSS[nTEMPStageR2] );
+		}
+		FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, _s_nTEMPSavedTF );
+		FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, _s_nTEMPSavedAbEnable );
+		FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, _s_nTEMPSavedAtEnable );
+		if ( _s_pTEMPSavedTex0 ) { _s_pTEMPSavedTex0->Release(); _s_pTEMPSavedTex0 = NULL; }
+		if ( _s_pTEMPSavedTex1 ) { _s_pTEMPSavedTex1->Release(); _s_pTEMPSavedTex1 = NULL; }
+		_s_bTEMPSurfForced = FALSE;
+	}
 
 	if ( m_pMesh->nTexLayerIDCount ) 
 	{
