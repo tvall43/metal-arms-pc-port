@@ -42,6 +42,7 @@
 #include "ftimer.h"
 #include "gamesave.h"
 #include "gameloop.h"
+#include "fvid.h"
 #include "launcher.h"
 #include "game.h"
 #include "fcamanim.h"
@@ -2059,9 +2060,17 @@ static BOOL _Init( void ) {
 		//drawn with the camera viewport before this one is made active, but the
 		//text, panels and arrows keep their authored proportions.
 		{
-			FViewport_t *pFullScreen = fviewport_GetActive();
-			u32 nW = pFullScreen ? (u32)pFullScreen->Res.x : 640;
-			u32 nH = pFullScreen ? (u32)pFullScreen->Res.y : 480;
+			//Use the real video mode, not the currently active viewport: at this
+			//point that can still be the 640x480 default created before the mode
+			//was applied, which put the whole menu in the top-left quarter on
+			//widescreen modes.
+			u32 nW = FVid_Mode.nPixelsAcross;
+			u32 nH = FVid_Mode.nPixelsDown;
+			if( nW == 0 || nH == 0 ) {
+				FViewport_t *pFullScreen = fviewport_GetActive();
+				nW = pFullScreen ? (u32)pFullScreen->Res.x : 640;
+				nH = pFullScreen ? (u32)pFullScreen->Res.y : 480;
+			}
 			u32 nUIW = nW, nUIH = nH, nLeft = 0, nTop = 0;
 			if( nW * 3 > nH * 4 ) {
 				nUIW = ( nH * 4 ) / 3;

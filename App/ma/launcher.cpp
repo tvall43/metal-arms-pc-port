@@ -535,10 +535,39 @@ static BOOL _BootupWork( void ) {
 	return TRUE;
 }
 
+//The launcher screens are authored on a 640x480 canvas, but they draw with the
+//perspective default viewport active (SetActive(NULL)). ftext lays text out
+//with a width-based Y scale, so on widescreen every bottom row -- the version
+//line, the key legend -- fell off the screen. Clear the full backbuffer first,
+//then draw the text inside a centred 4:3 viewport.
+static FViewport_t *_pLauncherOrtho = NULL;
+
+static FViewport_t *_GetLauncherOrtho( void ) {
+	if( _pLauncherOrtho == NULL ) {
+		FViewport_t *pFull = fviewport_GetActive();
+		u32 nW = pFull ? (u32)pFull->Res.x : 640;
+		u32 nH = pFull ? (u32)pFull->Res.y : 480;
+		u32 nCW = nW, nCH = nH, nL = 0, nT = 0;
+		if( nW * 3 > nH * 4 ) {
+			nCW = (nH * 4) / 3;
+			nL = (nW - nCW) / 2;
+		} else if( nW * 3 < nH * 4 ) {
+			nCH = (nW * 3) / 4;
+			nT = (nH - nCH) / 2;
+		}
+		_pLauncherOrtho = fviewport_Create();
+		if( _pLauncherOrtho ) {
+			fviewport_InitOrtho3D( _pLauncherOrtho, 0.1f, 100.0f, nL, nT, nCW, nCH );
+		}
+	}
+	return _pLauncherOrtho;
+}
+
 static BOOL _BootupDraw( void ) {
 
 	fviewport_SetActive( NULL );
 	fviewport_Clear( FVIEWPORT_CLEARFLAG_ALL, 0.0f, 0.0f, 0.03f, 1.0f, 0 );
+	fviewport_SetActive( _GetLauncherOrtho() );
 
 	// draw the heading
 	ftext_Printf( 0.5f, 0.075f, "~f3~w1~ac~C90502099~s1.50Metal Arms" ); 
@@ -861,6 +890,7 @@ static BOOL _WrapperLoadDraw( void ) {
 void launcher_DrawLoadingScreen( void ) {
 	fviewport_SetActive( NULL );
 	fviewport_Clear( FVIEWPORT_CLEARFLAG_ALL, 0.0f, 0.0f, 0.03f, 1.0f, 0 );
+	fviewport_SetActive( _GetLauncherOrtho() );
 
 	launcher_DrawLoadingText();
 }
