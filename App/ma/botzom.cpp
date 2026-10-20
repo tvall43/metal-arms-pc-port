@@ -623,7 +623,7 @@ void CBotZom::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker *
 	FASSERT( IsCreated() );
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
 
-	apTrackerSkipList[nTrackerSkipListCount++] = m_pWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pWorldMesh; }
 }
 
 

@@ -770,7 +770,7 @@ void CWeaponStaff::ClassHierarchyRelocated( void *pIdentifier )
 void CWeaponStaff::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList)
 {
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
- 	apTrackerSkipList[nTrackerSkipListCount++] = m_aResourceData[m_nUpgradeLevel].m_pWorldMesh;
+ 	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_aResourceData[m_nUpgradeLevel].m_pWorldMesh; }
 }
 
 

@@ -707,7 +707,7 @@ CFMtx43A *CWeaponMortar::ClassHierarchyAttachChild( CEntity *pChildEntity, cchar
 void CWeaponMortar::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList) {
 	// Add our weapon mesh...
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pForkWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pForkWorldMesh; }
 }
 
 

@@ -2149,8 +2149,8 @@ const CFVec3A *CFloorSentry::GetTagPoint( u32 nTagPointIndex ) const
 void CFloorSentry::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList)
 {
 	FASSERT( (nTrackerSkipListCount + 2) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = &m_AliveMesh;
-	apTrackerSkipList[nTrackerSkipListCount++] = &m_DeadMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = &m_AliveMesh; }
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = &m_DeadMesh; }
 	if (m_pData->m_pDriverBot)
 	{
 		m_pData->m_pDriverBot->AppendTrackerSkipList(nTrackerSkipListCount,apTrackerSkipList);

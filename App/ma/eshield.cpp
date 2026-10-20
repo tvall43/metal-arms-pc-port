@@ -451,7 +451,7 @@ CEntityBuilder *CEShield::GetLeafClassBuilder( void ) {
 void CEShield::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList) {
 	FASSERT( IsCreated() );
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = m_pWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pWorldMesh; }
 }
 
 

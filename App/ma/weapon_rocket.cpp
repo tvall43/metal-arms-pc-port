@@ -1157,7 +1157,7 @@ void CWeaponRocket::ClassHierarchyRelocated( void *pIdentifier ) {
 void CWeaponRocket::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList) {
 	// Add our weapon mesh...
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pWorldMesh; }
 
 	if( m_pInfo->nStanceType == STANCE_TYPE_SHOULDER_MOUNT ) {
 		// For RL2 and RL3, add our cartridge rockets...
@@ -1165,7 +1165,7 @@ void CWeaponRocket::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTra
 		FASSERT( m_pResourceData->m_pCartridgeRocketWorldMeshArray );
 		for( u32 i=0; i<GetClipAmmo(); ++i ) {
 			FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-			apTrackerSkipList[nTrackerSkipListCount++] = &m_pResourceData->m_pCartridgeRocketWorldMeshArray[i];
+			if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = &m_pResourceData->m_pCartridgeRocketWorldMeshArray[i]; }
 		}
 	}
 }

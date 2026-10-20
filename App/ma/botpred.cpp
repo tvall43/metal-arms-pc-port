@@ -903,7 +903,7 @@ void CBotPred::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker 
 		m_apWeapon[0]->AppendTrackerSkipList(nTrackerSkipListCount,apTrackerSkipList);
 	}
 
-	apTrackerSkipList[nTrackerSkipListCount++] = m_pWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pWorldMesh; }
 
 #if !_DEBUG_DISABLE_SHIELD
 	m_pShield->AppendTrackerSkipList(nTrackerSkipListCount,apTrackerSkipList);

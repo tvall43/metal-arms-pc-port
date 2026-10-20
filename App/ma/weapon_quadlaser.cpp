@@ -733,7 +733,7 @@ void CWeaponQuadLaser::ClassHierarchyRemoveFromWorld( void ) {
 void CWeaponQuadLaser::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList) {
 	if( m_pResourceData->m_pWorldMesh ) {
 		FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-		apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pWorldMesh;
+		if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pWorldMesh; }
 	}
 
 	// SER: Ask Elliott why he's doing this:

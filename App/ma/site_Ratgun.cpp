@@ -1586,7 +1586,7 @@ BOOL CRatGun::SetOpenOrClosed(BOOL bOpen, f32 fHowLongItShouldTakeSecs )
 void CRatGun::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList)
 {
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = &m_AliveMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = &m_AliveMesh; }
 
 	if (m_pData->m_pDriverBot)
 	{

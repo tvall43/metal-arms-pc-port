@@ -5623,18 +5623,18 @@ void CVehicleRat::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTrack
 {
 	FASSERT( IsCreated() );
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = m_pWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pWorldMesh; }
 
 	if( m_pDeadRatWorldMesh )
 	{
-		apTrackerSkipList[nTrackerSkipListCount++] = m_pDeadRatWorldMesh;
+		if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pDeadRatWorldMesh; }
 	}
 
 	// rat gun adds gunner bot...
 	m_RatGun.AppendTrackerSkipList(nTrackerSkipListCount,apTrackerSkipList);
 
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = m_RatGun.m_pWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_RatGun.m_pWorldMesh; }
 
 	if( m_pDriverBot )
 	{

@@ -156,14 +156,14 @@ class CFWorldKey
 		};
 
 		static FINLINE s32 OpenKey( void );
-		static FINLINE void CloseKey( s32 nKeyIndex ) { m_abInUse[nKeyIndex] = FALSE; }
+		static FINLINE void CloseKey( s32 nKeyIndex ) { if( (u32)nKeyIndex < (u32)FWORLD_KEYCOUNT ) m_abInUse[nKeyIndex] = FALSE; }
 
 		static FINLINE void ResetAllKeys( void ) { for( s32 i=0; i<FWORLD_KEYCOUNT; i++ ) ResetKey( i ); }
-		static FINLINE void ResetKey( s32 nKeyIndex ) { m_anGlobalVisitedKey[nKeyIndex] = 0; }
-		static FINLINE void IncKey( s32 nKeyIndex ) { FASSERT( m_abInUse[nKeyIndex] ); m_anGlobalVisitedKey[nKeyIndex]++; }
-		FINLINE void FlagAsVisited( s32 nKeyIndex ) { FASSERT( m_abInUse[nKeyIndex] ); m_anVisitedKey[nKeyIndex] = m_anGlobalVisitedKey[nKeyIndex]; }
-		FINLINE void FlagAsNotVisited( s32 nKeyIndex ) { FASSERT( m_abInUse[nKeyIndex] ); m_anVisitedKey[nKeyIndex] = m_anGlobalVisitedKey[nKeyIndex] - 1; }
-		FINLINE BOOL HaveVisited( s32 nKeyIndex ) const { FASSERT( m_abInUse[nKeyIndex] ); return (m_anVisitedKey[nKeyIndex] == m_anGlobalVisitedKey[nKeyIndex]); }
+		static FINLINE void ResetKey( s32 nKeyIndex ) { if( (u32)nKeyIndex < (u32)FWORLD_KEYCOUNT ) m_anGlobalVisitedKey[nKeyIndex] = 0; }
+		static FINLINE void IncKey( s32 nKeyIndex ) { if( (u32)nKeyIndex >= (u32)FWORLD_KEYCOUNT ) return; FASSERT( m_abInUse[nKeyIndex] ); m_anGlobalVisitedKey[nKeyIndex]++; }
+		FINLINE void FlagAsVisited( s32 nKeyIndex ) { if( (u32)nKeyIndex >= (u32)FWORLD_KEYCOUNT ) return; FASSERT( m_abInUse[nKeyIndex] ); m_anVisitedKey[nKeyIndex] = m_anGlobalVisitedKey[nKeyIndex]; }
+		FINLINE void FlagAsNotVisited( s32 nKeyIndex ) { if( (u32)nKeyIndex >= (u32)FWORLD_KEYCOUNT ) return; FASSERT( m_abInUse[nKeyIndex] ); m_anVisitedKey[nKeyIndex] = m_anGlobalVisitedKey[nKeyIndex] - 1; }
+		FINLINE BOOL HaveVisited( s32 nKeyIndex ) const { if( (u32)nKeyIndex >= (u32)FWORLD_KEYCOUNT ) return FALSE; FASSERT( m_abInUse[nKeyIndex] ); return (m_anVisitedKey[nKeyIndex] == m_anGlobalVisitedKey[nKeyIndex]); }
 
 	protected:
 		u32 m_anVisitedKey[FWORLD_KEYCOUNT];

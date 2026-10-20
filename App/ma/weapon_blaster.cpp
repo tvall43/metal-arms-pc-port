@@ -984,7 +984,7 @@ CFMtx43A *CWeaponBlaster::ClassHierarchyAttachChild( CEntity *pChildEntity, ccha
 void CWeaponBlaster::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList) {
 	// Add our weapon mesh...
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pWorldMesh; }
 }
 
 void CWeaponBlaster::ClassHierarchyResetToState( void ) {

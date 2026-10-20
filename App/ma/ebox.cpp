@@ -348,7 +348,7 @@ void CEBox::ClassHierarchyRemoveFromWorld( void ) {
 void CEBox::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList) {
 	FASSERT( IsCreated() );
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = &m_WorldUser;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = &m_WorldUser; }
 }
 
 

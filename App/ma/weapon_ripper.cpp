@@ -861,7 +861,7 @@ CFMtx43A *CWeaponRipper::ClassHierarchyAttachChild( CEntity *pChildEntity, cchar
 void CWeaponRipper::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker ** apTrackerSkipList) {
 	// Add our weapon mesh...
 	FASSERT( (nTrackerSkipListCount + 1) <= FWORLD_MAX_SKIPLIST_ENTRIES );
-	apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pWorldMesh;
+	if( nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) { apTrackerSkipList[nTrackerSkipListCount++] = m_pResourceData->m_pWorldMesh; }
 
 	// Add our clip to the list...
 	m_pClipMeshEntity->AppendTrackerSkipList(nTrackerSkipListCount,apTrackerSkipList);
