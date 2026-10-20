@@ -68,7 +68,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R107"
+#define MA_PORT_ROUND	"R108"
 
 static BOOL _bLogFileEnabled = FALSE;
 
@@ -182,6 +182,15 @@ static void _FangPrintf( const char *pszFormat, FANG_VA_LIST Args )
 {
 	char szBuf[2048];
 	vsnprintf( szBuf, sizeof(szBuf), pszFormat, Args );
+
+	//[Debug] TempProbes (default off) gates the wire/orb investigative probes.
+	//This is the real DEVPRINTF sink; the copy of this gate in the old MFC shell
+	//(ma_winDlg.cpp) is not part of the build, which is why the probes kept
+	//printing with TempProbes=0.
+	if( !FWin_bTEMPDebugProbes &&
+		( !strncmp( szBuf, "[ma] TEMP ", 10 ) || !strncmp( szBuf, "[AI] TEMP ", 10 ) ) ) {
+		return;
+	}
 
 	if( _pLogFile ) {
 		fputs( szBuf, _pLogFile );

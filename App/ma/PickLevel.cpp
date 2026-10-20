@@ -36,6 +36,7 @@
 #include "fclib.h"
 #include "wpr_system.h"
 #include "difficulty.h"
+#include "launcher.h"
 
 
 //====================
@@ -545,38 +546,13 @@ static BOOL _PickLevelWork( void ) {
 	return TRUE;
 }
 
-//Same 4:3 canvas as the launcher: the level list is authored for 640x480 and
-//otherwise runs off the bottom of a widescreen screen.
-static FViewport_t *_pPickLevelOrtho = NULL;
-
-static FViewport_t *_GetPickLevelOrtho( void ) {
-	if( _pPickLevelOrtho == NULL ) {
-		FViewport_t *pFull = fviewport_GetActive();
-		u32 nW = pFull ? (u32)pFull->Res.x : 640;
-		u32 nH = pFull ? (u32)pFull->Res.y : 480;
-		u32 nCW = nW, nCH = nH, nL = 0, nT = 0;
-		if( nW * 3 > nH * 4 ) {
-			nCW = (nH * 4) / 3;
-			nL = (nW - nCW) / 2;
-		} else if( nW * 3 < nH * 4 ) {
-			nCH = (nW * 3) / 4;
-			nT = (nH - nCH) / 2;
-		}
-		_pPickLevelOrtho = fviewport_Create();
-		if( _pPickLevelOrtho ) {
-			fviewport_InitOrtho3D( _pPickLevelOrtho, 0.1f, 100.0f, nL, nT, nCW, nCH );
-		}
-	}
-	return _pPickLevelOrtho;
-}
-
 static BOOL _Draw( void ) {
 
 	FASSERT( _bSystemInitialized );
 
 	fviewport_SetActive( NULL );
 	fviewport_Clear( FVIEWPORT_CLEARFLAG_ALL, 0.0f, 0.0f, 0.03f, 1.0f, 0 );
-	fviewport_SetActive( _GetPickLevelOrtho() );
+	launcher_SetupTextCanvas();
 
 	ftext_ClearAllPending();
 

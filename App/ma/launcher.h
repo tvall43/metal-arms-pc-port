@@ -73,5 +73,6 @@ extern BOOL launcher_LaunchedFromWrappers( void );
 extern void launcher_LoadFailure( void );
 extern void launcher_DrawLoadingScreen( void );
 extern void launcher_DrawLoadingText( void );
+extern void launcher_SetupTextCanvas( void );
 
 #endif
