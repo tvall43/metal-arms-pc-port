@@ -600,7 +600,21 @@ BOOL CPauseScreen::InitSystem()
 		DEVPRINTF("CHud2::InitSystem : Could not create ortho 3d viewport.\n");
 		return(FALSE);
 	}
-	fviewport_InitOrtho3D(m_pviewOrtho3d, 0.1f, 1000.0f);
+	//The pause screen is authored on a 4:3 canvas (x in [-1,1], y in
+	//[-0.75,0.75]). Give its ortho viewport that shape, centred, so widescreen
+	//modes neither stretch the frame nor push the menu rows off the bottom.
+	//The preview viewport below uses the same canvas.
+	u32 nCanvasW = FVid_Mode.nPixelsAcross;
+	u32 nCanvasH = FVid_Mode.nPixelsDown;
+	u32 nCanvasL = 0, nCanvasT = 0;
+	if( nCanvasW * 3 > nCanvasH * 4 ) {
+		nCanvasW = (nCanvasH * 4) / 3;
+		nCanvasL = (FVid_Mode.nPixelsAcross - nCanvasW) / 2;
+	} else if( nCanvasW * 3 < nCanvasH * 4 ) {
+		nCanvasH = (nCanvasW * 3) / 4;
+		nCanvasT = (FVid_Mode.nPixelsDown - nCanvasH) / 2;
+	}
+	fviewport_InitOrtho3D(m_pviewOrtho3d, 0.1f, 1000.0f, nCanvasL, nCanvasT, nCanvasW, nCanvasH);
 
 	//// Create an area for our info text box.
 	//
@@ -646,10 +660,10 @@ BOOL CPauseScreen::InitSystem()
 		return(FALSE);
 	}
 
-	uMeshLE_PC = (u32)(((CPauseScreen_fInfoBoxMeshLE + 1.0f) * 0.5f) * (f32)(FVid_Mode.nPixelsAcross));
-	uMeshWidth_PC = (u32)(((CPauseScreen_fInfoBoxMeshRE - CPauseScreen_fInfoBoxMeshLE) * 0.5f) * (f32)(FVid_Mode.nPixelsAcross));
-	uMeshTE_PC = (u32)(((-CPauseScreen_fInfoBoxMeshTE + 0.75f) * (2.0f / 3.0f)) * (f32)(FVid_Mode.nPixelsDown));
-	uMeshHeight_PC = (u32)(((CPauseScreen_fInfoBoxMeshTE - CPauseScreen_fInfoBoxMeshBE) * (2.0f / 3.0f)) * (f32)(FVid_Mode.nPixelsDown));
+	uMeshLE_PC = nCanvasL + (u32)(((CPauseScreen_fInfoBoxMeshLE + 1.0f) * 0.5f) * (f32)(nCanvasW));
+	uMeshWidth_PC = (u32)(((CPauseScreen_fInfoBoxMeshRE - CPauseScreen_fInfoBoxMeshLE) * 0.5f) * (f32)(nCanvasW));
+	uMeshTE_PC = nCanvasT + (u32)(((-CPauseScreen_fInfoBoxMeshTE + 0.75f) * (2.0f / 3.0f)) * (f32)(nCanvasH));
+	uMeshHeight_PC = (u32)(((CPauseScreen_fInfoBoxMeshTE - CPauseScreen_fInfoBoxMeshBE) * (2.0f / 3.0f)) * (f32)(nCanvasH));
 	fviewport_InitPersp(m_pviewPerspective, /*FMATH_QUARTER_PI*/FMATH_PI * (1.0f / 6.0f), 0.1f, 1000.0f, uMeshLE_PC, uMeshTE_PC, uMeshWidth_PC, uMeshHeight_PC);
 	//
 	////
@@ -1313,10 +1327,11 @@ void CPauseScreen::Draw(CInventory *pInventory)
 	CFXfm oCamera;
 	FViewport_t *pviewPrevious = fviewport_GetActive();
 
-	fviewport_SetActive(m_pviewOrtho3d);
-
-//	fviewport_Clear(FVIEWPORT_CLEARFLAG_ALL, 0.1f, 0.1f, 0.1f, 1.0f, 0);
+	//Clear the whole screen (the previous viewport is the game camera) before
+	//switching to the 4:3 pause canvas, otherwise the side bars keep the last
+	//frame.
 	fviewport_Clear(FVIEWPORT_CLEARFLAG_ALL, 0.0f, 0.016f, 0.169f, 1.0f, 0);
+	fviewport_SetActive(m_pviewOrtho3d);
 //	CFColorRGBA rgbaTemp(0.0f, 0.016f, 0.169f, 0.4f);
 
 	frenderer_Push(FRENDERER_DRAW, NULL);
@@ -1337,7 +1352,7 @@ void CPauseScreen::Draw(CInventory *pInventory)
 		xfmWindow.BuildTranslation(0.0f, 0.0f, 1.0f);
 		// This is used to normalize the coordinates that I will be using (x E [-1.0f, 1.0f], y E [-0.75f, 0.75f])
 		// This assumes a 4:3, x:y, window ratio, if otherwise, each axis must be scaled differently.
-		xfmTemp.BuildScale(pviewPrevious->HalfRes.x);
+		xfmTemp.BuildScale(m_pviewOrtho3d->HalfRes.x);
 		xfmWindow.ReceiveProductOf(xfmWindow, xfmTemp);
 		xfmWindow.PushModel();
 		//
