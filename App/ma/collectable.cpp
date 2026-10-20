@@ -2507,6 +2507,17 @@ BOOL CCollectable::_PlaceIntoWorld( CCollectableType *pType,
 		goto _ExitWithError;
 	}
 
+	// Types that are only notified after the level's PostPlayerCreationSetup()
+	// pass (bots spawned at runtime, and the barter's auto-filled ammo rows)
+	// never get their mesh pool built. A drop or a shop purchase would then
+	// silently die here - the barter still charges the washers, and the bot's
+	// ammo never reaches the ground. Build the pool on demand: Setup() is
+	// idempotent and the mesh is in the master file.
+	if( ( pCollectable->m_pCollectableType->m_pMeshPool == NULL ) &&
+		( !pCollectable->m_pCollectableType->m_bSetup ) ) {
+		pCollectable->m_pCollectableType->Setup();
+	}
+
 	// If we don't have a mesh for the collectable type, something has gone wrong and we didn't get told to load this mesh
 	if( pCollectable->m_pCollectableType->m_pMeshPool == NULL ) {
 		DEVPRINTF( "CCollectable::_PlaceIntoWorld(): Mesh '%s' was not loaded.\n", pCollectable->m_pCollectableType->m_pszMeshName );
