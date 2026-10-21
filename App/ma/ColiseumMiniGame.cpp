@@ -3359,25 +3359,48 @@ BOOL CColiseumMiniGame::MainGame()
 		//grunts died, before the later waves and the predator appeared.
 		if (bAllDead)
 		{
+			u32 nScanned = 0;
+			u32 nLive = 0;
+			u32 nInWorld = CEntity::GetInWorldCount();
 			CEntity *pWaveEntity = CEntity::InWorldList_GetHead();
-			while (pWaveEntity)
+			for (u32 nWaveIdx = 0; nWaveIdx < nInWorld && pWaveEntity; nWaveIdx++)
 			{
 				u64 uTypeBits = pWaveEntity->LeafTypeBit();
 				if ((uTypeBits & ENTITY_BITS_ENEMYBOTS) &&
 					!(uTypeBits & ENTITY_BIT_BOTCORROSIVE))
 				{
+					nScanned++;
 					CBot *pWaveBot = (CBot *)pWaveEntity;
-					if (pWaveBot->AIBrain() &&
-						(pWaveBot->AIBrain()->GetRace() == AIRACE_MIL ||
-						 pWaveBot->AIBrain()->GetRace() == AIRACE_ZOMBIE))
+					BOOL bBrain = pWaveBot->AIBrain() != NULL;
+					s32 nRace = bBrain ? (s32)pWaveBot->AIBrain()->GetRace() : -1;
+					BOOL bDead = _IS_BOT_DEAD(pWaveBot);
+					//R117 TEMP
+					extern BOOL FWin_bTEMPDebugProbes;
+					if( FWin_bTEMPDebugProbes )
 					{
-						if (!_IS_BOT_DEAD(pWaveBot))
+						DEVPRINTF( "[ma] TEMP colwin ent '%s' brain=%d race=%d dead=%d torso=%d type=%08x:%08x\n",
+							pWaveBot->Name() ? pWaveBot->Name() : "?", (s32)bBrain, nRace,
+							(s32)pWaveBot->IsDead(), (s32)pWaveBot->IsTorsoBlownOff(),
+							(u32)(uTypeBits >> 32), (u32)uTypeBits );
+					}
+					if (bBrain && (nRace == AIRACE_MIL || nRace == AIRACE_ZOMBIE))
+					{
+						if (!bDead)
 						{
+							nLive++;
 							bAllDead = FALSE;
 						}
 					}
 				}
 				pWaveEntity = pWaveEntity->InWorldList_GetNext();
+			}
+
+			//R117 TEMP
+			extern BOOL FWin_bTEMPDebugProbes;
+			if( FWin_bTEMPDebugProbes )
+			{
+				DEVPRINTF( "[ma] TEMP colwin scan enemies=%d inworld=%d scanned=%d live=%d allDead=%d\n",
+					m_nNumEnemies, nInWorld, nScanned, nLive, (s32)bAllDead );
 			}
 		}
 
@@ -3724,6 +3747,14 @@ BOOL CColiseumMiniGame::HandleEndCutscene()
 
 void CColiseumMiniGame::EndGame()
 {
+	//R117 TEMP
+	extern BOOL FWin_bTEMPDebugProbes;
+	if( FWin_bTEMPDebugProbes )
+	{
+		DEVPRINTF( "[ma] TEMP colend score=%d enemies=%d level=%d\n",
+			m_nScore, m_nNumEnemies, m_nLevelID );
+	}
+
 	//Stop the slicers sounds.
 	if (m_pSoundEmitters[COLISEUMSND_COMMON_BLADE])
 	{
