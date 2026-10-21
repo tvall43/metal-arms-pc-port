@@ -221,7 +221,6 @@ private:
 	f32 m_fUnitPos;
 	f32 m_fUnitPosMapped;
 	f32 m_fTimeOpen;
-	f32 m_fScriptHoldCtdn;		//R113: seconds of suppressed auto behavior after a script command
 	u32 m_uPos;
 
 	// Config data.
@@ -297,16 +296,6 @@ public:
 	FINLINE s32 GetMoveTypeDbg( void ) { return (s32)m_eDoorMoveType; }
 	FINLINE s32 GetBoneMoveTypeDbg( void ) { return (s32)m_eBoneMoveType; }
 	FINLINE const CFVec3A &GetDoorMoveVecDbg( void ) { return m_vecDoorMove; }
-
-	//R113: a script's door command is a one-shot order. Auto behavior must not
-	//override it before the script has acted on it (WCBCcolis03's enemy gate
-	//auto-closes one second after the script opens it, while the script is
-	//still in its four second pre-fight delay).
-	void ScriptCommand( f32 fSecs ) { if( m_fScriptHoldCtdn < fSecs ) m_fScriptHoldCtdn = fSecs; }
-	//R113: polling only extends a hold the script itself created. A script that
-	//merely watches a door (waiting for it to auto-open/close) must not freeze
-	//that door's behaviour.
-	void ScriptPoll( f32 fSecs ) { if( m_fScriptHoldCtdn > 0.0f ) ScriptCommand( fSecs ); }
 
 	/////////////////////////////////////////////////////////////
 	// State querying.

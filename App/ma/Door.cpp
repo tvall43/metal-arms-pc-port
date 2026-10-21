@@ -991,14 +991,6 @@ void CDoorEntity::ClassHierarchyWork()
 	//
 	// Doors can decide to change states for various reasons
 	//
-	//R113: a fresh script command suppresses that for a moment.
-	if( m_fScriptHoldCtdn > 0.0f ) {
-		m_fScriptHoldCtdn -= FLoop_fPreviousLoopSecs;
-		if( m_fScriptHoldCtdn < 0.0f ) {
-			m_fScriptHoldCtdn = 0.0f;
-		}
-	}
-
 	StateTransitions();
 
 	//
@@ -1394,8 +1386,6 @@ void CDoorEntity::Clear()
 	m_apV3OPath[0] = NULL;
 	m_apV3OPath[1] = NULL;
 
-	m_fScriptHoldCtdn = 0.0f;	//R113
-
 	m_pManMtx = NULL;
 	m_pRestMtx = NULL;
 	m_pAnimCombiner = NULL;
@@ -1514,12 +1504,6 @@ BOOL CDoorEntity::_ValidBotNearby(CFVec3A &vecPos, f32 fRadius, u32 uFrontBackFi
 void CDoorEntity::StateTransitions()
 {
 	if(m_bLocked)
-	{
-		return;
-	}
-
-	//R113: a script owns this door for a moment after it commands it.
-	if( m_fScriptHoldCtdn > 0.0f )
 	{
 		return;
 	}
@@ -1769,12 +1753,14 @@ void CDoorEntity::DoBehaviorDoor()
 			BOOL bNear = _ValidBotNearby(MtxToWorld()->m_vPos, m_afActiveRadius[0], CHECK_FOR_BOTS_IN_FRONTANDBACK);
 			//R113 TEMP
 			extern BOOL FWin_bTEMPDebugProbes;
-			if( FWin_bTEMPDebugProbes && Name() && !fclib_strnicmp(Name(), "outerdoor", 9) )
+			static u32 s_nTEMPDoorAutoPoll = 0;
+			if( FWin_bTEMPDebugProbes && Name() && !fclib_strnicmp(Name(), "outerdoor", 9) &&
+				++s_nTEMPDoorAutoPoll % 60 == 0 )
 			{
-				DEVPRINTF( "[ma] TEMP doorauto %s state=1 near=%d radius=%.2f at=(%.2f,%.2f,%.2f) move=%d bone=%d hold=%.2f\n",
+				DEVPRINTF( "[ma] TEMP doorauto %s state=1 near=%d radius=%.2f at=(%.2f,%.2f,%.2f) move=%d bone=%d\n",
 					Name(), (s32)bNear, m_afActiveRadius[0],
 					MtxToWorld()->m_vPos.x, MtxToWorld()->m_vPos.y, MtxToWorld()->m_vPos.z,
-					(s32)m_eDoorMoveType, (s32)m_eBoneMoveType, m_fScriptHoldCtdn );
+					(s32)m_eDoorMoveType, (s32)m_eBoneMoveType );
 			}
 			if(!bNear)
 			{

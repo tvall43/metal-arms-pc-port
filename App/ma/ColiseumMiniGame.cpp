@@ -3352,6 +3352,35 @@ BOOL CColiseumMiniGame::MainGame()
 				bAllDead = FALSE;
 			}
 		}
+
+		//R116: m_pEnemies is a snapshot taken by InitGame. WEBCcolis03's battle
+		//script adds grunts 5-8 and pred1 later (E_AddToWorld on botdie counts
+		//4 and 8), so without this the match ended as soon as the four initial
+		//grunts died, before the later waves and the predator appeared.
+		if (bAllDead)
+		{
+			CEntity *pWaveEntity = CEntity::InWorldList_GetHead();
+			while (pWaveEntity)
+			{
+				u64 uTypeBits = pWaveEntity->LeafTypeBit();
+				if ((uTypeBits & ENTITY_BITS_ENEMYBOTS) &&
+					!(uTypeBits & ENTITY_BIT_BOTCORROSIVE))
+				{
+					CBot *pWaveBot = (CBot *)pWaveEntity;
+					if (pWaveBot->AIBrain() &&
+						(pWaveBot->AIBrain()->GetRace() == AIRACE_MIL ||
+						 pWaveBot->AIBrain()->GetRace() == AIRACE_ZOMBIE))
+					{
+						if (!_IS_BOT_DEAD(pWaveBot))
+						{
+							bAllDead = FALSE;
+						}
+					}
+				}
+				pWaveEntity = pWaveEntity->InWorldList_GetNext();
+			}
+		}
+
 		bRet = ( bAllDead && m_nNumEnemies>1 );
 		
 		//You get 1 point per enemy killed.

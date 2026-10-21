@@ -3366,9 +3366,6 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GotoPos(AMX *pAMX, cell *aParams)
 	}
 
 	BOOL bAccepted = pDE->GotoPos(aParams[2], CDoorEntity::GOTOREASON_DESTINATION);
-	//R113: a script command owns the door; keep auto behavior off long enough
-	//to cover script delays (WCBCcolis03 waits four seconds before checking).
-	pDE->ScriptCommand( 10.0f );
 	//R112: a scripted gate command is one-shot (the battle script calls this
 	//once and then polls GetUnitPos). GotoPos() drops the request whenever the
 	//door happens to be mid-move, which can leave a gate stopped in the wrong
@@ -3397,9 +3394,6 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GetUnitPos(AMX *pAMX, cell *aParams
 	static u32 s_nTEMPDoorPoll = 0;
 	if( ++s_nTEMPDoorPoll % 60 == 0 )
 		_TEMPDoorLog( pDE, "poll", -1, 0 );
-
-	//R113: the script is still acting on this door; keep it under script control.
-	pDE->ScriptPoll( 2.0f );
 
 	return(ConvertF32ToCell(pDE->GetUnitPos()));
 }
@@ -3443,8 +3437,6 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_SnapToPos(AMX *pAMX, cell *aParams)
 	}
 
 	pDE->SnapToPos(aParams[2]);
-	//R114: a scripted snap is just as authoritative as a scripted move.
-	pDE->ScriptCommand( 10.0f );
 
 	return((cell)(0));
 }
