@@ -27,6 +27,9 @@
 
 #include "fshadow.h"
 
+//R112 TEMP: [Debug] TempProbes switch (defined in the DX8 layer).
+extern BOOL FWin_bTEMPDebugProbes;
+
 #if FANG_PLATFORM_GC
 #include "fGCtex.h"
 #endif
@@ -1789,6 +1792,26 @@ void CColiseumMiniGame::InitGame()
 			m_nNumFriendly = 1;
 		}
 
+	}
+
+	//R112 TEMP: how many arena combatants the coliseum found. Gated by
+	//[Debug] TempProbes, off by default.
+	if( FWin_bTEMPDebugProbes )
+	{
+		DEVPRINTF( "[ma] TEMP coliseum lvl=%d inworld=%d enemies=%d friendlies=%d\n",
+			m_nLevelID, nNumEntity, m_nNumEnemies, m_nNumFriendly );
+		for (i=0; i<(u32)m_nNumEnemies; i++)
+		{
+			DEVPRINTF( "[ma] TEMP   enemy[%d] %s inworld=%d\n", i,
+				m_pEnemies[i] && m_pEnemies[i]->Name() ? m_pEnemies[i]->Name() : "?",
+				m_pEnemies[i] ? (s32)m_pEnemies[i]->IsInWorld() : -1 );
+		}
+		for (i=0; i<(u32)m_nNumFriendly; i++)
+		{
+			DEVPRINTF( "[ma] TEMP   friendly[%d] %s inworld=%d\n", i,
+				m_pFriendly[i] && m_pFriendly[i]->Name() ? m_pFriendly[i]->Name() : "?",
+				m_pFriendly[i] ? (s32)m_pFriendly[i]->IsInWorld() : -1 );
+		}
 	}
 
 	//Setup manget traps.

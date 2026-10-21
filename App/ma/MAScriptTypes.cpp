@@ -3335,6 +3335,23 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_IsValid(AMX *pAMX, cell *aParams)
 	return((cell)(aParams[1] != NULL));
 }
 
+//R112 TEMP: arena door diagnosis (WEBCcolis03 "Last Bot Standing" hangs in the
+//battle script waiting for outerdoor6 to reach unit pos 1). Gated by
+//[Debug] TempProbes, off by default.
+extern BOOL FWin_bTEMPDebugProbes;
+static void _TEMPDoorLog( CDoorEntity *pDE, const char *pszOp, s32 nReq, s32 nRet )
+{
+	if( !FWin_bTEMPDebugProbes || !pDE )
+		return;
+
+	CFWorldMesh *pWM = pDE->GetMeshInst();
+	DEVPRINTF( "[ma] TEMP door %-12s %-4s req=%d ret=%d state=%d pos=%.4f lock=%d inworld=%d vol=0x%08x\n",
+		pDE->Name() ? pDE->Name() : "?", pszOp, nReq, nRet,
+		(s32)pDE->GetState(), pDE->GetUnitPos(), (s32)pDE->IsLocked(),
+		(s32)pDE->IsInWorld(),
+		pWM ? (u32)pWM->GetVolumeFlags() : 0xffffffff );
+}
+
 cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GotoPos(AMX *pAMX, cell *aParams)
 {
 	SCRIPT_CHECK_NUM_PARAMS( "Door_GotoPos", 2 );
@@ -3345,7 +3362,16 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GotoPos(AMX *pAMX, cell *aParams)
 		return((cell)(0));
 	}
 
-	pDE->GotoPos(aParams[2], CDoorEntity::GOTOREASON_DESTINATION);
+	BOOL bAccepted = pDE->GotoPos(aParams[2], CDoorEntity::GOTOREASON_DESTINATION);
+	//R112: a scripted gate command is one-shot (the battle script calls this
+	//once and then polls GetUnitPos). GotoPos() drops the request whenever the
+	//door happens to be mid-move, which can leave a gate stopped in the wrong
+	//state forever. Scripts are authoritative, so force the requested end.
+	if( !bAccepted )
+	{
+		pDE->ForceGotoPos(aParams[2], CDoorEntity::GOTOREASON_DESTINATION);
+	}
+	_TEMPDoorLog( pDE, "goto", (s32)aParams[2], (s32)bAccepted );
 
 	return((cell)(0));
 }
@@ -3359,6 +3385,12 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GetUnitPos(AMX *pAMX, cell *aParams
 		SCRIPT_ERROR("Door_GetUnitPos() : Passed in null door.");
 		return((cell)(0));
 	}
+
+	//One line per second per script poll, enough to see whether the gate
+	//actually travels and whether its work is being skipped.
+	static u32 s_nTEMPDoorPoll = 0;
+	if( ++s_nTEMPDoorPoll % 60 == 0 )
+		_TEMPDoorLog( pDE, "poll", -1, 0 );
 
 	return(ConvertF32ToCell(pDE->GetUnitPos()));
 }
