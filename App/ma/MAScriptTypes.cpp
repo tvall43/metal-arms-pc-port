@@ -3346,12 +3346,12 @@ static void _TEMPDoorLog( CDoorEntity *pDE, const char *pszOp, s32 nReq, s32 nRe
 
 	CFWorldMesh *pWM = pDE->GetMeshInst();
 	CFMtx43A *pMtx = pDE->MtxToWorld();
-	DEVPRINTF( "[ma] TEMP door %-12s %-4s req=%d ret=%d state=%d pos=%.4f lock=%d inworld=%d vol=0x%08x move=%d bone=%d at=(%.2f,%.2f,%.2f)\n",
+	DEVPRINTF( "[ma] TEMP door %-12s %-4s req=%d ret=%d state=%d pos=%.4f lock=%d inworld=%d vol=0x%08x move=%d bone=%d near=%d at=(%.2f,%.2f,%.2f)\n",
 		pDE->Name() ? pDE->Name() : "?", pszOp, nReq, nRet,
 		(s32)pDE->GetState(), pDE->GetUnitPos(), (s32)pDE->IsLocked(),
 		(s32)pDE->IsInWorld(),
 		pWM ? (u32)pWM->GetVolumeFlags() : 0xffffffff,
-		pDE->GetMoveTypeDbg(), pDE->GetBoneMoveTypeDbg(),
+		pDE->GetMoveTypeDbg(), pDE->GetBoneMoveTypeDbg(), (s32)pDE->IsOccupied(),
 		pMtx ? pMtx->m_vPos.x : 0.0f, pMtx ? pMtx->m_vPos.y : 0.0f, pMtx ? pMtx->m_vPos.z : 0.0f );
 }
 

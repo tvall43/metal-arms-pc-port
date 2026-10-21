@@ -1497,9 +1497,13 @@ BOOL CDoorEntity::_ValidBotNearby(CFVec3A &vecPos, f32 fRadius, u32 uFrontBackFi
 	s_uFrontBackFilter = uFrontBackFilter;
 	s_vecDoorPos = MtxToWorld()->m_vPos;
 	s_vecDoorZ = MtxToWorld()->m_vZ;
+	//R115: the retail callback only requires "following a path" for lifts, and
+	//reads the door from this global to decide that (matches XBE 0x150ff).
+	s_pCollLift = this;
 
 	BOOL bValidBotFound = !UserTracker.FindIntersectingTrackers(BotCheckCallback, FWORLD_TRACKERTYPE_MESH);
 
+	s_pCollLift = NULL;
 	UserTracker.RemoveFromWorld();
 
 	return(bValidBotFound);
@@ -2253,10 +2257,22 @@ BOOL CDoorEntity::BotCheckCallback(CFWorldTracker *pTracker, FVisVolume_t *pVolu
 			return(TRUE);
 		}
 		if (pBot->IsSleeping() ||
-			pBot->IsDeadOrDying() ||
-			(!pBot->IsPlayerBot() && (!pBot->AIBrain() || !pBot->AIBrain()->GetAIMover() || !pBot->AIBrain()->GetAIMover()->IsFollowingPath())))
+			pBot->IsDeadOrDying())
 		{
 			return(TRUE);
+		}
+
+		//R115: retail only requires a path for LIFTS. Plain doors count any
+		//live bot, idle or not (XBE CDoorEntity::BotCheckCallback 0x150ff:
+		//the IsFollowingPath test is inside `userType == USERTYPE_LIFT`).
+		//The older source applied it to every door, so idle NPCs stopped
+		//holding arena gates open (WEBCcolis03).
+		if( s_pCollLift && s_pCollLift->m_eUserType == USERTYPE_LIFT && !pBot->IsPlayerBot() )
+		{
+			if (!pBot->AIBrain() || !pBot->AIBrain()->GetAIMover() || !pBot->AIBrain()->GetAIMover()->IsFollowingPath())
+			{
+				return(TRUE);
+			}
 		}
 
 		switch(s_uFrontBackFilter)
