@@ -1246,7 +1246,7 @@ void CDoorEntity::SnapToPos(u32 uNewPos)
 {
 	//R113 TEMP
 	extern BOOL FWin_bTEMPDebugProbes;
-	if( FWin_bTEMPDebugProbes && Name() && !fclib_strnicmp(Name(), "outerdoor", 9) )
+	if( FWin_bTEMPDebugProbes && IsCreated() && Name() && !fclib_strnicmp(Name(), "outerdoor", 9) )
 	{
 		DEVPRINTF( "[ma] TEMP doorsnap %s -> %d state=%d pos=%.4f\n",
 			Name(), uNewPos, (s32)m_eState, m_fUnitPos );

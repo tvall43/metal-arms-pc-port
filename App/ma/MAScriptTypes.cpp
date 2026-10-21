@@ -3399,7 +3399,7 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GetUnitPos(AMX *pAMX, cell *aParams
 		_TEMPDoorLog( pDE, "poll", -1, 0 );
 
 	//R113: the script is still acting on this door; keep it under script control.
-	pDE->ScriptCommand( 2.0f );
+	pDE->ScriptPoll( 2.0f );
 
 	return(ConvertF32ToCell(pDE->GetUnitPos()));
 }
@@ -3443,6 +3443,8 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_SnapToPos(AMX *pAMX, cell *aParams)
 	}
 
 	pDE->SnapToPos(aParams[2]);
+	//R114: a scripted snap is just as authoritative as a scripted move.
+	pDE->ScriptCommand( 10.0f );
 
 	return((cell)(0));
 }
