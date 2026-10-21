@@ -76,6 +76,14 @@ struct _Stream_t
 	u32 uDataBytes;
 	u32 uBytesReadCompressed;
 
+	// Monotonic PCM byte counters for the end-of-stream drain. The ring distance
+	// from the play cursor to uWritePos is ambiguous once the play cursor wraps
+	// past the last written byte (it then measures the *unwritten* gap, not the
+	// data left), which made the last ring-buffer worth of audio loop until the
+	// talk instance called Stop(). Counting bytes written and consumed is exact.
+	u64 uBytesWrittenTotal;
+	u64 uBytesPlayedTotal;
+
 	u32 uBufferSize;
 	u32 uWritePos;
 	u32 uPlayPosLast;
@@ -4298,6 +4306,7 @@ static void _StreamWritePCM( _Stream_t *poStream, const u8 *pbyPCM, u32 uBytes )
 
 	poStream->poDSBuffer->Unlock( pData1, dwBytes1, pData2, dwBytes2 );
 
+	poStream->uBytesWrittenTotal += uBytes;
 	poStream->uWritePos = ( poStream->uWritePos + uBytes ) % poStream->uBufferSize;
 }
 
@@ -4386,6 +4395,7 @@ static void _StreamRefill( _Stream_t *poStream )
 			poStream->fSecondsPlayed += ( (f32)uDelta / (f32)poStream->uBytesPerSecPCM );
 		}
 
+		poStream->uBytesPlayedTotal += uDelta;
 		poStream->uPlayPosLast = dwPlay;
 	}
 
@@ -4535,23 +4545,12 @@ static void _StreamRefill( _Stream_t *poStream )
 		}
 	}
 
-	// Natural end: play cursor has drained the buffer past EOF.
-	if( poStream->bEOF && ( ! poStream->bIsLooping ) && ( FAUDIO_STREAM_STATE_PLAYING == poStream->oeState ) )
+	// Natural end: every PCM byte written to the ring has been consumed.
+	// (The old play-to-write ring distance is ambiguous after the cursor wraps.)
+	if( poStream->bEOF && ( ! poStream->bIsLooping ) && ( FAUDIO_STREAM_STATE_PLAYING == poStream->oeState ) &&
+		( poStream->uBytesPlayedTotal >= poStream->uBytesWrittenTotal ) )
 	{
-		u32 uBuffered;
-		if( poStream->uWritePos >= dwPlay )
-		{
-			uBuffered = poStream->uWritePos - dwPlay;
-		}
-		else
-		{
-			uBuffered = ( poStream->uBufferSize - dwPlay ) + poStream->uWritePos;
-		}
-
-		if( uBuffered <= _STREAM_WRITE_MARGIN_BYTES )
-		{
-			_StreamFinish( poStream );
-		}
+		_StreamFinish( poStream );
 	}
 }
 
@@ -4995,9 +4994,11 @@ void CFAudioStream::Play( u32 uLoops /* = 1 */ )
 		return;
 	}
 
-	poStream->fSecondsPlayed = 0.0f;
-	poStream->uWritePos      = 0;
-	poStream->uPlayPosLast   = 0;
+	poStream->fSecondsPlayed     = 0.0f;
+	poStream->uWritePos          = 0;
+	poStream->uPlayPosLast       = 0;
+	poStream->uBytesWrittenTotal = 0;
+	poStream->uBytesPlayedTotal  = 0;
 
 	if( uLoops )
 	{
