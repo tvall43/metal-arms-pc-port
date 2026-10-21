@@ -101,6 +101,10 @@ extern BOOL FWin_bTEMPDebugProbes;
 
 CInventory CColiseumMiniGame::m_InvCopy;
 
+//R120: quiet time for the Coliseum late-wave safety valve (see MainGame).
+static f32 s_fArenaQuietSecs = 0.0f;
+#define _ARENA_QUIET_SECS 60.0f
+
 static cchar* _Coliseum_pszSoundEffectBank = "Level_26";
 static cchar* _Coliseum_pszLevelBanks[] =
 {
@@ -1801,7 +1805,8 @@ void CColiseumMiniGame::InitGame()
 	//this, WEBCcolis03 (grunts 5-8 + pred1, all "inworld no") looked finished
 	//as soon as the four load-time grunts died.
 	u32 nOutNumEntity = CEntity::GetOutOfWorldCount();
-	if (nOutNumEntity)
+	//R120: Coliseum 4 is won against Corrosive and keeps its original list.
+	if (nOutNumEntity && m_nLevelID <= 2)
 	{
 		CEntity *pOutEntity = CEntity::OutOfWorldList_GetHead();
 		for (i=0; i<nOutNumEntity; i++)
@@ -1825,6 +1830,9 @@ void CColiseumMiniGame::InitGame()
 			}
 		}
 	}
+
+	//R120: seconds with all in-world arena bots dead and later waves unseen.
+	s_fArenaQuietSecs = 0.0f;
 
 	//R112 TEMP: how many arena combatants the coliseum found. Gated by
 	//[Debug] TempProbes, off by default.
@@ -3363,6 +3371,7 @@ BOOL CColiseumMiniGame::MainGame()
 	{
 		BOOL bAllDead=TRUE;
 		s32 nDead=0;
+		BOOL bAnyActive=FALSE, bAnyPending=FALSE;
 		for (i=0; i<m_nNumEnemies; i++)
 		{
 			if ( m_pEnemies[i] )
@@ -3372,6 +3381,8 @@ BOOL CColiseumMiniGame::MainGame()
 					if ( !(m_pEnemies[i]->LeafTypeBit()&ENTITY_BIT_BOTCORROSIVE) )
 					{
 						bAllDead = FALSE;
+						if( m_pEnemies[i]->IsInWorld() ) bAnyActive = TRUE;
+						else bAnyPending = TRUE;
 					}
 				}
 				else
@@ -3383,6 +3394,30 @@ BOOL CColiseumMiniGame::MainGame()
 			{
 				bAllDead = FALSE;
 			}
+		}
+
+		//R120: if every in-world arena bot is dead, only later-wave bots remain,
+		//and nothing has spawned for a minute, the script is not sending them.
+		//End the fight instead of leaving the level unwinnable. Only after the
+		//fight has begun (an arena bot has died), so the pre-fight phases, when
+		//the whole roster waits out of the world, cannot call the match.
+		if( !bAllDead && !bAnyActive && bAnyPending && nDead > 0 )
+		{
+			s_fArenaQuietSecs += FLoop_fRealPreviousLoopSecs;
+			if( s_fArenaQuietSecs > _ARENA_QUIET_SECS )
+			{
+				bAllDead = TRUE;
+				extern BOOL FWin_bTEMPDebugProbes;
+				if( FWin_bTEMPDebugProbes )
+				{
+					DEVPRINTF( "[ma] TEMP colwin quiet valve: no new bots for %.0f s, ending the fight\n",
+						_ARENA_QUIET_SECS );
+				}
+			}
+		}
+		else
+		{
+			s_fArenaQuietSecs = 0.0f;
 		}
 
 		//R119: with InitGame now tracking the out-of-world wave bots, this is
