@@ -1861,139 +1861,16 @@ void CFMeshInst::DrawMaterialSurface_P( FViewportPlanesMask_t nCrossesPlanesMask
 	//pulled in by proximity has its clusters tested individually so only the
 	//geometry that actually reaches the pinned fixture is drawn under the
 	//forced state.
-	BOOL bTEMPGate = _TEMPFF( m_pMesh->szName );
-	s32 nTEMPFfPin = _TEMPFFPin( this );
-	BOOL bTEMPPinLocalize = ( nTEMPFfPin >= 0 && !bTEMPGate );
-	//R57: the force has been always-on since R55, so the user can never see the
-	//pinned fixture both with and without it -- which is exactly the comparison
-	//that answers "is the missing thing drawn?". Blink it instead: ~5s on, ~2.5s
-	//off at 60fps, no key press needed, and every screenshot is either a clean
-	//"before" or a clean "after". The log's TEMP ffpatch line is computed
-	//regardless of phase, so the geometry answer does not depend on catching the
-	//on phase.
-	{
-		static const u32 nTEMPFfBlinkOn = 300;
-		static const u32 nTEMPFfBlinkOff = 150;
-		if ( ( FVid_nFrameCounter % ( nTEMPFfBlinkOn + nTEMPFfBlinkOff ) ) >= nTEMPFfBlinkOn )
-		{
-			bTEMPGate = FALSE;
-			nTEMPFfPin = -1;
-			bTEMPPinLocalize = FALSE;
-		}
-	}
-	//R62: the pin force (and its 'blinky' A/B phase) was a debug feature of the
-	//invisibility hunt. Off by default so normal play renders untouched; set
-	//[Debug] TempProbes=1 to bring it back.
-	if ( !FWin_bTEMPDebugProbes )
-	{
-		bTEMPGate = FALSE;
-		nTEMPFfPin = -1;
-		bTEMPPinLocalize = FALSE;
-	}
-	{
-		u32 nTEMPStage;
-		if ( bTEMPGate || nTEMPFfPin >= 0 )
-		{
-			//R52: capture everything we are about to bypass (restored at the
-			//function tail so the state cache's model stays truthful).
-			FDX8_pDev->GetPixelShader( &_s_nTEMPSavedPS );
-			FDX8_pDev->GetTexture( 0, &_s_pTEMPSavedTex0 );
-			FDX8_pDev->GetTexture( 1, &_s_pTEMPSavedTex1 );
-			for ( nTEMPStage = 0; nTEMPStage < 4; nTEMPStage++ )
-			{
-				FDX8_pDev->GetTextureStageState( 0, _s_anTEMPTSS[nTEMPStage], &_s_anTEMPSavedTSS[nTEMPStage] );
-			}
-			FDX8_pDev->GetRenderState( D3DRS_TEXTUREFACTOR, &_s_nTEMPSavedTF );
-			FDX8_pDev->GetRenderState( D3DRS_CULLMODE, &_s_nTEMPSavedCull );
-			FDX8_pDev->GetRenderState( D3DRS_ZFUNC, &_s_nTEMPSavedZfunc );
-			FDX8_pDev->GetRenderState( D3DRS_ZWRITEENABLE, &_s_nTEMPSavedZwrite );
-			FDX8_pDev->GetRenderState( D3DRS_ALPHABLENDENABLE, &_s_nTEMPSavedAbEnable );
-			FDX8_pDev->GetRenderState( D3DRS_SRCBLEND, &_s_nTEMPSavedSrcBlend );
-			FDX8_pDev->GetRenderState( D3DRS_DESTBLEND, &_s_nTEMPSavedDstBlend );
-			FDX8_pDev->GetRenderState( D3DRS_ALPHATESTENABLE, &_s_nTEMPSavedAtEnable );
-			_s_bTEMPSurfForced = TRUE;
+	//R122: the R50-R57 "pin force" (forced surface state, flat/blinking colours
+	//for watched and pinned meshes) is retired. It was the invisibility-hunt
+	//debug render, and with [Debug] TempProbes=1 it made normal textures blink
+	//to solid colours. The logging probes below (_TEMPMatProbe, _TEMPMDLog,
+	//_TEMPMClip, ...) stay off unless TempProbes is set; nothing here changes
+	//rendering any more.
+	const BOOL bTEMPGate = FALSE;
+	const s32 nTEMPFfPin = -1;
+	const BOOL bTEMPPinLocalize = FALSE;
 
-			FDX8_pDev->SetPixelShader( NULL );
-			{
-				//R51: read the bound t0 BEFORE nulling it (t0name needs it).
-				LPDIRECT3DTEXTURE8 pTEMPStashTex = NULL;
-				FDX8_pDev->GetTexture( 0, &pTEMPStashTex );
-				_s_pTEMPSurfDXTex = (void *)pTEMPStashTex;
-			}
-			FDX8_pDev->SetTexture( 0, NULL );
-			FDX8_pDev->SetTexture( 1, NULL );
-			for ( nTEMPStage = 0; nTEMPStage < 4; nTEMPStage++ )
-			{
-				FDX8_pDev->SetTextureStageState( 0, _s_anTEMPTSS[nTEMPStage], (nTEMPStage & 1) ? D3DTA_TFACTOR : D3DTOP_SELECTARG1 );
-			}
-			//R53: LOUD -- opaque magenta, not blended by dst, never culled,
-			//equal-or-nearer z with write. Nothing about the light-pass
-			//content can hide this; if it is not magenta on screen, the
-			//geometry produced no fragments at all.
-			//R55: colour now encodes WHY it was forced: white = old name
-			//gate (control), magenta/cyan/yellow = geometry within reach of
-			//fixture 0/1/2. ZFUNC is back to LESSEQUAL (R54's ALWAYS only
-			//made far forced meshes draw through walls, which told us
-			//nothing).
-			{
-				u32 nTEMPMatIdx = (u32)( pMaterial - m_pMesh->aMtl );
-				DWORD nTEMPFfCol = 0xFFFFFFFF;	//white = name gate (control group)
-				const char *pTEMPFfColName = "white";
-				if ( nTEMPFfPin >= 0 )
-				{
-					if ( bTEMPPinLocalize )
-					{
-						//Localised: colour names the material index (see the
-						//_anTEMPFFPal comment) so the user's report is decodable.
-						nTEMPFfCol = _anTEMPFFPal[ nTEMPMatIdx % 6 ];
-						pTEMPFfColName = _s_apTEMPFfPalName[ nTEMPMatIdx % 6 ];
-					}
-					else
-					{
-						nTEMPFfCol = _anTEMPFFPinCol[ nTEMPFfPin ];
-						pTEMPFfColName = "pincol";
-					}
-				}
-				//Once per (name, mat, fix) -- otherwise this repeats for every
-				//material of every pinned mesh on every frame.
-				if ( !_TEMPMDSeen( (const void *)( (size_t)m_pMesh->szName ^ (size_t)( (nTEMPFfPin + 2) * 8192 + (s32)nTEMPMatIdx ) ), 'N' ) )
-				{
-					float aTEMPAmb[4];
-					memset( aTEMPAmb, 0, sizeof(aTEMPAmb) );
-					FDX8_pDev->GetVertexShaderConstant( CV_MAT_AMBIENT, aTEMPAmb, 1 );
-					DEVPRINTF( "[ma] TEMP ffpin f%u gate=%d fix=%d loc=%d pal=%s rad=%g %s mat=%d nclu=%u pos=(%g,%g,%g) scale=%g cvamb=(%g,%g,%g) final=(%g,%g,%g) motif=(%g,%g,%g)\r\n",
-						(unsigned)FVid_nFrameCounter, bTEMPGate ? 1 : 0, nTEMPFfPin, bTEMPPinLocalize ? 1 : 0, pTEMPFfColName, (float)_fTEMPFfPinRadius, m_pMesh->szName, (int)nTEMPMatIdx,
-						(unsigned)((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->nClusterCount,
-						(float)m_PosMtx.m_vP.x, (float)m_PosMtx.m_vP.y, (float)m_PosMtx.m_vP.z, (float)m_fMatrixScale,
-						(float)aTEMPAmb[0], (float)aTEMPAmb[1], (float)aTEMPAmb[2],
-						(float)m_FinalAmbientRGB.fRed, (float)m_FinalAmbientRGB.fGreen, (float)m_FinalAmbientRGB.fBlue,
-						(float)FWorld_AmbientMotif.ColorRGB.fRed, (float)FWorld_AmbientMotif.ColorRGB.fGreen, (float)FWorld_AmbientMotif.ColorRGB.fBlue );
-				}
-				FDX8_pDev->SetRenderState( D3DRS_TEXTUREFACTOR, nTEMPFfCol );
-			}
-			FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
-			FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, FALSE );
-			//R58: controlled one-factor cull test. R57's force paints the pinned
-			//sheets bright, which proves they RASTERISE -- but ride-12's shots also
-			//show they are not simply dark in the normal path: the OFF-phase pixels
-			//where the fence sheet sits are brown rock (R/G=1.78) and the wires
-			//sheet's pixels match the surrounding rock (inside lum 9.6 vs ring
-			//10.6), ie the geometry is not rasterised at all, in BOTH passes. So for
-			//pins 0/1 leave the material's own cull mode alone (the R57 force
-			//overrode it with NONE): if the bright patch then stops appearing, the
-			//cull state alone decides whether these sheets are drawn, and everything
-			//else the force touches is exonerated in the same ride. Pin 2 keeps the
-			//R57 behaviour as the in-build control (the wires sheet is known to
-			//paint there).
-			if ( nTEMPFfPin == 2 )
-			{
-				FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
-			}
-			FDX8_pDev->SetRenderState( D3DRS_ZFUNC, D3DCMP_LESSEQUAL );
-			FDX8_pDev->SetRenderState( D3DRS_ZWRITEENABLE, TRUE );
-		}
-	}
-	
 	// Progress through all the clusters for this material, submitting for render the relevant ones
 	FDX8MeshCluster_t *pCluster = ((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->aCluster;
 	FDX8MeshCluster_t *pEndCluster = &pCluster[((FDX8MeshMaterial_t *)pMaterial->pPlatformData)->nClusterCount];

@@ -920,6 +920,7 @@ BOOL CDoorEntity::ClassHierarchyBuilt( void ) {
 	EnableOurWorkBit();
 //	SnapToPos(0);
 	SnapToPos(m_bStartOpen);
+	SetLockState(m_bLocked);
 
 	return TRUE;
 
@@ -1358,6 +1359,25 @@ void CDoorEntity::SnapToPos(u32 uNewPos)
 void CDoorEntity::SetLockState(BOOL bLocked)
 {
 	m_bLocked = bLocked;
+
+	//Retail reserves texture layer 20 for the lock indicator. Its atlas is red
+	//at S=0 and green at S=0.5; artist-authored scrolling must stop before
+	//selecting a half. Script-controlled OTHER doors stay red (retail).
+	CFWorldMesh *pMesh = GetMeshInst();
+	if( pMesh && pMesh->m_pMesh ) {
+		const FMeshTexLayerHandle_t hLight = pMesh->GetTexLayerHandle( 20 );
+		if( hLight >= 0 && pMesh->GetTexLayerID( hLight )->pAnimTC ) {
+			pMesh->AnimTC_AnimateScroll( hLight, FALSE );
+			CFVec2 rate;
+			rate.x = rate.y = 0.0f;
+			pMesh->AnimTC_SetScrollRate( hLight, rate );
+			pMesh->AnimTC_ApplyToShader( hLight, TRUE );
+			CFVec2 st;
+			st.x = ( !m_bLocked && m_eBehavior != DOOR_BEHAVIOR_OTHER ) ? 0.5f : 0.0f;
+			st.y = 0.0f;
+			pMesh->AnimTC_SetScrollST( hLight, st );
+		}
+	}
 }
 
 // =============================================================================================================
@@ -2465,6 +2485,9 @@ void CDoorEntity::CheckpointRestore( void )
 	CFCheckPoint::LoadData( (u32&) m_eState );
 	CFCheckPoint::LoadData( m_bLocked );
 	CFCheckPoint::LoadData( m_bStartOpen );
+
+	//Refresh the indicator half after a restore.
+	SetLockState( m_bLocked );
 
 	if( ( m_eState == DOORSTATE_ZERO && ePreState != DOORSTATE_ZERO ) ||
 		( m_eState == DOORSTATE_ONE && ePreState != DOORSTATE_ONE ) )

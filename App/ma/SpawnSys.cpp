@@ -875,7 +875,11 @@ void CSpawnNet::InitSpawnPts(void)
 
 void CSpawnNet::Work(void)
 {
-	u8 uDefConLevel = SPAWNNET_DEFCON_0_INACTIVE;
+	//Script/tripwire-controlled nets must retain their requested alert level.
+	//Starting from the automatic zero let the temporary defcon timeout shut
+	//them down again (both Slosh missions lost their swarmers this way).
+	u8 uDefConLevel = (m_uSpawnNetFlags & SPAWNNET_NO_AUTO_DEFCON) ?
+		m_uDefConLevel : SPAWNNET_DEFCON_0_INACTIVE;
 	CBot* pIntruder = NULL;
 
 	if (!(m_uSpawnNetFlags & SPAWNNET_NO_AUTO_DEFCON))
