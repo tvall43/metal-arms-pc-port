@@ -68,7 +68,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R122"
+#define MA_PORT_ROUND	"R123"
 
 static BOOL _bLogFileEnabled = FALSE;
 
@@ -312,6 +312,8 @@ static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
 
 static char _szMasterFile[512]	= "";
 static char _szGameRootPath[512]	= "";  // dir of master file, trailing slash; loose .wvs live here
+static char _szExeDir[512]		= "";  // exe dir, trailing slash
+static char _szAssetsDir[512]		= "";  // <exe>\assets\ when that layout is present
 static char _szLevelFile[256]	= "";
 static char _szScreenshotDir[512]	= "";
 static u32  _nScreenWidth			= 640;
@@ -401,13 +403,72 @@ static u32 _ParseKeyName( const char *pszName )
 }
 // ---------------------------------------------------------------------------
 
+static void _BuildExeDir( void )
+{
+	_szExeDir[0] = '\0';
+	char szExe[MAX_PATH] = "";
+	DWORD nLen = GetModuleFileName( NULL, szExe, MAX_PATH );
+	if( nLen == 0 || nLen >= MAX_PATH ) return;
+	strncpy( _szExeDir, szExe, sizeof(_szExeDir) - 1 );
+	_szExeDir[sizeof(_szExeDir) - 1] = '\0';
+	char *pSlash = strrchr( _szExeDir, '\\' );
+	char *pFwd   = strrchr( _szExeDir, '/' );
+	if( pFwd && ( !pSlash || pFwd > pSlash ) ) pSlash = pFwd;
+	if( pSlash ) { *(pSlash + 1) = '\0'; }
+	else { _szExeDir[0] = '\0'; }
+}
+
+static BOOL _FileExistsA( const char *pszPath )
+{
+	return( pszPath && pszPath[0] && GetFileAttributesA( pszPath ) != INVALID_FILE_ATTRIBUTES );
+}
+
+// Phase 1 portable layout: prefer <exe>\assets\mettlearms_xb.mst. Keep the
+// stored/current path and the old flat <exe>\mettlearms_xb.mst as fallbacks,
+// so existing installs keep working and a moved folder self-heals.
+static void _ResolveAssetPaths( void )
+{
+	char szMst[MAX_PATH];
+
+	_BuildExeDir();
+	snprintf( _szAssetsDir, sizeof(_szAssetsDir), "%sassets\\", _szExeDir );
+
+	snprintf( szMst, sizeof(szMst), "%smettlearms_xb.mst", _szAssetsDir );
+	if( _FileExistsA( szMst ) ) {
+		strncpy( _szMasterFile, szMst, sizeof(_szMasterFile) - 1 );
+		_szMasterFile[sizeof(_szMasterFile) - 1] = '\0';
+		return;
+	}
+
+	if( _szMasterFile[0] && _FileExistsA( _szMasterFile ) ) {
+		return;
+	}
+
+	snprintf( szMst, sizeof(szMst), "%smettlearms_xb.mst", _szExeDir );
+	if( _FileExistsA( szMst ) ) {
+		strncpy( _szMasterFile, szMst, sizeof(_szMasterFile) - 1 );
+		_szMasterFile[sizeof(_szMasterFile) - 1] = '\0';
+		return;
+	}
+
+	// Nothing usable: drop a stale stored path so the dialog asks instead of
+	// reporting "Cannot open master file" for a folder that moved.
+	_szMasterFile[0] = '\0';
+}
+
 static void _LoadConfig( void )
 {
 	CSettings& oSettings = CSettings::GetCurrent();
 
+	_BuildExeDir();
 	oSettings.ReadCustomString( "Paths", "MasterFile", "", _szMasterFile, sizeof(_szMasterFile) );
 	oSettings.ReadCustomString( "Paths", "Level", "", _szLevelFile, sizeof(_szLevelFile) );
-	oSettings.ReadCustomString( "Paths", "ScreenshotDir", ".", _szScreenshotDir, sizeof(_szScreenshotDir) );
+	_ResolveAssetPaths();
+	oSettings.ReadCustomString( "Paths", "ScreenshotDir", _szExeDir, _szScreenshotDir, sizeof(_szScreenshotDir) );
+	if( _szScreenshotDir[0] == '\0' || strcmp( _szScreenshotDir, "." ) == 0 ) {
+		strncpy( _szScreenshotDir, _szExeDir, sizeof(_szScreenshotDir) - 1 );
+		_szScreenshotDir[sizeof(_szScreenshotDir) - 1] = '\0';
+	}
 	_nScreenWidth  = oSettings.ReadCustomInt( "Video", "Width",  640 );
 	_nScreenHeight = oSettings.ReadCustomInt( "Video", "Height", 480 );
 	_nColorBits    = oSettings.ReadCustomInt( "Video", "ColorBits", 32 );
@@ -898,6 +959,18 @@ static BOOL _RunGame( void )
 			}
 		}
 		_Trace( "[ma] game root   : %s\n", _szGameRootPath );
+
+		//Loose assets are resolved from the game root. Make it the process CWD
+		//as well, so any relative open in the engine lands in assets/ rather
+		//than wherever the shortcut started. Settings, saves and the log use the
+		//exe directory explicitly.
+		if( _szGameRootPath[0] ) {
+			if( SetCurrentDirectoryA( _szGameRootPath ) ) {
+				_Trace( "[ma] cwd         : %s\n", _szGameRootPath );
+			} else {
+				_Trace( "[ma] cwd         : could not set '%s'\n", _szGameRootPath );
+			}
+		}
 
 		char szDir[512] = "";
 		strncpy( szDir, _szMasterFile, sizeof(szDir) - 1 );

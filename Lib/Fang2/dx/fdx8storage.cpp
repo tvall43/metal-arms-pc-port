@@ -61,18 +61,70 @@ static void _fstorage_ExeDir( u16 *pu16Out )
 	}
 }
 
-static void _fstorage_ProfilePath( u16 *pu16Out, const u16 *pwszName )
+// Phase 1 portable layout: profiles live in <exe>\saves\. Created on demand;
+// existing <exe>\profile-* files are migrated once by _fstorage_MigrateProfiles.
+static void _fstorage_SaveDir( u16 *pu16Out )
 {
 	u16 wszDir[ MAX_PATH ];
 	_fstorage_ExeDir( wszDir );
+	wsprintfW( (unsigned short *)pu16Out, L"%ssaves\\", (unsigned short *)wszDir );
+	CreateDirectoryW( (LPCWSTR)pu16Out, NULL );
+}
+
+static void _fstorage_ProfilePath( u16 *pu16Out, const u16 *pwszName )
+{
+	u16 wszDir[ MAX_PATH ];
+	_fstorage_SaveDir( wszDir );
 	wsprintfW( (unsigned short *)pu16Out, L"%sprofile-%s", (unsigned short *)wszDir, (unsigned short *)pwszName );
 }
 
 static void _fstorage_ProfileGlob( u16 *pu16Out )
 {
 	u16 wszDir[ MAX_PATH ];
-	_fstorage_ExeDir( wszDir );
+	_fstorage_SaveDir( wszDir );
 	wsprintfW( (unsigned short *)pu16Out, L"%sprofile-*", (unsigned short *)wszDir );
+}
+
+// One-time move of the old next-to-the-exe profiles into saves/. Skips when
+// saves/ already has a profile, so a half-migrated folder is not clobbered.
+static void _fstorage_MigrateProfiles( void )
+{
+	u16 wszSaveDir[ MAX_PATH ];
+	_fstorage_SaveDir( wszSaveDir );
+
+	u16 wszGlob[ MAX_PATH ];
+	wsprintfW( (unsigned short *)wszGlob, L"%sprofile-*", (unsigned short *)wszSaveDir );
+	WIN32_FIND_DATAW fd;
+	HANDLE hFind = FindFirstFileW( (LPCWSTR)wszGlob, &fd );
+	if( hFind != INVALID_HANDLE_VALUE ) {
+		FindClose( hFind );
+		return;
+	}
+
+	u16 wszExeDir[ MAX_PATH ];
+	_fstorage_ExeDir( wszExeDir );
+	wsprintfW( (unsigned short *)wszGlob, L"%sprofile-*", (unsigned short *)wszExeDir );
+	hFind = FindFirstFileW( (LPCWSTR)wszGlob, &fd );
+	if( hFind == INVALID_HANDLE_VALUE ) {
+		return;
+	}
+
+	do {
+		if( fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ) {
+			continue;
+		}
+		u16 wszSrc[ MAX_PATH ];
+		u16 wszDst[ MAX_PATH ];
+		wsprintfW( (unsigned short *)wszSrc, L"%s%s", (unsigned short *)wszExeDir, fd.cFileName );
+		wsprintfW( (unsigned short *)wszDst, L"%s%s", (unsigned short *)wszSaveDir, fd.cFileName );
+		if( MoveFileW( (LPCWSTR)wszSrc, (LPCWSTR)wszDst ) ) {
+			DEVPRINTF( "[ FSTORAGE ] moved profile %ls -> saves\\\n", fd.cFileName );
+		} else {
+			DEVPRINTF( "[ FSTORAGE ] could not move profile %ls (error %lu)\n", fd.cFileName, (unsigned long)GetLastError() );
+		}
+	} while( FindNextFileW( hFind, &fd ) );
+
+	FindClose( hFind );
 }
 
 FStorage_Error_e _fstorage_ReadWriteProfile( BOOL bRead, FStorage_DeviceID_e oeID, const u16 *pwszName, u32 uPosition, void *puBuff, u32 uBuffSize )
@@ -214,6 +266,8 @@ FStorage_Error_e fstorage_Install( const FStorage_Init_t *poInit /* = NULL */ )
 			DEVPRINTF( "[ FSTORAGE ] cwd %ls\n", wszCwd );
 		}
 	}
+
+	_fstorage_MigrateProfiles();
 
 	return FSTORAGE_ERROR_NONE;
 
