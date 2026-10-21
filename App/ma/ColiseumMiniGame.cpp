@@ -1457,7 +1457,6 @@ void CColiseumMiniGame::InitGame()
 	m_bHitWhole = FALSE;
 	m_nScore = 0;
 	m_nMilScore = 0;
-	m_fWinDelay = 0.0f;	//R118
 	m_fScored = 0.0f;
 	m_fScoredMil = 0.0f;
 	m_eScoreType = SCORE_NONE;
@@ -1795,12 +1794,44 @@ void CColiseumMiniGame::InitGame()
 
 	}
 
+	//R119: the level creates every bot at load time; the ones a script will
+	//add later sit on the out-of-world list. Retail's InitGame scans that list
+	//right after the in-world one and adds the enemy bots to m_pEnemies, so a
+	//wave that has not been added yet still keeps the match alive. Without
+	//this, WEBCcolis03 (grunts 5-8 + pred1, all "inworld no") looked finished
+	//as soon as the four load-time grunts died.
+	u32 nOutNumEntity = CEntity::GetOutOfWorldCount();
+	if (nOutNumEntity)
+	{
+		CEntity *pOutEntity = CEntity::OutOfWorldList_GetHead();
+		for (i=0; i<nOutNumEntity; i++)
+		{
+			if (pOutEntity)
+			{
+				if (pOutEntity->LeafTypeBit() & ENTITY_BITS_ENEMYBOTS)
+				{
+					CBot *pOutBot = (CBot *)pOutEntity;
+					if (pOutBot->AIBrain() &&
+						(pOutBot->AIBrain()->GetRace() == AIRACE_MIL ||
+						 pOutBot->AIBrain()->GetRace() == AIRACE_ZOMBIE))
+					{
+						if (m_nNumEnemies < MAX_ENEMIES)
+						{
+							m_pEnemies[m_nNumEnemies++] = pOutBot;
+						}
+					}
+				}
+				pOutEntity = pOutEntity->OutOfWorldList_GetNext();
+			}
+		}
+	}
+
 	//R112 TEMP: how many arena combatants the coliseum found. Gated by
 	//[Debug] TempProbes, off by default.
 	if( FWin_bTEMPDebugProbes )
 	{
-		DEVPRINTF( "[ma] TEMP coliseum lvl=%d inworld=%d enemies=%d friendlies=%d\n",
-			m_nLevelID, nNumEntity, m_nNumEnemies, m_nNumFriendly );
+		DEVPRINTF( "[ma] TEMP coliseum lvl=%d inworld=%d outworld=%d enemies=%d friendlies=%d\n",
+			m_nLevelID, nNumEntity, nOutNumEntity, m_nNumEnemies, m_nNumFriendly );
 		for (i=0; i<(u32)m_nNumEnemies; i++)
 		{
 			DEVPRINTF( "[ma] TEMP   enemy[%d] %s inworld=%d\n", i,
@@ -3354,63 +3385,13 @@ BOOL CColiseumMiniGame::MainGame()
 			}
 		}
 
-		//R116: m_pEnemies is a snapshot taken by InitGame. WEBCcolis03's battle
-		//script adds grunts 5-8 and pred1 later (E_AddToWorld on botdie counts
-		//4 and 8), so without this the match ended as soon as the four initial
-		//grunts died, before the later waves and the predator appeared.
-		u32 nScanned = 0;
-		u32 nLive = 0;
-		if (bAllDead)
-		{
-			u32 nInWorld = CEntity::GetInWorldCount();
-			CEntity *pWaveEntity = CEntity::InWorldList_GetHead();
-			for (u32 nWaveIdx = 0; nWaveIdx < nInWorld && pWaveEntity; nWaveIdx++)
-			{
-				u64 uTypeBits = pWaveEntity->LeafTypeBit();
-				if ((uTypeBits & ENTITY_BITS_ENEMYBOTS) &&
-					!(uTypeBits & ENTITY_BIT_BOTCORROSIVE))
-				{
-					nScanned++;
-					CBot *pWaveBot = (CBot *)pWaveEntity;
-					if (pWaveBot->AIBrain() &&
-						(pWaveBot->AIBrain()->GetRace() == AIRACE_MIL ||
-						 pWaveBot->AIBrain()->GetRace() == AIRACE_ZOMBIE))
-					{
-						if (!_IS_BOT_DEAD(pWaveBot))
-						{
-							nLive++;
-							bAllDead = FALSE;
-						}
-					}
-				}
-				pWaveEntity = pWaveEntity->InWorldList_GetNext();
-			}
-		}
-
-		//R118: the script spawns the next wave from its botdie handler, and in
-		//the port that handler runs later in the same frame than this check
-		//(log_p: this scan reported allDead=1 at f=10650 and grunts 5-8 were
-		//added at f=10650 after it). Give the script a moment to react before
-		//declaring the match over; a live wave bot resets the timer.
-		if (bAllDead)
-		{
-			m_fWinDelay += FLoop_fPreviousLoopSecs;
-			if (m_fWinDelay < 0.5f)
-			{
-				bAllDead = FALSE;
-			}
-		}
-		else
-		{
-			m_fWinDelay = 0.0f;
-		}
-
-		//R117 TEMP
-		extern BOOL FWin_bTEMPDebugProbes;
+		//R119: with InitGame now tracking the out-of-world wave bots, this is
+		//the retail check again: win when everything in the load-time list is
+		//dead, ignoring the corrosive (it is defeated by scripted events).
 		if( FWin_bTEMPDebugProbes )
 		{
-			DEVPRINTF( "[ma] TEMP colwin enemies=%d scanned=%d live=%d allDead=%d delay=%.2f\n",
-				m_nNumEnemies, nScanned, nLive, (s32)bAllDead, m_fWinDelay );
+			DEVPRINTF( "[ma] TEMP colwin enemies=%d nDead=%d allDead=%d\n",
+				m_nNumEnemies, nDead, (s32)bAllDead );
 		}
 
 		bRet = ( bAllDead && m_nNumEnemies>1 );
