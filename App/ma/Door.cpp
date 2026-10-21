@@ -991,6 +991,14 @@ void CDoorEntity::ClassHierarchyWork()
 	//
 	// Doors can decide to change states for various reasons
 	//
+	//R113: a fresh script command suppresses that for a moment.
+	if( m_fScriptHoldCtdn > 0.0f ) {
+		m_fScriptHoldCtdn -= FLoop_fPreviousLoopSecs;
+		if( m_fScriptHoldCtdn < 0.0f ) {
+			m_fScriptHoldCtdn = 0.0f;
+		}
+	}
+
 	StateTransitions();
 
 	//
@@ -1013,6 +1021,14 @@ void CDoorEntity::ClassHierarchyWork()
 // =============================================================================================================
 BOOL CDoorEntity::ForceGotoPos(u32 uNewPos, GotoReason_e eGotoReason)
 {
+	//R113 TEMP
+	extern BOOL FWin_bTEMPDebugProbes;
+	if( FWin_bTEMPDebugProbes && Name() && !fclib_strnicmp(Name(), "outerdoor", 9) )
+	{
+		DEVPRINTF( "[ma] TEMP doorforce %s -> %d state=%d pos=%.4f reason=%d\n",
+			Name(), uNewPos, (s32)m_eState, m_fUnitPos, (s32)eGotoReason );
+	}
+
 	// NKM - If we try to force to the state we are already at, don't do it.
 	// What in the world does the return value mean?
 	if( m_eState == uNewPos ) {
@@ -1228,6 +1244,14 @@ BOOL CDoorEntity::_UpdateLineDoorPosition( BOOL bCheckCollision)
 
 void CDoorEntity::SnapToPos(u32 uNewPos)
 {
+	//R113 TEMP
+	extern BOOL FWin_bTEMPDebugProbes;
+	if( FWin_bTEMPDebugProbes && Name() && !fclib_strnicmp(Name(), "outerdoor", 9) )
+	{
+		DEVPRINTF( "[ma] TEMP doorsnap %s -> %d state=%d pos=%.4f\n",
+			Name(), uNewPos, (s32)m_eState, m_fUnitPos );
+	}
+
 	FASSERT(m_bSystemInitialized);
 	FASSERT(uNewPos < 2);
 
@@ -1370,6 +1394,8 @@ void CDoorEntity::Clear()
 	m_apV3OPath[0] = NULL;
 	m_apV3OPath[1] = NULL;
 
+	m_fScriptHoldCtdn = 0.0f;	//R113
+
 	m_pManMtx = NULL;
 	m_pRestMtx = NULL;
 	m_pAnimCombiner = NULL;
@@ -1488,6 +1514,12 @@ void CDoorEntity::StateTransitions()
 		return;
 	}
 
+	//R113: a script owns this door for a moment after it commands it.
+	if( m_fScriptHoldCtdn > 0.0f )
+	{
+		return;
+	}
+
 	/////////////////////////////////////////////////////////////
 	switch(m_eBehavior)
 	{
@@ -1588,6 +1620,14 @@ void CDoorEntity::StateWork()
 
 	if (bPathBlocked)
 	{
+		//R113 TEMP
+		extern BOOL FWin_bTEMPDebugProbes;
+		if( FWin_bTEMPDebugProbes && Name() && !fclib_strnicmp(Name(), "outerdoor", 9) )
+		{
+			DEVPRINTF( "[ma] TEMP doorblocked %s state=%d pos=%.4f move=%d bone=%d vec=(%.3f,%.3f,%.3f)\n",
+				Name(), (s32)m_eState, m_fUnitPos, (s32)m_eDoorMoveType, (s32)m_eBoneMoveType,
+				m_vecDoorMove.x, m_vecDoorMove.y, m_vecDoorMove.z );
+		}
 		if (m_eState == DOORSTATE_ZEROTOONE)
 		{
 			AdvanceUnitPos(UNDO_LAST_ADVANCE);
@@ -1722,7 +1762,17 @@ void CDoorEntity::DoBehaviorDoor()
 		}
 		case DOORSTATE_ONE:
 		{
-			if(!_ValidBotNearby(MtxToWorld()->m_vPos, m_afActiveRadius[0], CHECK_FOR_BOTS_IN_FRONTANDBACK))
+			BOOL bNear = _ValidBotNearby(MtxToWorld()->m_vPos, m_afActiveRadius[0], CHECK_FOR_BOTS_IN_FRONTANDBACK);
+			//R113 TEMP
+			extern BOOL FWin_bTEMPDebugProbes;
+			if( FWin_bTEMPDebugProbes && Name() && !fclib_strnicmp(Name(), "outerdoor", 9) )
+			{
+				DEVPRINTF( "[ma] TEMP doorauto %s state=1 near=%d radius=%.2f at=(%.2f,%.2f,%.2f) move=%d bone=%d hold=%.2f\n",
+					Name(), (s32)bNear, m_afActiveRadius[0],
+					MtxToWorld()->m_vPos.x, MtxToWorld()->m_vPos.y, MtxToWorld()->m_vPos.z,
+					(s32)m_eDoorMoveType, (s32)m_eBoneMoveType, m_fScriptHoldCtdn );
+			}
+			if(!bNear)
 			{
 				GotoPos(DOORSTATE_ZERO, GOTOREASON_PICKUP);
 			}

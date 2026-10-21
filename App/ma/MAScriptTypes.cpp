@@ -3345,11 +3345,14 @@ static void _TEMPDoorLog( CDoorEntity *pDE, const char *pszOp, s32 nReq, s32 nRe
 		return;
 
 	CFWorldMesh *pWM = pDE->GetMeshInst();
-	DEVPRINTF( "[ma] TEMP door %-12s %-4s req=%d ret=%d state=%d pos=%.4f lock=%d inworld=%d vol=0x%08x\n",
+	CFMtx43A *pMtx = pDE->MtxToWorld();
+	DEVPRINTF( "[ma] TEMP door %-12s %-4s req=%d ret=%d state=%d pos=%.4f lock=%d inworld=%d vol=0x%08x move=%d bone=%d at=(%.2f,%.2f,%.2f)\n",
 		pDE->Name() ? pDE->Name() : "?", pszOp, nReq, nRet,
 		(s32)pDE->GetState(), pDE->GetUnitPos(), (s32)pDE->IsLocked(),
 		(s32)pDE->IsInWorld(),
-		pWM ? (u32)pWM->GetVolumeFlags() : 0xffffffff );
+		pWM ? (u32)pWM->GetVolumeFlags() : 0xffffffff,
+		pDE->GetMoveTypeDbg(), pDE->GetBoneMoveTypeDbg(),
+		pMtx ? pMtx->m_vPos.x : 0.0f, pMtx ? pMtx->m_vPos.y : 0.0f, pMtx ? pMtx->m_vPos.z : 0.0f );
 }
 
 cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GotoPos(AMX *pAMX, cell *aParams)
@@ -3363,6 +3366,9 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GotoPos(AMX *pAMX, cell *aParams)
 	}
 
 	BOOL bAccepted = pDE->GotoPos(aParams[2], CDoorEntity::GOTOREASON_DESTINATION);
+	//R113: a script command owns the door; keep auto behavior off long enough
+	//to cover script delays (WCBCcolis03 waits four seconds before checking).
+	pDE->ScriptCommand( 10.0f );
 	//R112: a scripted gate command is one-shot (the battle script calls this
 	//once and then polls GetUnitPos). GotoPos() drops the request whenever the
 	//door happens to be mid-move, which can leave a gate stopped in the wrong
@@ -3391,6 +3397,9 @@ cell AMX_NATIVE_CALL CMAST_DoorWrapper::Door_GetUnitPos(AMX *pAMX, cell *aParams
 	static u32 s_nTEMPDoorPoll = 0;
 	if( ++s_nTEMPDoorPoll % 60 == 0 )
 		_TEMPDoorLog( pDE, "poll", -1, 0 );
+
+	//R113: the script is still acting on this door; keep it under script control.
+	pDE->ScriptCommand( 2.0f );
 
 	return(ConvertF32ToCell(pDE->GetUnitPos()));
 }
