@@ -200,6 +200,7 @@ private:
 	s32 m_nNumFriendly;
 	s32 m_nNumAmmo;
 	s32 m_nScore, m_nMilScore;
+	f32 m_fWinDelay;		//R118: grace before declaring the match over
 	s32 m_nMagnetDevices;
 	s32 m_nNumSoundEmitters;
 	s32 m_nNumFrontCrowd;

@@ -1457,6 +1457,7 @@ void CColiseumMiniGame::InitGame()
 	m_bHitWhole = FALSE;
 	m_nScore = 0;
 	m_nMilScore = 0;
+	m_fWinDelay = 0.0f;	//R118
 	m_fScored = 0.0f;
 	m_fScoredMil = 0.0f;
 	m_eScoreType = SCORE_NONE;
@@ -3357,10 +3358,10 @@ BOOL CColiseumMiniGame::MainGame()
 		//script adds grunts 5-8 and pred1 later (E_AddToWorld on botdie counts
 		//4 and 8), so without this the match ended as soon as the four initial
 		//grunts died, before the later waves and the predator appeared.
+		u32 nScanned = 0;
+		u32 nLive = 0;
 		if (bAllDead)
 		{
-			u32 nScanned = 0;
-			u32 nLive = 0;
 			u32 nInWorld = CEntity::GetInWorldCount();
 			CEntity *pWaveEntity = CEntity::InWorldList_GetHead();
 			for (u32 nWaveIdx = 0; nWaveIdx < nInWorld && pWaveEntity; nWaveIdx++)
@@ -3371,21 +3372,11 @@ BOOL CColiseumMiniGame::MainGame()
 				{
 					nScanned++;
 					CBot *pWaveBot = (CBot *)pWaveEntity;
-					BOOL bBrain = pWaveBot->AIBrain() != NULL;
-					s32 nRace = bBrain ? (s32)pWaveBot->AIBrain()->GetRace() : -1;
-					BOOL bDead = _IS_BOT_DEAD(pWaveBot);
-					//R117 TEMP
-					extern BOOL FWin_bTEMPDebugProbes;
-					if( FWin_bTEMPDebugProbes )
+					if (pWaveBot->AIBrain() &&
+						(pWaveBot->AIBrain()->GetRace() == AIRACE_MIL ||
+						 pWaveBot->AIBrain()->GetRace() == AIRACE_ZOMBIE))
 					{
-						DEVPRINTF( "[ma] TEMP colwin ent '%s' brain=%d race=%d dead=%d torso=%d type=%08x:%08x\n",
-							pWaveBot->Name() ? pWaveBot->Name() : "?", (s32)bBrain, nRace,
-							(s32)pWaveBot->IsDead(), (s32)pWaveBot->IsTorsoBlownOff(),
-							(u32)(uTypeBits >> 32), (u32)uTypeBits );
-					}
-					if (bBrain && (nRace == AIRACE_MIL || nRace == AIRACE_ZOMBIE))
-					{
-						if (!bDead)
+						if (!_IS_BOT_DEAD(pWaveBot))
 						{
 							nLive++;
 							bAllDead = FALSE;
@@ -3394,14 +3385,32 @@ BOOL CColiseumMiniGame::MainGame()
 				}
 				pWaveEntity = pWaveEntity->InWorldList_GetNext();
 			}
+		}
 
-			//R117 TEMP
-			extern BOOL FWin_bTEMPDebugProbes;
-			if( FWin_bTEMPDebugProbes )
+		//R118: the script spawns the next wave from its botdie handler, and in
+		//the port that handler runs later in the same frame than this check
+		//(log_p: this scan reported allDead=1 at f=10650 and grunts 5-8 were
+		//added at f=10650 after it). Give the script a moment to react before
+		//declaring the match over; a live wave bot resets the timer.
+		if (bAllDead)
+		{
+			m_fWinDelay += FLoop_fPreviousLoopSecs;
+			if (m_fWinDelay < 0.5f)
 			{
-				DEVPRINTF( "[ma] TEMP colwin scan enemies=%d inworld=%d scanned=%d live=%d allDead=%d\n",
-					m_nNumEnemies, nInWorld, nScanned, nLive, (s32)bAllDead );
+				bAllDead = FALSE;
 			}
+		}
+		else
+		{
+			m_fWinDelay = 0.0f;
+		}
+
+		//R117 TEMP
+		extern BOOL FWin_bTEMPDebugProbes;
+		if( FWin_bTEMPDebugProbes )
+		{
+			DEVPRINTF( "[ma] TEMP colwin enemies=%d scanned=%d live=%d allDead=%d delay=%.2f\n",
+				m_nNumEnemies, nScanned, nLive, (s32)bAllDead, m_fWinDelay );
 		}
 
 		bRet = ( bAllDead && m_nNumEnemies>1 );
