@@ -1100,6 +1100,23 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 	FCollImpact_t CollImpact;
 	CFVec3A PelletUnitDir_WS, RayEnd_WS, ImpactFlashPos_WS;
 
+#if FANG_WINGC
+	// Retail accumulates one representative (most central) pellet per entity.
+	// Applying the whole damage profile to every pellet multiplies point-blank
+	// damage. Xbox XBE FUN_00138960 (0x138960) and GameCube main.dol
+	// 0x801ef954-0x801efa8c both keep the most aligned hit per entity and scale
+	// it by centrality and a cubic distance falloff. Fix originally ported in
+	// cobblecorn's tree (1.0.2, "shotgun full damage per pellet").
+	struct _RetailHit_t {
+		CEntity *pEntity;
+		FCollImpact_t Impact;
+		CFVec3A UnitDir;
+		f32 fAlignment;
+	};
+	_RetailHit_t aHits[ABSOLUTE_MAX_PELLET_COUNT];
+	u32 nHitCount = 0;
+#endif
+
 	// Build tracker skip list...
 	FWorld_nTrackerSkipListCount = 0;
 	if( m_pOwnerBot )
@@ -1154,6 +1171,24 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 			pHitEntity = CGColl::ExtractEntity( &CollImpact );
 			if( pHitEntity )
 			{
+#if FANG_WINGC
+				// Keep the most central pellet for each entity; damage is applied
+				// once after the loop so point-blank shots don't multiply.
+				const f32 fAlignment = PelletUnitDir_WS.Dot( BlastDirUnit );
+				u32 nHit;
+				for( nHit=0; nHit<nHitCount; ++nHit ) {
+					if( aHits[nHit].pEntity == pHitEntity ) break;
+				}
+				if( nHit < nHitCount || nHitCount < ABSOLUTE_MAX_PELLET_COUNT ) {
+					if( nHit == nHitCount || fAlignment > aHits[nHit].fAlignment ) {
+						if( nHit == nHitCount ) ++nHitCount;
+						aHits[nHit].pEntity = pHitEntity;
+						aHits[nHit].Impact = CollImpact;
+						aHits[nHit].UnitDir = PelletUnitDir_WS;
+						aHits[nHit].fAlignment = fAlignment;
+					}
+				}
+#else
 				// Get an empty damage form...
 				CDamageForm *pDamageForm = CDamage::GetEmptyDamageFormFromPool();
 
@@ -1172,6 +1207,7 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 
 					CDamage::SubmitDamageForm( pDamageForm );
 				}
+#endif
 			}
 
 			//make an AI impact sound in case any AI are listening
@@ -1182,6 +1218,33 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 			}
 		}
 	}
+#if FANG_WINGC
+	for( u32 nHit=0; nHit<nHitCount; ++nHit ) {
+		_RetailHit_t &Hit = aHits[nHit];
+		// main.dol 0x801ef954-0x801efa8c: centrality times cubic distance falloff.
+		f32 fCentrality = 200.0f * (Hit.fAlignment - 0.995f);
+		FMATH_CLAMP_UNIT_FLOAT( fCentrality );
+		f32 fRangeIntensity = 1.0f - BlastOrigin.Dist( Hit.Impact.ImpactPoint ) / m_pUserProps->fMaxLiveRange;
+		FMATH_CLAMP_UNIT_FLOAT( fRangeIntensity );
+		f32 fIntensity = fCentrality * fRangeIntensity * fRangeIntensity * fRangeIntensity;
+		if( fIntensity <= 0.0f ) continue;
+
+		CDamageForm *pDamageForm = CDamage::GetEmptyDamageFormFromPool();
+		if( !pDamageForm ) continue;
+
+		pDamageForm->m_nDamageLocale = CDamageForm::DAMAGE_LOCALE_IMPACT;
+		pDamageForm->m_nDamageDelivery = CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY;
+		pDamageForm->m_pDamageProfile = m_pUserProps->pDamageProfile;
+		pDamageForm->m_fNormIntensity = fIntensity;
+		pDamageForm->m_Damager.pWeapon = this;
+		pDamageForm->m_Damager.pBot = GetOwner();
+		pDamageForm->m_Damager.nDamagerPlayerIndex = GetOwner() ? GetOwner()->m_nPossessionPlayerIndex : -1;
+		pDamageForm->m_pDamageeEntity = Hit.pEntity;
+		pDamageForm->InitTriDataFromCollImpact( (CFWorldMesh *)Hit.Impact.pTag, &Hit.Impact, &Hit.UnitDir );
+
+		CDamage::SubmitDamageForm( pDamageForm );
+	}
+#endif
 }
 
 
