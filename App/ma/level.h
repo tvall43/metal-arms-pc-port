@@ -200,6 +200,9 @@ extern void level_UnduckAudio( void ); //decrements the nDuckCount variable
 // movie functions:
 extern void level_SetIntroMovieHandle( cutscene_Handle_t hCutscene );
 extern void level_PlayIntroMovie();
+extern BOOL level_HasEndMovie( void );
+extern BOOL level_EndMoviePlayed( void );
+extern void level_PlayEndMovie( void );
 
 // checkpoint functions:
 extern void level_CheckpointSave( void );

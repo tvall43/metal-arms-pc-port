@@ -163,6 +163,11 @@ BOOL cutscene_Start( cutscene_Handle_t hCutscene, f32 fNormalizedVolume ){
 }
 
 
+BOOL cutscene_IsPlaying( void ) {
+	return _bStarted;
+}
+
+
 void cutscene_End( void ){
 
 	if( _bStarted ) {

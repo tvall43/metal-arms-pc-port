@@ -1370,6 +1370,8 @@ static _LevelDuckData_t _LDData;
 static _StreamingAudioInfo_t _aStreamingAudioInfo[_STREAM_COUNT];
 static cutscene_Handle_t _hIntroMovie;
 static BOOL _bPlayIntroMovie;
+static cutscene_Handle_t _hEndMovie;
+static BOOL _bEndMoviePlayed;
 static cwchar **_ppwszMissionText;
 static u8 _nMissionTextCount;	// Number of mission text entries for the currently-loaded level
 static u8 _nMissionTextIndex;	// Index of the currently-displayed mission text
@@ -1417,6 +1419,8 @@ BOOL level_InitSystem( void ) {
 
 	_hIntroMovie = CUTSCENE_INVALID_HANDLE;
 	_bPlayIntroMovie = FALSE;
+	_hEndMovie = CUTSCENE_INVALID_HANDLE;
+	_bEndMoviePlayed = FALSE;
 
 	Level_fStartingFadeSecs = _DEFAULT_STARTING_FADE_SECS;
 	Level_fEndingFadeSecs = _DEFAULT_ENDING_FADE_SECS;
@@ -1894,6 +1898,8 @@ void level_Unload( void ) {
 		CGColl::ClearMaterialTable();
 
 		_hIntroMovie = CUTSCENE_INVALID_HANDLE;
+		_hEndMovie = CUTSCENE_INVALID_HANDLE;
+		_bEndMoviePlayed = FALSE;
 	}
 }
 
@@ -2007,43 +2013,47 @@ static void _LoadSfxBanks( void ) {
 	}	
 }
 
-static void _LoadMovieData( void ) {
+static cutscene_Handle_t _LoadMovieTable( const char *pszTable, const char *pszKind )
+{
 	if( Level_hLevelDataFile == FGAMEDATA_INVALID_FILE_HANDLE ) {
-		return;
+		return CUTSCENE_INVALID_HANDLE;
 	}
 
-	FGameDataFileHandle_t hMovieTable = fgamedata_GetFirstTableHandle( Level_hLevelDataFile, "StartMovie" );
+	FGameDataTableHandle_t hMovieTable = fgamedata_GetFirstTableHandle( Level_hLevelDataFile, pszTable );
 	if( hMovieTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
-		return;
+		return CUTSCENE_INVALID_HANDLE;
 	}
 
 	int nNumEntries = fgamedata_GetNumFields( hMovieTable );
 	if( nNumEntries == 0) {
-		DEVPRINTF( "Level::_LoadMovieData(): StartMovie table declared but zero movie entries in table!\n" );
-		return;
+		DEVPRINTF( "Level::_LoadMovieData(): %s table declared but zero movie entries!\n", pszTable );
+		return CUTSCENE_INVALID_HANDLE;
 	}
-
 	if( nNumEntries > 1 ) {
-		DEVPRINTF( "Level::_LoadMovieData(): More than one entry in the StartMovie table.  Ignoring all but first entry!\n" );
+		DEVPRINTF( "Level::_LoadMovieData(): More than one entry in the %s table.  Ignoring all but first.\n", pszTable );
 	}
 
 	FGameData_VarType_e nVarType;
-	cchar *pszFilename;
-
-	// get the first entry in the table and create a cutscene handle for it.
-	// use this handle as the intro movie handle.
-	pszFilename = (cchar *)fgamedata_GetPtrToFieldData( hMovieTable, 0, nVarType );
+	cchar *pszFilename = (cchar *)fgamedata_GetPtrToFieldData( hMovieTable, 0, nVarType );
 	if( !pszFilename || (nVarType != FGAMEDATA_VAR_TYPE_STRING) ) {
-		DEVPRINTF( "Level::_LoadMovieData(): StartMovie table entry is invalid.  Ignoring Table.\n" );
-		return;
-	}		
+		DEVPRINTF( "Level::_LoadMovieData(): %s table entry is invalid.  Ignoring table.\n", pszTable );
+		return CUTSCENE_INVALID_HANDLE;
+	}
 
-	//we have a valid filename, get a handle for the cutscene id...
-	cutscene_Handle_t hIntroHandle = cutscene_AcquireHandle( pszFilename, TRUE );
-	level_SetIntroMovieHandle( hIntroHandle );
+	cutscene_Handle_t hHandle = cutscene_AcquireHandle( pszFilename, TRUE );
+	DEVPRINTF( "[ma] %s movie  : '%s' handle=%d\n", pszKind, pszFilename, (s32)hHandle );
+	return hHandle;
 }
 
-
+static void _LoadMovieData( void ) {
+	//Start and end movies are independent tables: a level may have either,
+	//both, or neither. The leak only read StartMovie, so every end cutscene
+	//was skipped and the level-complete screen came up immediately.
+	_hIntroMovie = _LoadMovieTable( "StartMovie", "start" );
+	_bPlayIntroMovie = FALSE;
+	_hEndMovie = _LoadMovieTable( "EndMovie", "end" );
+	_bEndMoviePlayed = FALSE;
+}
 static void _LoadWireData( void ) {
 	// Set default wire pool count...
 	CEntity::SetWirePoolCount();
@@ -2362,6 +2372,27 @@ void level_SetIntroMovieHandle ( cutscene_Handle_t hIntroMovie ) {
 
 void level_PlayIntroMovie( void ) {
 	_bPlayIntroMovie = TRUE;
+}
+
+BOOL level_HasEndMovie( void ) {
+	return( _hEndMovie != CUTSCENE_INVALID_HANDLE );
+}
+
+BOOL level_EndMoviePlayed( void ) {
+	return( _bEndMoviePlayed );
+}
+
+void level_PlayEndMovie( void ) {
+	if( _hEndMovie == CUTSCENE_INVALID_HANDLE || _bEndMoviePlayed ) {
+		return;
+	}
+	_bEndMoviePlayed = TRUE;
+	if( cutscene_IsPlaying() ) {
+		DEVPRINTF( "[ma] end movie skipped: a cutscene is already playing\n" );
+		return;
+	}
+	DEVPRINTF( "[ma] playing end movie\n" );
+	cutscene_Start( _hEndMovie, 1.0f );
 }
 
 void level_CheckpointSave( void ) {

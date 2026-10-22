@@ -48,5 +48,8 @@ extern BOOL cutscene_Start( cutscene_Handle_t hCutscene,
 //this will terminate a cutscene movie if called.
 extern void cutscene_End( void );
 
+// TRUE while a movie has hijacked the game loop.
+extern BOOL cutscene_IsPlaying( void );
+
 #endif
 

@@ -1975,6 +1975,13 @@ void game_GotoLevel( cchar *pszCommandKeyword ) {
 		fclib_stricmp( pszCommandKeyword, "next" ) == 0 ) {
 		// move to the next level
 		_bCompletedLevel = TRUE;
+		//Play the level's authored end cutscene before the fade/complete
+		//screen. It hijacks the game loop, so the fade set below only starts
+		//after the movie finishes. No-op when the level has no EndMovie or it
+		//already played.
+		if( MultiplayerMgr.IsSinglePlayer() ) {
+			level_PlayEndMovie();
+		}
 		_nFadeState = _FADE_STATE_OUT;
 		_fFade_Timer = 0.0f;
 		CPlayer::CacheAudioLevels();
@@ -1989,6 +1996,9 @@ void game_GotoLevel( cchar *pszCommandKeyword ) {
 		// default to moving to the next level
 		DEVPRINTF( "game_GotoLevel() : unknown command string '%s', defaulting to 'NEXT'.\n", pszCommandKeyword );
 		_bCompletedLevel = TRUE;
+		if( MultiplayerMgr.IsSinglePlayer() ) {
+			level_PlayEndMovie();
+		}
 		_nFadeState = _FADE_STATE_OUT;
 		_fFade_Timer = 0.0f;
 		CPlayer::CacheAudioLevels();
