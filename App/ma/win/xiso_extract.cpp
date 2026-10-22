@@ -213,6 +213,11 @@ static BOOL WalkTable( XisoCtx &c, const std::vector<u8> &db, u32 uOff, const st
 
 static BOOL WalkDir( XisoCtx &c, u64 uDirOffset, u32 uDirSize, const std::string &sRel, int nDepth )
 {
+	//Create the directory before writing anything into it (nested files failed
+	//with ERROR_PATH_NOT_FOUND because only the assets root was created).
+	if( !sRel.empty() ) {
+		EnsureDir( c.sDest + "\\" + sRel );
+	}
 	if( uDirSize == 0 || uDirSize > XISO_MAX_DIR_BYTES ) return TRUE;
 	std::vector<u8> db( uDirSize );
 	if( !ReadAt( c.hIso, uDirOffset, &db[0], uDirSize ) ) {
