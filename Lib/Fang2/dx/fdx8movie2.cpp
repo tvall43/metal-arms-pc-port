@@ -27,6 +27,9 @@
 #include "fclib.h"
 #include "fDataStreaming.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // LOCAL DEFINES
 
@@ -62,6 +65,18 @@ static BOOL _bMoviePaused; //is the movie paused?
 static BOOL _bNextFrameReady;
 static u32 _nSkippedFrames;
 static u32 _uPlayFlags = FMOVIE2_PLAYFLAGS_NONE;
+
+//Movie scaling: 0 = fit (preserve aspect), 1 = fill (cover, crop),
+//2 = stretch (fill, distort). Set from [Video] MovieScaling.
+int FMovie2_nScalingMode = 0;
+
+//Software scaler scratch: Bink copies its native frame here, then the frame
+//is scaled into the locked back buffer. D3D8 has no StretchRect and Bink's
+//copy flags only do 2x, so this is the portable path.
+static u8 *_pMovieScratch = NULL;
+static u32 _uMovieScratchW = 0;
+static u32 _uMovieScratchH = 0;
+static BOOL _bMovieScaleWarned = FALSE;
 
 #if !_USE_STREAMING_MEMORY
 //windows management variables
@@ -386,6 +401,11 @@ void fmovie2_Unload( void ) {
 	_bMoviePaused = FALSE;
 	_bNextFrameReady = FALSE;
 	_nSkippedFrames = 0;
+
+	free( _pMovieScratch );
+	_pMovieScratch = NULL;
+	_uMovieScratchW = 0;
+	_uMovieScratchH = 0;
 }
 
 
@@ -683,20 +703,112 @@ BOOL _SearchDirectories ( cchar *pszBasePath, BOOL bScanSubDirs,
 
 
 #if FANG_PLATFORM_WIN
+static void _MovieScaleFrame( const u8 *pSrc, u32 uSrcW, u32 uSrcH, u32 uSrcPitch,
+	const u8 *pDstBase, u32 uDstPitch, u32 uDstW, u32 uDstH )
+{
+	//Aspect-correct destination and source window.
+	f32 fScaleX, fScaleY, fSrcX0, fSrcY0, fStepX, fStepY;
+	s32 nDstX, nDstY, nDrawW, nDrawH;
+
+	if( FMovie2_nScalingMode == 2 ) {			//stretch
+		nDrawW = (s32)uDstW; nDrawH = (s32)uDstH;
+		nDstX = nDstY = 0;
+		fSrcX0 = fSrcY0 = 0.0f;
+		fStepX = (f32)uSrcW / (f32)uDstW;
+		fStepY = (f32)uSrcH / (f32)uDstH;
+	} else if( FMovie2_nScalingMode == 1 ) {		//fill (cover, crop)
+		f32 fScale = FMATH_MAX( (f32)uDstW / (f32)uSrcW, (f32)uDstH / (f32)uSrcH );
+		f32 fVisW = (f32)uDstW / fScale;
+		f32 fVisH = (f32)uDstH / fScale;
+		fSrcX0 = ( (f32)uSrcW - fVisW ) * 0.5f;
+		fSrcY0 = ( (f32)uSrcH - fVisH ) * 0.5f;
+		nDrawW = (s32)uDstW; nDrawH = (s32)uDstH;
+		nDstX = nDstY = 0;
+		fStepX = fVisW / (f32)uDstW;
+		fStepY = fVisH / (f32)uDstH;
+	} else {									//fit (preserve aspect)
+		f32 fScale = FMATH_MIN( (f32)uDstW / (f32)uSrcW, (f32)uDstH / (f32)uSrcH );
+		nDrawW = (s32)( (f32)uSrcW * fScale );
+		nDrawH = (s32)( (f32)uSrcH * fScale );
+		if( nDrawW < 1 ) nDrawW = 1;
+		if( nDrawH < 1 ) nDrawH = 1;
+		nDstX = ( (s32)uDstW - nDrawW ) / 2;
+		nDstY = ( (s32)uDstH - nDrawH ) / 2;
+		fSrcX0 = fSrcY0 = 0.0f;
+		fStepX = (f32)uSrcW / (f32)nDrawW;
+		fStepY = (f32)uSrcH / (f32)nDrawH;
+	}
+
+	//Precompute the horizontal samples once per frame.
+	s32 *pnIX0 = (s32 *)malloc( sizeof(s32) * (size_t)nDrawW );
+	s32 *pnIX1 = (s32 *)malloc( sizeof(s32) * (size_t)nDrawW );
+	s32 *pnFX  = (s32 *)malloc( sizeof(s32) * (size_t)nDrawW );
+	if( !pnIX0 || !pnIX1 || !pnFX ) {
+		free( pnIX0 ); free( pnIX1 ); free( pnFX );
+		return;
+	}
+	for( s32 x = 0; x < nDrawW; x++ ) {
+		f32 f = fSrcX0 + ( (f32)x + 0.5f ) * fStepX - 0.5f;
+		if( f < 0.0f ) f = 0.0f;
+		if( f > (f32)( uSrcW - 1 ) ) f = (f32)( uSrcW - 1 );
+		s32 i = (s32)f;
+		if( i >= (s32)uSrcW - 1 ) i = (s32)uSrcW - 2;
+		if( i < 0 ) i = 0;
+		s32 fx = (s32)( ( f - (f32)i ) * 256.0f );
+		if( fx < 0 ) fx = 0;
+		if( fx > 256 ) fx = 256;
+		pnIX0[x] = i;
+		pnIX1[x] = ( i + 1 < (s32)uSrcW ) ? i + 1 : i;
+		pnFX[x]  = fx;
+	}
+
+	for( s32 y = 0; y < nDrawH; y++ ) {
+		f32 f = fSrcY0 + ( (f32)y + 0.5f ) * fStepY - 0.5f;
+		if( f < 0.0f ) f = 0.0f;
+		if( f > (f32)( uSrcH - 1 ) ) f = (f32)( uSrcH - 1 );
+		s32 iy = (s32)f;
+		if( iy >= (s32)uSrcH - 1 ) iy = (s32)uSrcH - 2;
+		if( iy < 0 ) iy = 0;
+		s32 fy = (s32)( ( f - (f32)iy ) * 256.0f );
+		if( fy < 0 ) fy = 0;
+		if( fy > 256 ) fy = 256;
+
+		const u8 *pRow0 = pSrc + (size_t)iy * uSrcPitch;
+		const u8 *pRow1 = pSrc + (size_t)( ( iy + 1 < (s32)uSrcH ) ? iy + 1 : iy ) * uSrcPitch;
+		u8 *pOut = (u8 *)pDstBase + (size_t)( nDstY + y ) * uDstPitch + (size_t)nDstX * 4;
+
+		for( s32 x = 0; x < nDrawW; x++ ) {
+			const u8 *p00 = pRow0 + (size_t)pnIX0[x] * 4;
+			const u8 *p01 = pRow0 + (size_t)pnIX1[x] * 4;
+			const u8 *p10 = pRow1 + (size_t)pnIX0[x] * 4;
+			const u8 *p11 = pRow1 + (size_t)pnIX1[x] * 4;
+			s32 fx = pnFX[x], fyN = fy;
+			s32 w00 = (256 - fx) * (256 - fyN);
+			s32 w01 = fx * (256 - fyN);
+			s32 w10 = (256 - fx) * fyN;
+			s32 w11 = fx * fyN;
+			u8 *pD = pOut + (size_t)x * 4;
+			pD[0] = (u8)( ( p00[0]*w00 + p01[0]*w01 + p10[0]*w10 + p11[0]*w11 ) >> 16 );
+			pD[1] = (u8)( ( p00[1]*w00 + p01[1]*w01 + p10[1]*w10 + p11[1]*w11 ) >> 16 );
+			pD[2] = (u8)( ( p00[2]*w00 + p01[2]*w01 + p10[2]*w10 + p11[2]*w11 ) >> 16 );
+			pD[3] = 255;
+		}
+	}
+
+	free( pnIX0 ); free( pnIX1 ); free( pnFX );
+}
+
 BOOL _BltWinFrame( void ) {
 
-	//This routine will lock the XBox Back Buffer and then copy
-	//the new frame to the XBox Back Buffer
-
-	//NOTE: THIS ROUTINE ASSUMES THE DATA MUTEX HAS ALREADY BEEN TAKEN!
+	//This routine copies the new Bink frame to the back buffer. The frame is
+	//scaled from its native size (usually 640x480) to an aspect-correct,
+	//centred destination instead of being pasted 1:1 in the middle.
 
 	IDirect3DSurface8 *pDX8BackBuffer;
 	D3DLOCKED_RECT LockedRect;
 	DWORD dwBinkSurfaceType;
 	D3DSURFACE_DESC BackBufferSurfaceDesc;
 
-	//Get the backbuffer for determining attributes and flags
-	//as well as Blt'ing on to.
 	if( FAILED( FDX8_pDev->GetBackBuffer( 0, D3DBACKBUFFER_TYPE_MONO, &pDX8BackBuffer ) ) ) {
 		DEVPRINTF( "[ FMOVIE2 ] Error : Could not get DX8 Backbuffer!\n");
 		return FALSE;
@@ -709,9 +821,43 @@ BOOL _BltWinFrame( void ) {
 		return FALSE;
 	}
 
-	//now, figure out the center position of the movie...
-	u32 uX = ( BackBufferSurfaceDesc.Width - _hBink->Width ) / 2;
-	u32 uY = ( BackBufferSurfaceDesc.Height - _hBink->Height ) / 2;
+	//The software path assumes a 32-bit back buffer, which is what Bink's
+	//BINKSURFACE32 copy and the rest of this port use. Fall back to the old
+	//centred copy otherwise.
+	BOOL b32 = ( BackBufferSurfaceDesc.Format == D3DFMT_X8R8G8B8 ||
+				 BackBufferSurfaceDesc.Format == D3DFMT_A8R8G8B8 );
+	if( !b32 ) {
+		if( !_bMovieScaleWarned ) {
+			DEVPRINTF( "[ FMOVIE2 ] Warning : back buffer is not 32-bit; movies are not scaled.\n" );
+			_bMovieScaleWarned = TRUE;
+		}
+		if( FAILED( pDX8BackBuffer->LockRect( &LockedRect, NULL, NULL ) ) ) {
+			pDX8BackBuffer->Release();
+			return FALSE;
+		}
+		u32 uX = ( BackBufferSurfaceDesc.Width - _hBink->Width ) / 2;
+		u32 uY = ( BackBufferSurfaceDesc.Height - _hBink->Height ) / 2;
+		BinkCopyToBuffer( _hBink, LockedRect.pBits, LockedRect.Pitch, _hBink->Height,
+			uX, uY, dwBinkSurfaceType | BINKCOPYALL );
+		pDX8BackBuffer->UnlockRect();
+		pDX8BackBuffer->Release();
+		return TRUE;
+	}
+
+	//Keep a scratch frame at the movie's native size.
+	if( !_pMovieScratch || _uMovieScratchW != _hBink->Width || _uMovieScratchH != _hBink->Height ) {
+		free( _pMovieScratch );
+		_uMovieScratchW = _hBink->Width;
+		_uMovieScratchH = _hBink->Height;
+		_pMovieScratch = (u8 *)malloc( (size_t)_uMovieScratchW * _uMovieScratchH * 4 );
+	}
+	if( !_pMovieScratch ) {
+		pDX8BackBuffer->Release();
+		return FALSE;
+	}
+
+	BinkCopyToBuffer( _hBink, _pMovieScratch, (S32)( _uMovieScratchW * 4 ), _uMovieScratchH,
+		0, 0, dwBinkSurfaceType | BINKCOPYALL );
 
 	if( FAILED( pDX8BackBuffer->LockRect( &LockedRect, NULL, NULL ) ) ) {
 		DEVPRINTF( "[ FMOVIE2 ] Error : Failed Lock of Backbuffer!\n");
@@ -719,12 +865,15 @@ BOOL _BltWinFrame( void ) {
 		return FALSE;
 	}
 
-	BinkCopyToBuffer( _hBink,
-					  LockedRect.pBits,
-					  LockedRect.Pitch,
-					  _hBink->Height,
-					  uX,uY,
-					  BINKSURFACE32 | BINKCOPYALL );
+	//Black the whole frame first so fit/fill bars cannot show stale pixels.
+	for( u32 y = 0; y < BackBufferSurfaceDesc.Height; y++ ) {
+		memset( (u8 *)LockedRect.pBits + (size_t)y * LockedRect.Pitch, 0,
+			(size_t)BackBufferSurfaceDesc.Width * 4 );
+	}
+
+	_MovieScaleFrame( _pMovieScratch, _uMovieScratchW, _uMovieScratchH, _uMovieScratchW * 4,
+		(const u8 *)LockedRect.pBits, LockedRect.Pitch,
+		BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height );
 
 	if( FAILED( pDX8BackBuffer->UnlockRect() ) ) {
 		DEVPRINTF( "[ FMOVIE2 ] Error : Failed Unlock of Backbuffer!\n");
@@ -732,11 +881,10 @@ BOOL _BltWinFrame( void ) {
 		return FALSE;
 	}
 
-	pDX8BackBuffer->Release(); //decrement our reference count to the back buffer
+	pDX8BackBuffer->Release();
 	return TRUE;
 }
 #endif
-
 
 #if FANG_PLATFORM_XB
 BOOL _BltXBoxFrame( void ) {

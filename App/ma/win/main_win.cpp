@@ -29,6 +29,7 @@
 #include "fpadio.h"		// fpadio_SetSynthKeyOverrides, FPADIO_INPUT_*
 #include "Settings.h"
 #include "xiso_extract.h"
+#include "fmovie2.h"
 #include "floop.h"
 #include "ffile.h"
 
@@ -69,7 +70,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R127"
+#define MA_PORT_ROUND	"R128"
 
 static BOOL _bLogFileEnabled = FALSE;
 
@@ -471,6 +472,17 @@ static void _LoadConfig( void )
 		strncpy( _szScreenshotDir, _szExeDir, sizeof(_szScreenshotDir) - 1 );
 		_szScreenshotDir[sizeof(_szScreenshotDir) - 1] = '\0';
 	}
+	{
+		char szMovieScale[32] = "fit";
+		oSettings.ReadCustomString( "Video", "MovieScaling", "fit", szMovieScale, sizeof(szMovieScale) );
+		if( !fclib_stricmp( szMovieScale, "fill" ) ) {
+			FMovie2_nScalingMode = 1;
+		} else if( !fclib_stricmp( szMovieScale, "stretch" ) ) {
+			FMovie2_nScalingMode = 2;
+		} else {
+			FMovie2_nScalingMode = 0;
+		}
+	}
 	_nScreenWidth  = oSettings.ReadCustomInt( "Video", "Width",  640 );
 	_nScreenHeight = oSettings.ReadCustomInt( "Video", "Height", 480 );
 	_nColorBits    = oSettings.ReadCustomInt( "Video", "ColorBits", 32 );
@@ -564,6 +576,8 @@ static void _SaveConfig( void )
 	oSettings.WriteCustomString( "Paths", "MasterFile", _szMasterFile );
 	oSettings.WriteCustomString( "Paths", "Level", _szLevelFile );
 	oSettings.WriteCustomString( "Paths", "ScreenshotDir", _szScreenshotDir );
+	oSettings.WriteCustomString( "Video", "MovieScaling",
+		( FMovie2_nScalingMode == 1 ) ? "fill" : ( ( FMovie2_nScalingMode == 2 ) ? "stretch" : "fit" ) );
 	oSettings.WriteCustomInt( "Video", "Width", _nScreenWidth );
 	oSettings.WriteCustomInt( "Video", "Height", _nScreenHeight );
 	oSettings.WriteCustomInt( "Video", "ColorBits", _nColorBits );

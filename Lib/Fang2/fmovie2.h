@@ -57,6 +57,9 @@ enum { //bitfields describing various play options
 
 //// Module.
 //
+// 0 = fit (preserve aspect), 1 = fill (cover/crop), 2 = stretch.
+extern int FMovie2_nScalingMode;
+
 extern BOOL fmovie2_ModuleStartup( void );
 extern void fmovie2_ModuleShutdown( void );
 extern FMovie2_Error_e fmovie2_Install( void ); 
