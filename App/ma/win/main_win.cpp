@@ -28,6 +28,7 @@
 #include "faudio.h"		// FAudio_f2DVolumeScale, FAudio_fMinDistanceFraction
 #include "fpadio.h"		// fpadio_SetSynthKeyOverrides, FPADIO_INPUT_*
 #include "Settings.h"
+#include "xiso_extract.h"
 #include "floop.h"
 #include "ffile.h"
 
@@ -68,7 +69,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R124"
+#define MA_PORT_ROUND	"R125"
 
 static BOOL _bLogFileEnabled = FALSE;
 
@@ -335,6 +336,7 @@ static BOOL _bFullscreen		= FALSE;
 #define _ID_STATUS			1009
 #define _ID_FULLSCREEN		1011
 #define _ID_DEBUGLOG		1012
+#define _ID_EXTRACT_ISO	1013
 
 static HWND _hwndStatus = NULL;
 
@@ -738,6 +740,110 @@ static BOOL _OnStart( HWND hwndDlg )
 	return TRUE;
 }
 
+static BOOL _bExtracting = FALSE;
+
+static void _XisoProgress( void *pUser, const char *pszName, unsigned uFiles, unsigned long long uBytes )
+{
+	HWND hwndDlg = (HWND)pUser;
+	static DWORD s_dwLast = 0;
+	DWORD dwNow = GetTickCount();
+	if( dwNow - s_dwLast < 50 ) return;
+	s_dwLast = dwNow;
+
+	char sz[640];
+	snprintf( sz, sizeof(sz), "Extracting: %s  (%u files, %.1f MB)",
+		pszName, uFiles, (double)uBytes / (1024.0 * 1024.0) );
+	_SetStatus( sz );
+	UpdateWindow( _hwndStatus );
+
+	// Keep the dialog painting during a multi-GB extraction. Start/Cancel are
+	// disabled, so the only messages that matter are paint/timer.
+	MSG msg;
+	while( PeekMessageA( &msg, NULL, 0, 0, PM_REMOVE ) ) {
+		if( msg.message == WM_QUIT ) break;
+		TranslateMessage( &msg );
+		DispatchMessageA( &msg );
+	}
+}
+
+static void _OnExtractIso( HWND hwndDlg )
+{
+	char szFile[1024] = "";
+	OPENFILENAMEA ofn;
+	memset( &ofn, 0, sizeof(ofn) );
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner   = hwndDlg;
+	ofn.lpstrFilter = "Xbox disc images (*.iso;*.xiso)\0*.iso;*.xiso\0All files (*.*)\0*.*\0\0";
+	ofn.lpstrFile   = szFile;
+	ofn.nMaxFile    = sizeof(szFile);
+	ofn.lpstrTitle  = "Select the Xbox disc image to extract";
+	ofn.Flags       = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER;
+	if( !GetOpenFileNameA( &ofn ) ) return;
+
+	char szDest[1024];
+	snprintf( szDest, sizeof(szDest), "%sassets", _szExeDir );
+	char szMst[1024];
+	snprintf( szMst, sizeof(szMst), "%s\\mettlearms_xb.mst", szDest );
+
+	if( _FileExistsA( szMst ) ) {
+		if( MessageBoxA( hwndDlg,
+			"assets\\ already contains game data.\n\nExtract anyway and replace files with the same names?",
+			"Metal Arms", MB_YESNO | MB_ICONQUESTION ) != IDYES ) {
+			return;
+		}
+	}
+	if( MessageBoxA( hwndDlg,
+		"Extract the disc image into the assets folder next to the exe?\n\n"
+		"This can take a minute for a full-disc image.",
+		"Metal Arms", MB_OKCANCEL | MB_ICONINFORMATION ) != IDOK ) {
+		return;
+	}
+
+	_bExtracting = TRUE;
+	EnableWindow( GetDlgItem( hwndDlg, _ID_START ), FALSE );
+	EnableWindow( GetDlgItem( hwndDlg, _ID_CANCEL ), FALSE );
+	EnableWindow( GetDlgItem( hwndDlg, _ID_EXTRACT_ISO ), FALSE );
+	_SetStatus( "Locating the Xbox partition and extracting..." );
+	UpdateWindow( hwndDlg );
+
+	char szErr[640] = "";
+	unsigned uFiles = 0;
+	unsigned long long uBytes = 0;
+	BOOL bOk = Xiso_Extract( szFile, szDest, _XisoProgress, hwndDlg,
+		szErr, sizeof(szErr), &uFiles, &uBytes );
+
+	EnableWindow( GetDlgItem( hwndDlg, _ID_START ), TRUE );
+	EnableWindow( GetDlgItem( hwndDlg, _ID_CANCEL ), TRUE );
+	EnableWindow( GetDlgItem( hwndDlg, _ID_EXTRACT_ISO ), TRUE );
+	_bExtracting = FALSE;
+
+	if( !bOk ) {
+		_SetStatus( "Extraction failed." );
+		MessageBoxA( hwndDlg, szErr[0] ? szErr : "Extraction failed.", "Metal Arms", MB_OK | MB_ICONERROR );
+		return;
+	}
+
+	if( !_FileExistsA( szMst ) ) {
+		char sz[640];
+		snprintf( sz, sizeof(sz), "Extracted %u files (%.1f MB), but assets\\mettlearms_xb.mst was not found.\n\n"
+			"The image may not be a Metal Arms Xbox disc.", uFiles, (double)uBytes / (1024.0 * 1024.0) );
+		_SetStatus( "Extracted, but mettlearms_xb.mst was not found." );
+		MessageBoxA( hwndDlg, sz, "Metal Arms", MB_OK | MB_ICONWARNING );
+		return;
+	}
+
+	strncpy( _szMasterFile, szMst, sizeof(_szMasterFile) - 1 );
+	_szMasterFile[sizeof(_szMasterFile) - 1] = '\0';
+	SetDlgItemTextA( hwndDlg, _ID_MASTEREDIT, _szMasterFile );
+	_SaveConfig();
+
+	char sz[640];
+	snprintf( sz, sizeof(sz), "Extracted %u files (%.1f MB).\nMaster file set; press Start.",
+		uFiles, (double)uBytes / (1024.0 * 1024.0) );
+	_SetStatus( sz );
+	MessageBoxA( hwndDlg, sz, "Metal Arms", MB_OK | MB_ICONINFORMATION );
+}
+
 static LRESULT CALLBACK _DlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	switch( uMsg ) {
@@ -745,6 +851,7 @@ static LRESULT CALLBACK _DlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		switch( LOWORD( wParam ) ) {
 		case _ID_BROWSE:		_OnBrowseMasterFile( hwndDlg ); return 0;
 		case _ID_BROWSE_SSHOT:	_OnBrowseScreenshotDir( hwndDlg ); return 0;
+		case _ID_EXTRACT_ISO:	_OnExtractIso( hwndDlg ); return 0;
 		case _ID_START:		if( _OnStart( hwndDlg ) ) { DestroyWindow( hwndDlg ); } return 0;
 		case _ID_CANCEL:		DestroyWindow( hwndDlg ); return 0;
 		case IDCANCEL:			DestroyWindow( hwndDlg ); return 0;
@@ -753,6 +860,7 @@ static LRESULT CALLBACK _DlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		return 0;
 
 	case WM_CLOSE:
+		if( _bExtracting ) return 0;
 		DestroyWindow( hwndDlg );
 		return 0;
 
@@ -877,6 +985,7 @@ static void _CreateDialogControls( HWND hwndDlg )
 		nX, nY, 420, 20, hwndDlg, (HMENU)(INT_PTR)_ID_STATUS, _hInstance, NULL );
 	nY += 28;
 
+	_AddButton( hwndDlg, _ID_EXTRACT_ISO, "Extract from ISO...", nX, nY, 150, 26 );
 	_AddButton( hwndDlg, _ID_START, "Start",  nX + 250, nY, 80, 26 );
 	_AddButton( hwndDlg, _ID_CANCEL, "Cancel", nX + 340, nY, 80, 26 );
 }

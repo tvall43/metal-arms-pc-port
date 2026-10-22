@@ -138,6 +138,7 @@ target_link_libraries(fang2win PUBLIC
 add_executable(ma_win
   ${MA_WIN_SOURCES}
   App/ma/win/main_win.cpp
+  App/ma/win/xiso_extract.cpp
 )
 target_include_directories(ma_win PRIVATE
   App/ma
