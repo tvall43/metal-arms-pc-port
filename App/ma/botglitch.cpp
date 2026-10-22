@@ -704,7 +704,11 @@ BOOL CBotGlitch::ClassHierarchyBuilt( void ) {
 		goto _ExitWithError;
 	}
 
-	SetServoLevel( SERVO_TYPE_ARMS, m_anServoLevel[SERVO_TYPE_ARMS], TRUE );
+	// R130: a new Glitch body must present the inventory's Arm Servo tier, not
+	// the stale runtime level (leak bug: fresh bodies reset to level 0, so the
+	// L2 servo kept "returning" after a body spawn; matches cobblecorn A2,
+	// which they recovered against retail).
+	PortRestoreArmServoFromInventory();
 
 	// turn glitch headlight on by default so artists can see their bump maps...
 	#if( FANG_PLATFORM_WIN )
@@ -888,6 +892,17 @@ void CBotGlitch::_ClearDataMembers( void ) {
 	fforce_NullHandle( &m_hForce );
 }	
 
+
+// R130: the saved Arm Servo item stores its tier one-based in m_nClipAmmo
+// (first pickup = 1 => L1; upgrades row through CCollectable::_AddToInventory).
+// Fresh bodies previously came up on the stale runtime m_anServoLevel, so a new
+// body reset the player to L1 until a checkpoint re-applied the tier.
+void CBotGlitch::PortRestoreArmServoFromInventory( void ) {
+	CItemInst *pServo = m_pInventory ? m_pInventory->IsItemInInventory( "Arm Servo" ) : NULL;
+	const u32 nLevel = pServo && pServo->m_nClipAmmo > 0 ?
+		FMATH_MIN( (u32)pServo->m_nClipAmmo - 1, (u32)GetMaxServoLevel( SERVO_TYPE_ARMS ) - 1 ) : 0;
+	SetServoLevel( SERVO_TYPE_ARMS, nLevel, TRUE );
+}
 
 void CBotGlitch::SetServoLevel( ServoType_e nServoType, u32 nServoLevel, BOOL bForceUpdate ) {
 	FASSERT( IsCreated() );

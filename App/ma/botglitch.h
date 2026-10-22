@@ -760,6 +760,7 @@ public:
 	FINLINE u32 GetMaxServoLevel( ServoType_e nServoType ) const { FASSERT( IsCreated() ); return SERVO_COUNT; }
 	FINLINE u32 GetServoLevel( ServoType_e nServoType ) const { FASSERT( IsCreated() ); FASSERT( nServoType>=0 && nServoType<SERVO_TYPE_COUNT ); return m_anServoLevel[nServoType]; }
 	void SetServoLevel( ServoType_e nServoType, u32 nServoLevel, BOOL bForceUpdate=FALSE );
+	void PortRestoreArmServoFromInventory( void );	// R130: new bodies read the saved Arm Servo tier
 	BOOL UpgradeServoLevel( ServoType_e nServoType );
 
 	CWeapon *FindWeaponByType( CWeapon::WeaponType_e nWeaponType );

@@ -2043,6 +2043,12 @@ void CCollectable::ClassHierarchyWork( void ) {
 		return;
 	}
 
+#if FANG_WINGC
+	// R130: retail washer magnetize/hop/fly-to-head attraction. Runs before
+	// the pickup scan so an arriving washer can be picked up this frame.
+	_WorkWasherAttraction();
+#endif
+
 	// So we don't have any lingering values
 	m_pPlayer = NULL;
 	m_pCollectBot = NULL;
@@ -2074,6 +2080,15 @@ void CCollectable::ClassHierarchyWork( void ) {
 		Center.Mul( -1.0f );
 
 		fScale = m_pCollectableType->m_bSpecialEUK ? 1.0f : m_fScale;
+
+#if FANG_WINGC
+		// R130: shrink the washer visually during the attraction flight without
+		// changing its logical pickup scale (retail does the same).
+		if( m_nPortWasherPlayer >= 0 ) {
+			fScale *= 1.0f - 0.9f * FMATH_MIN( m_fPortWasherTime * 2.0f, 1.0f );
+		}
+#endif
+
 		FASSERT( fScale > 0.0f );
 
 		CFMtx43A::m_XlatRotY.m_vPos.Zero();
@@ -2089,7 +2104,12 @@ void CCollectable::ClassHierarchyWork( void ) {
         CFMtx43A::m_XlatRotY.m_vPos = m_MtxToWorld.m_vPos;
 		CFMtx43A::m_XlatRotY.m_vPos.Add( Center );
 
-		if( m_eState == STATE_STOPPED || m_eState == STATE_FLOAT_UP ) {
+		if( ( m_eState == STATE_STOPPED || m_eState == STATE_FLOAT_UP )
+#if FANG_WINGC
+			// R130: no pickup bob while the washer is flying to Glitch's head.
+			&& m_nPortWasherPlayer < 0
+#endif
+		) {
 			CFMtx43A::m_XlatRotY.m_vPos.y += ( 0.65f * fmath_Sin( m_fTransY + FMATH_DEG2RAD( m_uBobOffset ) ) );
 		}
 
@@ -2982,6 +3002,13 @@ void CCollectable::_ClearDataMembers( void ) {
 	m_VelocityWS.Zero();
 	m_PushPoint.Zero();
 
+#if FANG_WINGC
+	// R130: reset the transient washer attraction state.
+	m_nPortWasherPlayer = -1;
+	m_fPortWasherTime = 0.0f;
+	m_PortWasherStart.Zero();
+#endif
+
 	m_eState = STATE_PLACED;
 	m_fScale = 1.0f;
 	m_pVolume = NULL;
@@ -2999,6 +3026,15 @@ void CCollectable::_ClearDataMembers( void ) {
 
 BOOL CCollectable::_Setup( const CFMtx43A *pMtx, f32 fScale, f32 fSpawnTime/* = 0.0f*/, s32 nAmmoCount/* = -1*/ ) {
 	FASSERT( pMtx );
+
+#if FANG_WINGC
+	// R130: pool reuse and checkpoint restore both route through here;
+	// restart the transient hop. The logical pickup scale stays unchanged,
+	// so restored washers cannot remain tiny from an in-flight shrink.
+	m_nPortWasherPlayer = -1;
+	m_fPortWasherTime = 0.0f;
+	m_PortWasherStart = pMtx->m_vPos;
+#endif
 
 	m_VelocityWS.Zero();
 	m_LastPos = pMtx->m_vPos;
@@ -3903,6 +3939,116 @@ void CCollectable::_RespawnItem( CCollectableSpawnPoint *pPoint ) {
 	}
 }
 
+#if FANG_WINGC
+// R130: retail washer attraction, restored from cobblecorn's fork (their B2/A7,
+// recovery addresses GC main.dol 8017dca8 acquisition / 80178264 movement,
+// caller 8017fa34). The leak's source revision dropped the whole routine, so
+// washers require direct collision. Retail behavior: an ordinary washer at rest
+// within 20 units of Glitch with an unobstructed thick-projectile LOS hops four
+// units over 0.2 s, then flies 0.25 s to Glitch's head tag point, where the
+// normal pickup path takes over. Solo only (their co-op recipient selection is
+// out of scope here).
+BOOL CCollectable::_WorkWasherAttraction( void ) {
+	if( !MultiplayerMgr.IsSinglePlayer() || !m_pWorldMesh || !m_pCollectableType ||
+		m_pCollectableType->m_eType != COLLECTABLE_WASHER ) {
+		return FALSE;
+	}
+
+	CBotGlitch *pTarget = NULL;
+
+	// A washer already in flight is locked to its recipient; drop the lock if
+	// the recipient becomes ineligible (death, disassembly, vehicle).
+	if( m_nPortWasherPlayer >= 0 && m_nPortWasherPlayer < CPlayer::m_nPlayerCount ) {
+		CEntity *p = Player_aPlayer[ m_nPortWasherPlayer ].m_pEntityCurrent;
+		if( p && ( p->TypeBits() & ENTITY_BIT_BOTGLITCH ) ) {
+			pTarget = (CBotGlitch *)p;
+		}
+	}
+	if( pTarget && ( !pTarget->IsInWorld() || pTarget->IsDeadOrDying() ||
+		!pTarget->CanPickupItems() || pTarget->IsInPieces() || pTarget->GetCurMech() ) ) {
+		pTarget = NULL;
+	}
+	if( !pTarget && m_nPortWasherPlayer >= 0 ) {
+		m_nPortWasherPlayer = -1;
+		m_fPortWasherTime = 0.0f;
+		m_eState = STATE_PLACED;
+		m_VelocityWS.Zero();
+		return FALSE;
+	}
+
+	if( !pTarget ) {
+		// Only resting / freshly-landed washers can start an attraction.
+		if( m_eState != STATE_STOPPED && m_eState != STATE_FLOAT_UP ) {
+			return FALSE;
+		}
+
+		f32 fBest = 400.0f;	// retail acquisition radius: 20 units squared
+		for( s32 n = 0; n < CPlayer::m_nPlayerCount; ++n ) {
+			CEntity *p = Player_aPlayer[ n ].m_pEntityCurrent;
+			if( !p || !( p->TypeBits() & ENTITY_BIT_BOTGLITCH ) ) continue;
+			CBotGlitch *pBot = (CBotGlitch *)p;
+			if( !pBot->IsInWorld() || pBot->IsDeadOrDying() || !pBot->CanPickupItems() ||
+				pBot->IsInPieces() || pBot->GetCurMech() ) {
+				continue;
+			}
+
+			// Distance to the middle of Glitch's collision cylinder.
+			CFVec3A center = pBot->MtxToWorld()->m_vPos;
+			center.y += pBot->m_fCollCylinderHeight_WS * 0.5f;
+			f32 fDist = center.DistSq( m_MtxToWorld.m_vPos );
+			if( fDist < 0.0000001f || fDist > fBest ) continue;
+
+			// Obstruction test from just above the washer to the head tag
+			// point, skipping both Glitch's and the washer's own trackers.
+			CFVec3A start = m_MtxToWorld.m_vPos;
+			start.y += 2.0f;
+			const CFVec3A *pHead = pBot->GetTagPoint( pBot->GetTagPointCount() > 1 ? 1 : 0 );
+			FWorld_nTrackerSkipListCount = 0;
+			pBot->AppendTrackerSkipList();
+			if( FWorld_nTrackerSkipListCount < FWORLD_MAX_SKIPLIST_ENTRIES ) {
+				FWorld_apTrackerSkipList[ FWorld_nTrackerSkipListCount++ ] = m_pWorldMesh;
+			}
+			if( fworld_IsLineOfSightObstructed( &start, pHead, FWorld_nTrackerSkipListCount,
+				(const CFWorldTracker * const *)FWorld_apTrackerSkipList, m_pWorldMesh,
+				0xffffffffffffffff, FCOLL_MASK_COLLIDE_WITH_THICK_PROJECTILES ) ) {
+				continue;
+			}
+
+			fBest = fDist;
+			pTarget = pBot;
+			m_nPortWasherPlayer = n;
+		}
+		if( !pTarget ) {
+			return FALSE;
+		}
+
+		m_PortWasherStart = m_MtxToWorld.m_vPos;
+		m_fPortWasherTime = 0.0f;
+		m_eState = STATE_STOPPED;
+		m_VelocityWS.Zero();
+	}
+
+	m_fPortWasherTime += FLoop_fPreviousLoopSecs;
+	CFVec3A from = m_PortWasherStart;
+	from.y += 4.0f;
+
+	if( m_fPortWasherTime <= 0.2f ) {
+		// Hop: four units straight up over 0.2 s (4.0 * t * 5.0 => 4.0 at 0.2).
+		m_MtxToWorld.m_vPos = m_PortWasherStart;
+		m_MtxToWorld.m_vPos.y += 4.0f * m_fPortWasherTime * 5.0f;
+	} else {
+		// Linear flight over ~0.25 s to the head tag point.
+		const CFVec3A *pHead = pTarget->GetTagPoint( pTarget->GetTagPointCount() > 1 ? 1 : 0 );
+		CFVec3A delta;
+		delta.Sub( *pHead, from );
+		delta.Mul( FMATH_MIN( ( m_fPortWasherTime - 0.2f ) * 4.0f, 1.0f ) );
+		m_MtxToWorld.m_vPos.Add( from, delta );
+	}
+
+	return TRUE;
+}
+#endif
+
 s32 CCollectable::_CanPickup( void ) {
 	if( m_pWorldMesh == NULL ) {
 		return -1;
@@ -3914,6 +4060,11 @@ s32 CCollectable::_CanPickup( void ) {
 	s32 uBest = -1;
 
 	for( s32 i = 0; i < CPlayer::m_nPlayerCount; ++i ) {
+#if FANG_WINGC
+		// R130: a washer in flight is locked to the player it was attracted
+		// to (retail recipient gate).
+		if( m_nPortWasherPlayer >= 0 && m_nPortWasherPlayer != i ) continue;
+#endif
 		CEntity *pPlayer = Player_aPlayer[i].m_pEntityCurrent;
 		CBot *pPlayerBot = (CBot *)(pPlayer);
 

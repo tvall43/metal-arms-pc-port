@@ -280,6 +280,12 @@ private:
 	CFVec3A m_LastPos;
 	CFVec3A m_PushPoint;
 	CFVec3A m_VelocityWS;
+
+	// R130 (retail washer attraction, matches cobblecorn B2): transient hop
+	// state. See _WorkWasherAttraction(); reset in _ClearDataMembers and _Setup.
+	s32 m_nPortWasherPlayer;		// -1 = not in flight; otherwise Player_aPlayer index it flies to
+	f32 m_fPortWasherTime;			// seconds since attraction started
+	CFVec3A m_PortWasherStart;		// washer's lie position at attraction start
 	FVisVolume_t *m_pVolume;
 
 	CCollectableType *m_pCollectableType;
@@ -432,6 +438,7 @@ private:
 	// _Pickup* methods below for all know pickup game types
 	// _Pickup* methods should not remove from world or play collectable type specific sounds
 	void _PickupWasher( void );
+	BOOL _WorkWasherAttraction( void );	// R130: retail washer magnetize/hop/fly-to-head routine
 	BOOL _PickupEnergy( void );
 	void _PickupHighJump( void );
 	void _PickupSpeed( void );
