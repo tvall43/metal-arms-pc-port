@@ -1087,12 +1087,15 @@ BOOL fshadow_SetupShadowPass(u32 nPass, BOOL bWorldGeo)
 		{
 			bReturn = FALSE;
 		}
-			
+
+		// Port fix (R131, from cobblecorn 71f98f1): LOD lights use the
+		// attenuation map; don't read an unset (or previous light's) buffer.
+		pTexBuffer = NULL;
 		if (!pShadowLights[i]->bLOD)
 		{
 			pTexBuffer = _pShadowBuffers[ pShadowLights[i]->nIdx ];
 		}
-		
+
 		if (pTexBuffer || pShadowLights[i]->bLOD)
 		{
 			if (pShadowLights[i]->bLOD)
