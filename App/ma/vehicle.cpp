@@ -600,6 +600,13 @@ void CVehicle::ComputeGroundNormal( void )
 
 	m_fHeightAboveGround = _FIND_GROUND_RAY_LENGTH;
 
+	// Port fix (R131): preset an upright fallback. A ray hit on a wall or
+	// ceiling is not a ground plane, and CFVec3A's default constructor leaves
+	// the components unset - the old code only set upright when the ray
+	// missed entirely, so a wall/ceiling hit fed stack garbage into the
+	// slerp below and the vehicle pitched wildly.
+	vGroundNormal.Set( CFVec3A::m_UnitAxisY );
+
 	// set the target unit vector
 	if( FColl_nImpactCount > 0 )
 	{
@@ -612,10 +619,6 @@ void CVehicle::ComputeGroundNormal( void )
 			vDelta.Sub( *m_PhysObj.GetPosition() );
 			m_fHeightAboveGround = vDelta.Mag();
 		}
-	}
-	else
-	{
-		vGroundNormal.Set( CFVec3A::m_UnitAxisY );
 	}
 
 	if( BecameAirborne() )
