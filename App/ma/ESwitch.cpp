@@ -737,6 +737,10 @@ BOOL CESwitchBuilder::InterpretTable()
 			DEVPRINTF("CESwitchBuilder::InterpretTable() : Invalid value '%s' for 'useby' table. mil\n", pszValue);
 			return(TRUE);
 		}
+		// Port fix (R131): shared-base bug - without this return, a valid
+		// "useby = mil" falls through into CMeshEntityBuilder::InterpretTable()
+		// which re-parses the table as unknown and errors.
+		return(TRUE);
 	}
 
 	return (CMeshEntityBuilder::InterpretTable());;
