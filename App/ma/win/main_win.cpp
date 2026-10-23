@@ -70,7 +70,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R130"
+#define MA_PORT_ROUND	"R131"
 
 static BOOL _bLogFileEnabled = FALSE;
 
