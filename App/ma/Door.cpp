@@ -1582,7 +1582,11 @@ void CDoorEntity::StateWork()
 			{
 				case DOORMOVETYPE_LINE:
 				{
-					bPathBlocked = _UpdateLineDoorPosition(DO_COLLISION_TEST);
+					// Port fix (R131): honor the retail "noliftblockchecking"
+					// table flag - lifts with it move without the bot/path
+					// collision block test.
+					bPathBlocked = _UpdateLineDoorPosition(
+						(m_uBehaviorCtrlFlags & DOOR_BEHAVIOR_CTRL_NO_LIFT_BLOCK_CHECK) ? NO_COLLISION_TEST : DO_COLLISION_TEST);
 					break;
 				}
 				case DOORMOVETYPE_VECOBJ:
@@ -1605,7 +1609,9 @@ void CDoorEntity::StateWork()
 			{
 				case DOORMOVETYPE_LINE:
 				{
-					bPathBlocked = _UpdateLineDoorPosition(DO_COLLISION_TEST);
+					// Port fix (R131): see the DOORSTATE_ZEROTOONE branch.
+					bPathBlocked = _UpdateLineDoorPosition(
+						(m_uBehaviorCtrlFlags & DOOR_BEHAVIOR_CTRL_NO_LIFT_BLOCK_CHECK) ? NO_COLLISION_TEST : DO_COLLISION_TEST);
 					break;
 				}
 				case DOORMOVETYPE_VECOBJ:
@@ -2981,6 +2987,12 @@ BOOL CEDoorBuilder::InterpretTable()
 	else if(!fclib_stricmp(CEntityParser::m_pszTableName, "disablecall1"))
 	{
 		CEntityParser::Interpret_Flag(&m_uBehaviorCtrlFlags, CDoorEntity::DOOR_BEHAVIOR_CTRL_DISABLE_AUTO_CALL1);
+		return(TRUE);
+	}
+	// Port fix (R131): retail door table accepted this flag; the leak ignored it.
+	else if(!fclib_stricmp(CEntityParser::m_pszTableName, "noliftblockchecking"))
+	{
+		CEntityParser::Interpret_Flag(&m_uBehaviorCtrlFlags, CDoorEntity::DOOR_BEHAVIOR_CTRL_NO_LIFT_BLOCK_CHECK);
 		return(TRUE);
 	}
 	else if(!fclib_stricmp(CEntityParser::m_pszTableName, "startopen"))
