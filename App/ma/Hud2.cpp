@@ -2286,8 +2286,28 @@ void CHudBatteryBarSystem::SetHudMode(HudMode_e eNewHudMode)
 
 // =============================================================================================================
 
-void CHudBatteryBarSystem::Work(CInventory *pInventory, f32 fBotHealth)
+static u32 _HudHealthContainerCount( CInventory *pInventory, CEntity *pControlled ) {
+#if FANG_WINGC
+	if( pControlled && (pControlled->TypeBits() & ENTITY_BIT_BOT) ) {
+		CBot *pBot = (CBot *)pControlled;
+		if( pBot->m_pDrivingVehicle && level_IsRacingLevel() &&
+			(pBot->m_pDrivingVehicle->TypeBits() & ENTITY_BIT_VEHICLERAT) )
+			pBot = pBot->m_pDrivingVehicle;
+		if( !(pBot->TypeBits() & ENTITY_BIT_BOTGLITCH) ) {
+			// Port fix (R131, from cobblecorn 943c552): possession retains
+			// Glitch's inventory; the health display belongs to the controlled
+			// bot instead. The battery mesh strip has six entries.
+			const f32 fCount = pBot->HealthContainerCount();
+			if( fCount >= 1.0f && fCount <= 6.0f ) return (u32)fCount;
+		}
+	}
+#endif
+	return pInventory->m_uNumBatteries;
+}
+
+void CHudBatteryBarSystem::Work(CInventory *pInventory, f32 fBotHealth, u32 uNumBatteries)
 {
+	if( !uNumBatteries ) uNumBatteries = pInventory->m_uNumBatteries;
 	// Update state/position of pickup battery and battery strip if applicable.
 
 	f32 fMyLastLoop = FLoop_fPreviousLoopSecs;// * 0.1f;
@@ -2489,8 +2509,8 @@ void CHudBatteryBarSystem::Work(CInventory *pInventory, f32 fBotHealth)
 	//// Calculate the current color to use.
 	//
 	// This should get changed to not be a divide.
-	FASSERT(fBotHealth <= (f32)(pInventory->m_uNumBatteries));
-	f32 fUnitHealth = fBotHealth / (f32)(pInventory->m_uNumBatteries);
+	FASSERT(fBotHealth <= (f32)uNumBatteries);
+	f32 fUnitHealth = fBotHealth / (f32)uNumBatteries;
 	m_rgbaEnergyBarCur.fBlue = 0.0f;
 	m_rgbaEnergyBarCur.fAlpha = 0.5f;
 	if(fUnitHealth > 0.5f)
@@ -4526,16 +4546,16 @@ void CHud2::Work(CInventory *pInventory)
 			pPlayerBot = (CBot*) pPlayerEntity;
 			if( pPlayerBot->m_pDrivingVehicle && level_IsRacingLevel() && (pPlayerBot->m_pDrivingVehicle->TypeBits() & ENTITY_BIT_VEHICLERAT ) )
 			{
-				m_Battery.Work(pInventory, pPlayerBot->m_pDrivingVehicle->NormHealth());
+				m_Battery.Work(pInventory, pPlayerBot->m_pDrivingVehicle->NormHealth(), _HudHealthContainerCount(pInventory, pPlayerEntity));
 			}
 			else
 			{
-				m_Battery.Work(pInventory, pPlayer->m_pEntityCurrent->NormHealth());
+				m_Battery.Work(pInventory, pPlayer->m_pEntityCurrent->NormHealth(), _HudHealthContainerCount(pInventory, pPlayerEntity));
 			}
 		}
 		else
 		{
-			m_Battery.Work(pInventory, pPlayer->m_pEntityCurrent->NormHealth());
+			m_Battery.Work(pInventory, pPlayer->m_pEntityCurrent->NormHealth(), _HudHealthContainerCount(pInventory, pPlayerEntity));
 		}
 	}
 
@@ -4855,7 +4875,7 @@ void CHud2::Draw( CInventory *pInventory ) {
 		if( m_bOverrideHealth ) {
 			m_Battery.Draw( m_uHealthOverrideBatteries, m_pfHealthOverrideData, &m_HealthOverrideStartColor, &m_HealthOverrideEndColor );
 		} else if( pInventory ) {
-			m_Battery.Draw( pInventory->m_uNumBatteries );
+			m_Battery.Draw( _HudHealthContainerCount(pInventory, Player_aPlayer[m_nPlayerIdx].m_pEntityCurrent) );
 		}
 	}
 
