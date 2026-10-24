@@ -5349,14 +5349,10 @@ void CBattleStage::SwitchTo( void ) {
 	m_eStageState = STATE_BATTLE;
 	_SetFinished( FALSE );
 
-#if FANG_WINGC
 	// Port fix (R131): the combat stage needs normal weapon selection/reload
 	// after the instruction stages; the leak's extra bNoWeaponSel argument
 	// locked the weapon-select HUD off for the whole battle.
 	CSpyVsSpy::TurnOffHUD( FALSE );
-#else
-	CSpyVsSpy::TurnOffHUD( FALSE, 0, TRUE );
-#endif
 	CSpyVsSpy::AttackDisable( FALSE );
 	CSpyVsSpy::TakeControlFromPlayer( FALSE );
 

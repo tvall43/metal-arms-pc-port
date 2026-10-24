@@ -1100,7 +1100,6 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 	FCollImpact_t CollImpact;
 	CFVec3A PelletUnitDir_WS, RayEnd_WS, ImpactFlashPos_WS;
 
-#if FANG_WINGC
 	// Retail accumulates one representative (most central) pellet per entity.
 	// Applying the whole damage profile to every pellet multiplies point-blank
 	// damage. Xbox XBE FUN_00138960 (0x138960) and GameCube main.dol
@@ -1115,7 +1114,6 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 	};
 	_RetailHit_t aHits[ABSOLUTE_MAX_PELLET_COUNT];
 	u32 nHitCount = 0;
-#endif
 
 	// Build tracker skip list...
 	FWorld_nTrackerSkipListCount = 0;
@@ -1171,7 +1169,6 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 			pHitEntity = CGColl::ExtractEntity( &CollImpact );
 			if( pHitEntity )
 			{
-#if FANG_WINGC
 				// Keep the most central pellet for each entity; damage is applied
 				// once after the loop so point-blank shots don't multiply.
 				const f32 fAlignment = PelletUnitDir_WS.Dot( BlastDirUnit );
@@ -1188,26 +1185,6 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 						aHits[nHit].fAlignment = fAlignment;
 					}
 				}
-#else
-				// Get an empty damage form...
-				CDamageForm *pDamageForm = CDamage::GetEmptyDamageFormFromPool();
-
-				if( pDamageForm )
-				{
-					// Fill out the form...
-
-					pDamageForm->m_nDamageLocale = CDamageForm::DAMAGE_LOCALE_IMPACT;
-					pDamageForm->m_nDamageDelivery = CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY;
-					pDamageForm->m_pDamageProfile = m_pUserProps->pDamageProfile;
-					pDamageForm->m_Damager.pWeapon = this;
-					pDamageForm->m_Damager.pBot = GetOwner();
-					pDamageForm->m_Damager.nDamagerPlayerIndex = GetOwner() ? GetOwner()->m_nPossessionPlayerIndex : -1;
-					pDamageForm->m_pDamageeEntity = pHitEntity;
-					pDamageForm->InitTriDataFromCollImpact( (CFWorldMesh *)CollImpact.pTag, &CollImpact, &PelletUnitDir_WS );
-
-					CDamage::SubmitDamageForm( pDamageForm );
-				}
-#endif
 			}
 
 			//make an AI impact sound in case any AI are listening
@@ -1218,7 +1195,6 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 			}
 		}
 	}
-#if FANG_WINGC
 	for( u32 nHit=0; nHit<nHitCount; ++nHit ) {
 		_RetailHit_t &Hit = aHits[nHit];
 		// main.dol 0x801ef954-0x801efa8c: centrality times cubic distance falloff.
@@ -1244,7 +1220,6 @@ void CWeaponBlaster::_ScatterBlast(const CFVec3A& BlastOrigin, const CFVec3A& Bl
 
 		CDamage::SubmitDamageForm( pDamageForm );
 	}
-#endif
 }
 
 

@@ -2287,7 +2287,6 @@ void CHudBatteryBarSystem::SetHudMode(HudMode_e eNewHudMode)
 // =============================================================================================================
 
 static u32 _HudHealthContainerCount( CInventory *pInventory, CEntity *pControlled ) {
-#if FANG_WINGC
 	if( pControlled && (pControlled->TypeBits() & ENTITY_BIT_BOT) ) {
 		CBot *pBot = (CBot *)pControlled;
 		if( pBot->m_pDrivingVehicle && level_IsRacingLevel() &&
@@ -2301,7 +2300,6 @@ static u32 _HudHealthContainerCount( CInventory *pInventory, CEntity *pControlle
 			if( fCount >= 1.0f && fCount <= 6.0f ) return (u32)fCount;
 		}
 	}
-#endif
 	return pInventory->m_uNumBatteries;
 }
 

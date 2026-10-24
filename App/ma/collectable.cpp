@@ -2043,11 +2043,9 @@ void CCollectable::ClassHierarchyWork( void ) {
 		return;
 	}
 
-#if FANG_WINGC
 	// R130: retail washer magnetize/hop/fly-to-head attraction. Runs before
 	// the pickup scan so an arriving washer can be picked up this frame.
 	_WorkWasherAttraction();
-#endif
 
 	// So we don't have any lingering values
 	m_pPlayer = NULL;
@@ -2081,13 +2079,11 @@ void CCollectable::ClassHierarchyWork( void ) {
 
 		fScale = m_pCollectableType->m_bSpecialEUK ? 1.0f : m_fScale;
 
-#if FANG_WINGC
 		// R130: shrink the washer visually during the attraction flight without
 		// changing its logical pickup scale (retail does the same).
 		if( m_nPortWasherPlayer >= 0 ) {
 			fScale *= 1.0f - 0.9f * FMATH_MIN( m_fPortWasherTime * 2.0f, 1.0f );
 		}
-#endif
 
 		FASSERT( fScale > 0.0f );
 
@@ -2105,10 +2101,8 @@ void CCollectable::ClassHierarchyWork( void ) {
 		CFMtx43A::m_XlatRotY.m_vPos.Add( Center );
 
 		if( ( m_eState == STATE_STOPPED || m_eState == STATE_FLOAT_UP )
-#if FANG_WINGC
 			// R130: no pickup bob while the washer is flying to Glitch's head.
 			&& m_nPortWasherPlayer < 0
-#endif
 		) {
 			CFMtx43A::m_XlatRotY.m_vPos.y += ( 0.65f * fmath_Sin( m_fTransY + FMATH_DEG2RAD( m_uBobOffset ) ) );
 		}
@@ -3002,12 +2996,10 @@ void CCollectable::_ClearDataMembers( void ) {
 	m_VelocityWS.Zero();
 	m_PushPoint.Zero();
 
-#if FANG_WINGC
 	// R130: reset the transient washer attraction state.
 	m_nPortWasherPlayer = -1;
 	m_fPortWasherTime = 0.0f;
 	m_PortWasherStart.Zero();
-#endif
 
 	m_eState = STATE_PLACED;
 	m_fScale = 1.0f;
@@ -3027,14 +3019,12 @@ void CCollectable::_ClearDataMembers( void ) {
 BOOL CCollectable::_Setup( const CFMtx43A *pMtx, f32 fScale, f32 fSpawnTime/* = 0.0f*/, s32 nAmmoCount/* = -1*/ ) {
 	FASSERT( pMtx );
 
-#if FANG_WINGC
 	// R130: pool reuse and checkpoint restore both route through here;
 	// restart the transient hop. The logical pickup scale stays unchanged,
 	// so restored washers cannot remain tiny from an in-flight shrink.
 	m_nPortWasherPlayer = -1;
 	m_fPortWasherTime = 0.0f;
 	m_PortWasherStart = pMtx->m_vPos;
-#endif
 
 	m_VelocityWS.Zero();
 	m_LastPos = pMtx->m_vPos;
@@ -3939,7 +3929,6 @@ void CCollectable::_RespawnItem( CCollectableSpawnPoint *pPoint ) {
 	}
 }
 
-#if FANG_WINGC
 // R130: retail washer attraction, restored from cobblecorn's fork (their B2/A7,
 // recovery addresses GC main.dol 8017dca8 acquisition / 80178264 movement,
 // caller 8017fa34). The leak's source revision dropped the whole routine, so
@@ -4047,7 +4036,6 @@ BOOL CCollectable::_WorkWasherAttraction( void ) {
 
 	return TRUE;
 }
-#endif
 
 s32 CCollectable::_CanPickup( void ) {
 	if( m_pWorldMesh == NULL ) {
@@ -4060,11 +4048,9 @@ s32 CCollectable::_CanPickup( void ) {
 	s32 uBest = -1;
 
 	for( s32 i = 0; i < CPlayer::m_nPlayerCount; ++i ) {
-#if FANG_WINGC
 		// R130: a washer in flight is locked to the player it was attracted
 		// to (retail recipient gate).
 		if( m_nPortWasherPlayer >= 0 && m_nPortWasherPlayer != i ) continue;
-#endif
 		CEntity *pPlayer = Player_aPlayer[i].m_pEntityCurrent;
 		CBot *pPlayerBot = (CBot *)(pPlayer);
 
