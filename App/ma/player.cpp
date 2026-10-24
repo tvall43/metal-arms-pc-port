@@ -1335,6 +1335,13 @@ void CPlayer::GetSPStats( u32 &rnUnitsDestroyed, u32 &rnWashersCollected ) {
 	rnWashersCollected = m_GameStats.m_SPStats.m_nWashersCollected;
 }
 
+// Port (R132d): the level-complete screen also shows the run's secret-chip count.
+void CPlayer::GetSPSecretChips( u32 &rnSecretChipsCollected ) {
+	FASSERT( m_GameStats.m_bIsSinglePlayer );
+
+	rnSecretChipsCollected = m_GameStats.m_SPStats.m_nSecretChipsCollected;
+}
+
 //-----------------------------------------------------------------------------
 // Override the number of kills, use for ColiseumMiniGame.
 void CPlayer::OverrideUnitsDestroyed( u32 nUnitDestroyed )

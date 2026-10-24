@@ -41,12 +41,17 @@
 #define _SHOW_SELL_SHEET_INSTEAD	( LAUNCHER_GO_DIRECTLY_TO_E3_WRAPPERS )	
 #define _LEVEL_NAMES_CSV			"pick_level$"
 #define _LEVEL_NAMES_TABLE			"Level_Names"
+#define _WRAPPER_CSV				"wrappers$"
 #define _CHARACTERS_PER_SECOND		25.0f
 #define _SECS_TO_WAIT_FOR_VALUE		0.45f
 #define _TEXT_LEFT_EDGE				0.10f
 #define _LINE_1_Y					0.40f
 #define _LINE_2_Y					0.45f
 #define _LINE_3_Y					0.50f
+#define _LINE_4_Y					0.545f
+#define _LINE_5_Y					0.585f
+#define _LINE_6_Y					0.625f
+#define _LINE_7_Y					0.665f
 #define _VALUES_X					0.48f
 #define _VALUE_COLOR				L"85900575"
 #define _LINE_COLOR					L"70757885"
@@ -65,6 +70,14 @@ typedef enum {
 	_STATE_WAITING_FOR_VALUE_2,
 	_STATE_TYPING_LINE3,
 	_STATE_WAITING_FOR_VALUE_3,
+	_STATE_TYPING_LINE_4,
+	_STATE_WAITING_FOR_VALUE_4,
+	_STATE_TYPING_LINE_5,
+	_STATE_WAITING_FOR_VALUE_5,
+	_STATE_TYPING_LINE_6,
+	_STATE_WAITING_FOR_VALUE_6,
+	_STATE_TYPING_LINE_7,
+	_STATE_WAITING_FOR_VALUE_7,
 	_STATE_WAITING_FOR_BUTTON,
 
 	_STATE_COUNT
@@ -101,6 +114,7 @@ public:
 // stats cached from the player before dumping the level (can't be dynamically allocated)
 static u16 _nEnemiesDestroyed;
 static u16 _nWashersCollected;
+static u16 _nChipsThisRun;
 static u8 _nHoursToComplete;
 static u8 _nMinsToComplete;
 static u8 _nSecsToComplete;
@@ -128,6 +142,7 @@ static BOOL _SP_Work( void );
 static BOOL _SP_Draw( void );
 static void _PrintLine( f32 fX, f32 fY, s32 nCharsToPrint, cwchar *pwszLine );
 static void _PrintRegValue( f32 fX, f32 fY, u32 nValue );
+static void _PrintChipsValue( f32 fX, f32 fY );
 static void _PrintPressButton( f32 fX, f32 fY, s32 nCharsToPrint );
 
 ////////////////////
@@ -181,6 +196,7 @@ static u32 _nNumFreebies = 0;
 static f32 _fLevelChips = 0.0f;		// chips obtainable on the completed level
 static f32 _fTimeToBeat = 0.0f;		// per-level time-to-beat (0 = no Speed Chip)
 static f32 _fRunSecs = 0.0f;		// completed level: this run's finishing time
+static Level_e _nCompletedLevel = (Level_e)-1;
 static BOOL _bNewMPUnlock = FALSE;
 static BOOL _bNewSpeedChip = FALSE;
 
@@ -286,6 +302,117 @@ static void _ProcessCompletionRewards( CPlayerProfile *pProfile, Level_e nLevel,
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// R132d: the level-complete screen text. The retail master keeps these
+// strings in a dedicated 'levelcompletephrases' table inside wrappers$ that
+// the leak never reads:
+//   0 'Completion Time:'  1 'Beat'  2 'to earn a Speed Chip!'
+//   3 'Secret Chips:'     4 'more Chips to unlock'  5 'Chip Total:'
+//   6 'Multiplayer Level Unlocked!'   7 'Speed Chip earned!'
+//   8 'Speed Chip already earned!'    9 'a Multiplayer Level!'
+//  10 'more Chip to unlock'
+// The tip rows are copied into local buffers (the csv data lives in an fmem
+// frame that gets released); status lines are precomposed at screen init.
+
+#define _LC_PHRASE_COUNT		11
+#define _LC_PHRASES_TABLE		"levelcompletephrases"
+
+static wchar _awszLCPhrases[_LC_PHRASE_COUNT][_STRING_LEN];
+static wchar _awszSpeedChipLine[_STRING_LEN];
+static wchar _awszUnlockStatusLine[_STRING_LEN];
+
+static void _CopyLCPhrase( u32 nRow, cwchar *pwszSrc ) {
+	if( nRow >= _LC_PHRASE_COUNT ) {
+		return;
+	}
+	fclib_wcsncpy( _awszLCPhrases[nRow], pwszSrc, _STRING_LEN - 1 );
+	_awszLCPhrases[nRow][_STRING_LEN - 1] = 0;
+}
+
+static BOOL _LoadLevelCompletePhrases( void ) {
+	FMemFrame_t Frame;
+	FGameDataFileHandle_t hFile;
+	FGameDataTableHandle_t hTable;
+	FGameData_VarType_e nDataType;
+	u32 nNumFields, i;
+
+	fang_MemZero( _awszLCPhrases, sizeof( _awszLCPhrases ) );
+	_awszSpeedChipLine[0] = 0;
+	_awszUnlockStatusLine[0] = 0;
+
+	Frame = fmem_GetFrame();
+
+	hFile = fgamedata_LoadFileToFMem( _WRAPPER_CSV );
+	if( hFile == FGAMEDATA_INVALID_FILE_HANDLE ) {
+		DEVPRINTF( "levelcomplete : Could not load '%s', screen text rows unavailable.\n", _WRAPPER_CSV );
+		fmem_ReleaseFrame( Frame );
+		return FALSE;
+	}
+	hTable = fgamedata_GetFirstTableHandle( hFile, _LC_PHRASES_TABLE );
+	if( hTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
+		DEVPRINTF( "levelcomplete : Could not find table '%s'.\n", _LC_PHRASES_TABLE );
+		fmem_ReleaseFrame( Frame );
+		return FALSE;
+	}
+	nNumFields = fgamedata_GetNumFields( hTable );
+	if( nNumFields != _LC_PHRASE_COUNT ) {
+		DEVPRINTF( "levelcomplete : Table '%s' has %d fields, expected %d.\n", _LC_PHRASES_TABLE, nNumFields, _LC_PHRASE_COUNT );
+		fmem_ReleaseFrame( Frame );
+		return FALSE;
+	}
+	for( i=0; i < _LC_PHRASE_COUNT; i++ ) {
+		_CopyLCPhrase( i, (cwchar *)fgamedata_GetPtrToFieldData( hTable, i, nDataType ) );
+	}
+
+	fmem_ReleaseFrame( Frame );
+	return TRUE;
+}
+
+static void _ComposeCompletionMessages( void ) {
+	u32 h, m, s;
+	wchar wszNum[_STRING_LEN];
+	u32 nEarned, nUnlocked, nNext;
+
+	_awszSpeedChipLine[0] = 0;
+	_awszUnlockStatusLine[0] = 0;
+	if( !_pPlayerProfile || (u32)_nCompletedLevel >= LEVEL_SINGLE_PLAYER_COUNT ) {
+		return;
+	}
+
+	// Speed Chip status: made it this run, already earned, or how much time we lost
+	if( _fTimeToBeat > 0.0f ) {
+		if( _bNewSpeedChip ) {
+			fclib_wcscat( _awszSpeedChipLine, _awszLCPhrases[7] );
+		} else if( _pPlayerProfile->m_Data.aLevelProgress[_nCompletedLevel].nBonusSecretChipEarned ) {
+			fclib_wcscat( _awszSpeedChipLine, _awszLCPhrases[8] );
+		} else {
+			wpr_datatypes_BreakDownTimeUnits( _fTimeToBeat, h, m, s );
+			fclib_wcscat( _awszSpeedChipLine, _awszLCPhrases[1] );
+			_snwprintf( wszNum, _STRING_LEN, L" %02d:%02d:%02d ", h, m, s );
+			fclib_wcscat( _awszSpeedChipLine, wszNum );
+			fclib_wcscat( _awszSpeedChipLine, _awszLCPhrases[2] );
+		}
+	}
+
+	// unlock status: celebrate a fresh unlock, or show the gap to the next one
+	if( _bNewMPUnlock ) {
+		fclib_wcscat( _awszUnlockStatusLine, _awszLCPhrases[6] );
+	} else {
+		nUnlocked = _pPlayerProfile->m_Data.nNumMPLevelsUnlocked;
+		if( _nNumUnlockThresholds
+			&& nUnlocked < (LEVEL_MULTIPLAYER_COUNT - _nNumFreebies) ) {
+			nEarned = _pPlayerProfile->CountEarnedSecretChips();
+			nNext = (u32)_anChipsToUnlock[nUnlocked] > nEarned
+					? (u32)_anChipsToUnlock[nUnlocked] - nEarned : 1;
+			_snwprintf( wszNum, _STRING_LEN, L"%d ", nNext );
+			fclib_wcscat( _awszUnlockStatusLine, wszNum );
+			fclib_wcscat( _awszUnlockStatusLine, nNext == 1 ? _awszLCPhrases[10] : _awszLCPhrases[4] );
+			fclib_wcscat( _awszUnlockStatusLine, L" " );
+			fclib_wcscat( _awszUnlockStatusLine, _awszLCPhrases[9] );
+		}
+	}
+}
+
 static BOOL _SP_Init( void ) {
 	Level_e nLevel;
 	u32 nTemp1, nTemp2, nTemp3;
@@ -299,12 +426,15 @@ static BOOL _SP_Init( void ) {
 	Player_aPlayer[0].GetSPStats( nTemp1, nTemp2 );
 	_nEnemiesDestroyed = nTemp1;
 	_nWashersCollected = nTemp2;
+	Player_aPlayer[0].GetSPSecretChips( nTemp3 );
+	_nChipsThisRun = (u16)nTemp3;
 	wpr_datatypes_BreakDownTimeUnits( Level_fSecsInLevel, nTemp1, nTemp2, nTemp3 );
 	_nHoursToComplete = nTemp1;
 	_nMinsToComplete = nTemp2;
 	_nSecsToComplete = nTemp3;
 	_fRunSecs = Level_fSecsInLevel;
 	nLevel = Level_aInfo[Level_nLoadedIndex].nLevel;
+	_nCompletedLevel = nLevel;
 	_nControllerIndex = Player_aPlayer[0].m_nControllerIndex;
 	_pPlayerProfile = Player_aPlayer[0].m_pPlayerProfile;
 
@@ -316,6 +446,9 @@ static BOOL _SP_Init( void ) {
 	if( _LoadCompletionData( nLevel ) ) {
 		_ProcessCompletionRewards( _pPlayerProfile, nLevel, _fRunSecs );
 	}
+	// R132d: end-screen text rows + precomposed status lines
+	_LoadLevelCompletePhrases();
+	_ComposeCompletionMessages();
 
 	DEVPRINTF( "******** LOAD MARKER - START LOADING LEVEL COMPLETE SCREEN***********.\n" );
 #if !GAMELOOP_EXTERNAL_DEMO
@@ -546,6 +679,10 @@ static BOOL _SP_Work( void ) {
 	case _STATE_WAITING_FOR_VALUE_1:
 	case _STATE_WAITING_FOR_VALUE_2:
 	case _STATE_WAITING_FOR_VALUE_3:
+	case _STATE_WAITING_FOR_VALUE_4:
+	case _STATE_WAITING_FOR_VALUE_5:
+	case _STATE_WAITING_FOR_VALUE_6:
+	case _STATE_WAITING_FOR_VALUE_7:
 		// wait for a spell before the value comes on
 		_pScreenInfo->fTimer += FLoop_fPreviousLoopSecs;
 		if( _pScreenInfo->fTimer >= _SECS_TO_WAIT_FOR_VALUE ) {
@@ -568,6 +705,54 @@ static BOOL _SP_Work( void ) {
 
 	case _STATE_TYPING_LINE3:
 		nStringLen = fclib_wcslen( Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+
+		_pScreenInfo->nLettersToPrint = _HowManyLettersShouldAppear( nStringLen, _pScreenInfo->fTimer, _CHARACTERS_PER_SECOND );
+		if( _pScreenInfo->nLettersToPrint >= nStringLen ) {
+			_pScreenInfo->nState++;
+			_pScreenInfo->fTimer = 0.0f;
+			_pScreenInfo->nLettersToPrint = 0;
+		}
+		break;
+
+	case _STATE_TYPING_LINE_4:
+		// R132d: Speed Chip status line (may be empty when there is no target)
+		nStringLen = fclib_wcslen( _awszSpeedChipLine );
+
+		_pScreenInfo->nLettersToPrint = _HowManyLettersShouldAppear( nStringLen, _pScreenInfo->fTimer, _CHARACTERS_PER_SECOND );
+		if( _pScreenInfo->nLettersToPrint >= nStringLen ) {
+			_pScreenInfo->nState++;
+			_pScreenInfo->fTimer = 0.0f;
+			_pScreenInfo->nLettersToPrint = 0;
+		}
+		break;
+
+	case _STATE_TYPING_LINE_5:
+		// R132d: 'Secret Chips:' label
+		nStringLen = fclib_wcslen( _awszLCPhrases[3] );
+
+		_pScreenInfo->nLettersToPrint = _HowManyLettersShouldAppear( nStringLen, _pScreenInfo->fTimer, _CHARACTERS_PER_SECOND );
+		if( _pScreenInfo->nLettersToPrint >= nStringLen ) {
+			_pScreenInfo->nState++;
+			_pScreenInfo->fTimer = 0.0f;
+			_pScreenInfo->nLettersToPrint = 0;
+		}
+		break;
+
+	case _STATE_TYPING_LINE_6:
+		// R132d: 'Chip Total:' label
+		nStringLen = fclib_wcslen( _awszLCPhrases[5] );
+
+		_pScreenInfo->nLettersToPrint = _HowManyLettersShouldAppear( nStringLen, _pScreenInfo->fTimer, _CHARACTERS_PER_SECOND );
+		if( _pScreenInfo->nLettersToPrint >= nStringLen ) {
+			_pScreenInfo->nState++;
+			_pScreenInfo->fTimer = 0.0f;
+			_pScreenInfo->nLettersToPrint = 0;
+		}
+		break;
+
+	case _STATE_TYPING_LINE_7:
+		// R132d: unlock status line (empty string types instantly and moves on)
+		nStringLen = fclib_wcslen( _awszUnlockStatusLine );
 
 		_pScreenInfo->nLettersToPrint = _HowManyLettersShouldAppear( nStringLen, _pScreenInfo->fTimer, _CHARACTERS_PER_SECOND );
 		if( _pScreenInfo->nLettersToPrint >= nStringLen ) {
@@ -675,6 +860,100 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
 		break;
 
+	case _STATE_TYPING_LINE_4:
+		// R132d: Speed Chip status line
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
+		_PrintRegValue( _VALUES_X, _LINE_1_Y, _nEnemiesDestroyed );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
+		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, _pScreenInfo->nLettersToPrint, _awszSpeedChipLine );
+		break;
+
+	case _STATE_WAITING_FOR_VALUE_4:
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
+		_PrintRegValue( _VALUES_X, _LINE_1_Y, _nEnemiesDestroyed );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
+		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		break;
+
+	case _STATE_TYPING_LINE_5:
+		// R132d: 'Secret Chips:' label
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
+		_PrintRegValue( _VALUES_X, _LINE_1_Y, _nEnemiesDestroyed );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
+		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, _pScreenInfo->nLettersToPrint, _awszLCPhrases[3] );
+		break;
+
+	case _STATE_WAITING_FOR_VALUE_5:
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
+		_PrintRegValue( _VALUES_X, _LINE_1_Y, _nEnemiesDestroyed );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
+		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
+		break;
+
+	case _STATE_TYPING_LINE_6:
+		// R132d: 'Chip Total:' label; the chips value comes on with it
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
+		_PrintRegValue( _VALUES_X, _LINE_1_Y, _nEnemiesDestroyed );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
+		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
+		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, _pScreenInfo->nLettersToPrint, _awszLCPhrases[5] );
+		break;
+
+	case _STATE_WAITING_FOR_VALUE_6:
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
+		_PrintRegValue( _VALUES_X, _LINE_1_Y, _nEnemiesDestroyed );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
+		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
+		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, -1, _awszLCPhrases[5] );
+		break;
+
+	case _STATE_TYPING_LINE_7:
+		// R132d: unlock status line; the chip total value comes on with it
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
+		_PrintRegValue( _VALUES_X, _LINE_1_Y, _nEnemiesDestroyed );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
+		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
+		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, -1, _awszLCPhrases[5] );
+		if( _pPlayerProfile ) _PrintRegValue( _VALUES_X + 0.15f, _LINE_6_Y, _pPlayerProfile->m_Data.nTotalSecretChipsGathered );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_7_Y, _pScreenInfo->nLettersToPrint, _awszUnlockStatusLine );
+		break;
+
+	case _STATE_WAITING_FOR_VALUE_7:
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
+		_PrintRegValue( _VALUES_X, _LINE_1_Y, _nEnemiesDestroyed );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
+		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
+		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, -1, _awszLCPhrases[5] );
+		if( _pPlayerProfile ) _PrintRegValue( _VALUES_X + 0.15f, _LINE_6_Y, _pPlayerProfile->m_Data.nTotalSecretChipsGathered );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_7_Y, -1, _awszUnlockStatusLine );
+		break;
+
 	case _STATE_WAITING_FOR_BUTTON:
 		// print everything
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_1_Y, -1, Game_apwszPhrases[GAMEPHRASE_ENEMIES_DESTROYED] );
@@ -682,13 +961,21 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
+		// values
 		ftext_Printf( _VALUES_X, _LINE_3_Y, 
 				L"~f1~C%ls~w0~aL~s0.95%02d:%02d:%02d",
 				_VALUE_COLOR,
 				_nHoursToComplete, _nMinsToComplete, _nSecsToComplete );
+		// R132d: chip rows and unlock status
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
+		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, -1, _awszLCPhrases[5] );
+		if( _pPlayerProfile ) _PrintRegValue( _VALUES_X + 0.15f, _LINE_6_Y, _pPlayerProfile->m_Data.nTotalSecretChipsGathered );
+		_PrintLine( _TEXT_LEFT_EDGE, _LINE_7_Y, -1, _awszUnlockStatusLine );
 
 		// print "Press A To Continue"
-		_PrintPressButton( 0.3f, 0.65f, _pScreenInfo->nLettersToPrint );
+		_PrintPressButton( 0.3f, 0.71f, _pScreenInfo->nLettersToPrint );
 		break;
 	}	
 
@@ -729,6 +1016,15 @@ static void _PrintRegValue( f32 fX, f32 fY, u32 nValue ) {
 		L"~f1~C%ls~w0~aL~s0.95%d",
 		_VALUE_COLOR,
 		nValue );
+}
+
+// R132d: chips collected on the completed run vs. the level's chip total
+static void _PrintChipsValue( f32 fX, f32 fY ) {
+	ftext_Printf( fX, fY,
+		L"~f1~C%ls~w0~aL~s0.95%d / %d",
+		_VALUE_COLOR,
+		(u32)_nChipsThisRun,
+		(u32)_fLevelChips );
 }
 
 static void _PrintPressButton( f32 fX, f32 fY, s32 nCharsToPrint ) {

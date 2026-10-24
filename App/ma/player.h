@@ -292,6 +292,7 @@ public:
 	void GetMPScore(s8& nKills, u8& nDeaths);
 
 	void GetSPStats( u32 &rnUnitsDestroyed, u32 &rnWashersCollected );
+	void GetSPSecretChips( u32 &rnSecretChipsCollected );
 	void OverrideUnitsDestroyed( u32 nUnitDestroyed );
 
 	BOOL IsReadyToContinue( void ); // wrapper for logic to detect if "Press A to Continue" should be displayed
