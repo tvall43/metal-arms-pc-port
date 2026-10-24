@@ -214,7 +214,11 @@ typedef enum {
 	WPR_DATATYPES_PHRASES_MA_NEEDS_1,
 	WPR_DATATYPES_PHRASES_MA_NEEDS_2,
 	WPR_DATATYPES_PHRASES_WRONG_DEVICE,
-	
+	WPR_DATATYPES_PHRASES_COLLECT,			// R132: 'Collect' (wrappers$ common row 100)
+	WPR_DATATYPES_PHRASES_MORE_CHIPS,		// R132: 'more Chips' (row 101)
+	WPR_DATATYPES_PHRASES_MORE_CHIP,		// R132: 'more Chip' (row 110, singular)
+	WPR_DATATYPES_PHRASES_TO_UNLOCK,		// R132: 'to unlock!' (row 102)
+
 // ADD NON-PLATFORM SPECIFIC PHRASES HERE...
 	
 	//////////////////////////////////////////////////////////////

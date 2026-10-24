@@ -52,7 +52,7 @@
 #define _LINE_5_Y					0.585f
 #define _LINE_6_Y					0.625f
 #define _LINE_7_Y					0.665f
-#define _VALUES_X					0.48f
+#define _VALUES_X					0.54f
 #define _VALUE_COLOR				L"85900575"
 #define _LINE_COLOR					L"70757885"
 #define _SECS_TO_FADE_IN			0.55f
@@ -236,8 +236,13 @@ static BOOL _LoadCompletionData( Level_e nLevel ) {
 		if( ( (nNumFields % 6) == 0 ) && ( nIndex + 4 < nNumFields ) ) {
 			_fLevelChips = *(f32 *)fgamedata_GetPtrToFieldData( hTable, nIndex + 3, nDataType );
 			_fTimeToBeat = *(f32 *)fgamedata_GetPtrToFieldData( hTable, nIndex + 4, nDataType );
+		} else {
+			DEVPRINTF( "levelcomplete : '%s' has %d fields, level row %d missing.\n", _LEVEL_NAMES_TABLE, nNumFields, nIndex );
 		}
+	} else {
+		DEVPRINTF( "levelcomplete : Could not find table '%s'.\n", _LEVEL_NAMES_TABLE );
 	}
+	DEVPRINTF( "levelcomplete : level %d chips %.0f time-to-beat %.0f\n", nLevel, _fLevelChips, _fTimeToBeat );
 
 	// unlock thresholds
 	hTable = fgamedata_GetFirstTableHandle( hFile, _CHIPS_UNLOCK_TABLE );
@@ -363,6 +368,7 @@ static BOOL _LoadLevelCompletePhrases( void ) {
 	for( i=0; i < _LC_PHRASE_COUNT; i++ ) {
 		_CopyLCPhrase( i, (cwchar *)fgamedata_GetPtrToFieldData( hTable, i, nDataType ) );
 	}
+	DEVPRINTF( "levelcomplete : '%s' loaded, %d rows.\n", _LC_PHRASES_TABLE, nNumFields );
 
 	fmem_ReleaseFrame( Frame );
 	return TRUE;
@@ -378,6 +384,10 @@ static void _ComposeCompletionMessages( void ) {
 	if( !_pPlayerProfile || (u32)_nCompletedLevel >= LEVEL_SINGLE_PLAYER_COUNT ) {
 		return;
 	}
+	DEVPRINTF( "levelcomplete : compose: earned %d unlocked %d thresholds %d flags sp %d mp %d\n",
+		(u32)_pPlayerProfile->CountEarnedSecretChips(),
+		(u32)_pPlayerProfile->m_Data.nNumMPLevelsUnlocked, _nNumUnlockThresholds,
+		(u32)_bNewSpeedChip, (u32)_bNewMPUnlock );
 
 	// Speed Chip status: made it this run, already earned, or how much time we lost
 	if( _fTimeToBeat > 0.0f ) {

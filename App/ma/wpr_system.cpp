@@ -1891,6 +1891,11 @@ static const PhraseMapEntry_t _aWprPhraseMap[ WPR_DATATYPES_PHRASES_COUNT ] = {
 	{ _PHRASE_COMMON,   96 },
 	{ _PHRASE_COMMON,   97 },
 	{ _PHRASE_COMMON,   98 },
+	// R132: retail rows for the MP-menu locked-item hint
+	{ _PHRASE_COMMON,  100 },
+	{ _PHRASE_COMMON,  101 },
+	{ _PHRASE_COMMON,  110 },
+	{ _PHRASE_COMMON,  102 },
 	{ _PHRASE_AUTHORED, 2 },
 	{ _PHRASE_PLATFORM, 1 },
 	{ _PHRASE_PLATFORM, 2 },
@@ -9110,6 +9115,32 @@ static void _MultiLevel_DrawOrtho( f32 fScaleMultiplier, f32 fHalfXRes, f32 fHal
 				  L'C',
 				  1.30f, 
 				  _apwszPhrases[WPR_DATATYPES_PHRASES_LOCKED] );			
+
+		// R132: tell the player what this level costs in chips. Threshold
+		// comes from the retail level_unlocking row for this item; the earned
+		// count is the campaign profile's total.
+		if( _MenuState.MLUnLockInfo.panChipsToUnlock ) {
+			u32 nThrIndex = (u32)_MenuState.nCurItemIndex - _MenuState.MLUnLockInfo.nNumFreebies;
+			u32 nNumUnlockFields = (u32)(LEVEL_MULTIPLAYER_COUNT - _MenuState.MLUnLockInfo.nNumFreebies);
+			if( nThrIndex < nNumUnlockFields ) {
+				u32 nEarned = _paProfiles[0].CountEarnedSecretChips();
+				u32 nNeeded = (u32)_MenuState.MLUnLockInfo.panChipsToUnlock[nThrIndex];
+				u32 nMoreChips = (nNeeded > nEarned) ? (nNeeded - nEarned) : 1;
+
+				wchar wszHint[96];
+				_snwprintf( wszHint, 96, L"%ls %d %ls %ls",
+					_apwszPhrases[WPR_DATATYPES_PHRASES_COLLECT],
+					nMoreChips,
+					( nMoreChips == 1 ? _apwszPhrases[WPR_DATATYPES_PHRASES_MORE_CHIP]
+									  : _apwszPhrases[WPR_DATATYPES_PHRASES_MORE_CHIPS] ),
+					_apwszPhrases[WPR_DATATYPES_PHRASES_TO_UNLOCK] );
+				ftext_Printf( 0.5f, 0.44f,
+					L"~f1~C%ls~w0~a%lc~s0.85%ls",
+					L"88300685",
+					L'C',
+					wszHint );
+			}
+		}
 	}	
 
 	// draw which player is in control of the selection
