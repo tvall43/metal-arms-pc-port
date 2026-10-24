@@ -243,5 +243,14 @@ extern void fviewport_SetCallback(fViewport_Callback pCallback);
 
 extern f32 fviewport_fCullDistOverride; //set to 0 for no override
 
+// Port fix (R132): the game's ortho UI (menus, pause, HUD text, end screen) is
+// authored on a 4:3 640x480 canvas. On a widescreen render target those
+// viewports must be created over a centred 4:3 sub-rect instead of the whole
+// backbuffer, or ftext's aspect scaling pushes rows below roughly y=0.56 off
+// the bottom of the screen. This computes the sub-rect from the video mode in
+// use (falling back to the active viewport, then to 640x480 before the mode
+// is known). Call the result through fviewport_InitOrtho3D's rect overload.
+extern void fviewport_GetAuthored43SubRect( u32 *pnLeft, u32 *pnTop, u32 *pnWidth, u32 *pnHeight );
+
 #endif
 

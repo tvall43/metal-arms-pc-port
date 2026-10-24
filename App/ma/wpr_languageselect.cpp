@@ -196,7 +196,11 @@ static BOOL _Init( void ) {
 		launcher_LoadFailure();
 		return TRUE;
 	}
-	fviewport_InitOrtho3D( _pViewportOrtho3D, 0.1f, 100.0f );
+	// Port fix (R132): 4:3 authored canvas, see fviewport_GetAuthored43SubRect.
+	u32 nLangCanvasL, nLangCanvasT, nLangCanvasW, nLangCanvasH;
+	fviewport_GetAuthored43SubRect( &nLangCanvasL, &nLangCanvasT, &nLangCanvasW, &nLangCanvasH );
+	fviewport_InitOrtho3D( _pViewportOrtho3D, 0.1f, 100.0f,
+						   nLangCanvasL, nLangCanvasT, nLangCanvasW, nLangCanvasH );
 
 	_bPrevGovernorState = floop_IsGovernorEnabled();
 	floop_EnableGovernor( TRUE );

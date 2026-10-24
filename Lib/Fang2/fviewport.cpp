@@ -19,6 +19,7 @@
 
 #include "fang.h"
 #include "fviewport.h"
+#include "fvid.h"
 #include "fxfm.h"
 
 
@@ -290,3 +291,37 @@ static FViewportPlanesMask_t _TestSphere_VS( const FViewport_t *pViewport, const
 }
 
 
+
+//-----------------------------------------------------------------------------
+
+// Port fix (R132): see fviewport.h. Menus/HUD text is authored for a 4:3
+// 640x480 canvas; ftext scales text Y positions by the active viewport's
+// width-over-height aspect, so an ortho viewport left stretched over a
+// widescreen backbuffer pushes rows below y~0.56 off the bottom. Return the
+// centred 4:3 sub-rect of the mode in use.
+void fviewport_GetAuthored43SubRect( u32 *pnLeft, u32 *pnTop, u32 *pnWidth, u32 *pnHeight ) {
+	// use the real video mode, not the currently active viewport: that can
+	// still be the default created before the mode was applied.
+	u32 nW = FVid_Mode.nPixelsAcross;
+	u32 nH = FVid_Mode.nPixelsDown;
+	if( nW == 0 || nH == 0 ) {
+		FViewport_t *pFullScreen = fviewport_GetActive();
+		nW = pFullScreen ? (u32)pFullScreen->Res.x : 640;
+		nH = pFullScreen ? (u32)pFullScreen->Res.y : 480;
+	}
+
+	u32 nUIW = nW, nUIH = nH, nLeft = 0, nTop = 0;
+	if( nW * 3 > nH * 4 ) {
+		// wider than 4:3 - pillarbox the canvas
+		nUIW = ( nH * 4 ) / 3;
+		nLeft = ( nW - nUIW ) / 2;
+	} else if( nW * 3 < nH * 4 ) {
+		// taller than 4:3 - letterbox the canvas
+		nUIH = ( nW * 3 ) / 4;
+		nTop = ( nH - nUIH ) / 2;
+	}
+	if( pnLeft ) *pnLeft = nLeft;
+	if( pnTop ) *pnTop = nTop;
+	if( pnWidth ) *pnWidth = nUIW;
+	if( pnHeight ) *pnHeight = nUIH;
+}

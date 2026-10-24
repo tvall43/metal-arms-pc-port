@@ -48,10 +48,10 @@
 #define _LINE_1_Y					0.40f
 #define _LINE_2_Y					0.45f
 #define _LINE_3_Y					0.50f
-#define _LINE_4_Y					0.545f
-#define _LINE_5_Y					0.585f
-#define _LINE_6_Y					0.625f
-#define _LINE_7_Y					0.665f
+#define _LINE_4_Y					0.540f
+#define _LINE_5_Y					0.575f
+#define _LINE_6_Y					0.610f
+#define _LINE_7_Y					0.645f
 #define _VALUES_X					0.54f
 #define _VALUE_COLOR				L"85900575"
 #define _LINE_COLOR					L"70757885"
@@ -141,6 +141,7 @@ static u32 _HowManyLettersShouldAppear( u32 nStringLen, f32 &rfTimer, f32 fChars
 static BOOL _SP_Work( void );
 static BOOL _SP_Draw( void );
 static void _PrintLine( f32 fX, f32 fY, s32 nCharsToPrint, cwchar *pwszLine );
+static void _PrintLineScaled( f32 fX, f32 fY, s32 nCharsToPrint, cwchar *pwszLine, f32 fScale );
 static void _PrintRegValue( f32 fX, f32 fY, u32 nValue );
 static void _PrintChipsValue( f32 fX, f32 fY );
 static void _PrintPressButton( f32 fX, f32 fY, s32 nCharsToPrint );
@@ -563,7 +564,12 @@ static BOOL _SP_Init( void ) {
 		launcher_LoadFailure();
 		return TRUE;
 	}
-	fviewport_InitOrtho3D( _pScreenInfo->pViewportOrtho3D, 0.1f, 100.0f );
+	// Port fix (R132): the canvas is authored 4:3; a plain full-target init
+	// made ftext push rows below y~0.56 off the bottom of widescreen modes.
+	u32 nCanvasL, nCanvasT, nCanvasW, nCanvasH;
+	fviewport_GetAuthored43SubRect( &nCanvasL, &nCanvasT, &nCanvasW, &nCanvasH );
+	fviewport_InitOrtho3D( _pScreenInfo->pViewportOrtho3D, 0.1f, 100.0f,
+						   nCanvasL, nCanvasT, nCanvasW, nCanvasH );
 
 	_pScreenInfo->bPrevGovernorState = floop_IsGovernorEnabled();
 	floop_EnableGovernor( TRUE );
@@ -877,7 +883,7 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, _pScreenInfo->nLettersToPrint, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, _pScreenInfo->nLettersToPrint, _awszSpeedChipLine, 0.80f );
 		break;
 
 	case _STATE_WAITING_FOR_VALUE_4:
@@ -886,7 +892,7 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine, 0.80f );
 		break;
 
 	case _STATE_TYPING_LINE_5:
@@ -896,7 +902,7 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine, 0.80f );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, _pScreenInfo->nLettersToPrint, _awszLCPhrases[3] );
 		break;
 
@@ -906,7 +912,7 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine, 0.80f );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
 		break;
 
@@ -917,7 +923,7 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine, 0.80f );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
 		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, _pScreenInfo->nLettersToPrint, _awszLCPhrases[5] );
@@ -929,7 +935,7 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine, 0.80f );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
 		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, -1, _awszLCPhrases[5] );
@@ -942,12 +948,12 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine, 0.80f );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
 		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, -1, _awszLCPhrases[5] );
 		if( _pPlayerProfile ) _PrintRegValue( _VALUES_X + 0.15f, _LINE_6_Y, _pPlayerProfile->m_Data.nTotalSecretChipsGathered );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_7_Y, _pScreenInfo->nLettersToPrint, _awszUnlockStatusLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_7_Y, _pScreenInfo->nLettersToPrint, _awszUnlockStatusLine, 0.80f );
 		break;
 
 	case _STATE_WAITING_FOR_VALUE_7:
@@ -956,12 +962,12 @@ static BOOL _SP_Draw( void ) {
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_2_Y, -1, Game_apwszPhrases[GAMEPHRASE_WASHERS_COLLECTED] );
 		_PrintRegValue( _VALUES_X, _LINE_2_Y, _nWashersCollected );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_3_Y, -1, Game_apwszPhrases[GAMEPHRASE_TIME_TO_COMPETE] );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine, 0.80f );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
 		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, -1, _awszLCPhrases[5] );
 		if( _pPlayerProfile ) _PrintRegValue( _VALUES_X + 0.15f, _LINE_6_Y, _pPlayerProfile->m_Data.nTotalSecretChipsGathered );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_7_Y, -1, _awszUnlockStatusLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_7_Y, -1, _awszUnlockStatusLine, 0.80f );
 		break;
 
 	case _STATE_WAITING_FOR_BUTTON:
@@ -977,15 +983,15 @@ static BOOL _SP_Draw( void ) {
 				_VALUE_COLOR,
 				_nHoursToComplete, _nMinsToComplete, _nSecsToComplete );
 		// R132d: chip rows and unlock status
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_4_Y, -1, _awszSpeedChipLine, 0.80f );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_5_Y, -1, _awszLCPhrases[3] );
 		_PrintChipsValue( _VALUES_X, _LINE_5_Y );
 		_PrintLine( _TEXT_LEFT_EDGE, _LINE_6_Y, -1, _awszLCPhrases[5] );
 		if( _pPlayerProfile ) _PrintRegValue( _VALUES_X + 0.15f, _LINE_6_Y, _pPlayerProfile->m_Data.nTotalSecretChipsGathered );
-		_PrintLine( _TEXT_LEFT_EDGE, _LINE_7_Y, -1, _awszUnlockStatusLine );
+		_PrintLineScaled( _TEXT_LEFT_EDGE, _LINE_7_Y, -1, _awszUnlockStatusLine, 0.80f );
 
 		// print "Press A To Continue"
-		_PrintPressButton( 0.3f, 0.71f, _pScreenInfo->nLettersToPrint );
+		_PrintPressButton( 0.3f, 0.70f, _pScreenInfo->nLettersToPrint );
 		break;
 	}	
 
@@ -1000,23 +1006,31 @@ static BOOL _SP_Draw( void ) {
 }
 
 static void _PrintLine( f32 fX, f32 fY, s32 nCharsToPrint, cwchar *pwszLine ) {
-	if( nCharsToPrint > 0 ) {
-		wchar wszTemp[128];
+	_PrintLineScaled( fX, fY, nCharsToPrint, pwszLine, 0.95f );
+}
 
-		FMATH_CLAMPMAX( nCharsToPrint, 128 );
+// Port fix (R132): the status rows (Speed Chip / unlock text) run longer than
+// the original three rows; at the label scale they wrap into 'Press A'.
+static void _PrintLineScaled( f32 fX, f32 fY, s32 nCharsToPrint, cwchar *pwszLine, f32 fScale ) {
+	if( nCharsToPrint > 0 ) {
+		wchar wszTemp[160];
+
+		FMATH_CLAMPMAX( nCharsToPrint, 160 );
 		fclib_wcsncpy( wszTemp, pwszLine, nCharsToPrint );
 		wszTemp[nCharsToPrint] = 0;
 	
 		// print only a portion of the text
 		ftext_Printf( fX, fY,
-			L"~f1~C%ls~w0~aL~s0.95%ls",
+			L"~f1~C%ls~w0~aL~s%.2f%ls",
 			_LINE_COLOR,
+			fScale,
 			wszTemp );
 	} else if( nCharsToPrint < 0 ) {
 		// print all of the text
 		ftext_Printf( fX, fY,
-			L"~f1~C%ls~w0~aL~s0.95%ls",
+			L"~f1~C%ls~w0~aL~s%.2f%ls",
 			_LINE_COLOR,
+			fScale,
 			pwszLine );
 	}
 }
@@ -1128,7 +1142,11 @@ static BOOL _SellSheet_Init( void ) {
 		launcher_LoadFailure();
 		return TRUE;
 	}
-	fviewport_InitOrtho3D( _pScreenInfo->pViewportOrtho3D, 0.1f, 100.0f );
+	// Port fix (R132): 4:3 authored canvas, see _SP_Init.
+	u32 nSellCanvasL, nSellCanvasT, nSellCanvasW, nSellCanvasH;
+	fviewport_GetAuthored43SubRect( &nSellCanvasL, &nSellCanvasT, &nSellCanvasW, &nSellCanvasH );
+	fviewport_InitOrtho3D( _pScreenInfo->pViewportOrtho3D, 0.1f, 100.0f,
+						   nSellCanvasL, nSellCanvasT, nSellCanvasW, nSellCanvasH );
 
 	_pScreenInfo->bPrevGovernorState = floop_IsGovernorEnabled();
 	floop_EnableGovernor( TRUE );

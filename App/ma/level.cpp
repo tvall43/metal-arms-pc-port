@@ -1579,7 +1579,11 @@ BOOL level_Load( cchar *pszLevelTitle, BOOL bShowLoadingScreen, cwchar *pwszLoad
 			_pBackgroundTexInst->SetTexDef( (FTexDef_t *)fresload_Load( FTEX_RESNAME, "loading00" ) );	
 
 			static FViewport_t *_pViewportOrtho3D = fviewport_Create();
-			fviewport_InitOrtho3D( _pViewportOrtho3D, 0.1f, 100.0f );
+			// Port fix (R132): 4:3 authored canvas, see fviewport_GetAuthored43SubRect.
+			u32 nLoadCanvasL, nLoadCanvasT, nLoadCanvasW, nLoadCanvasH;
+			fviewport_GetAuthored43SubRect( &nLoadCanvasL, &nLoadCanvasT, &nLoadCanvasW, &nLoadCanvasH );
+			fviewport_InitOrtho3D( _pViewportOrtho3D, 0.1f, 100.0f,
+								   nLoadCanvasL, nLoadCanvasT, nLoadCanvasW, nLoadCanvasH );
 
 			fviewport_SetActive( _pViewportOrtho3D );
 			FXfm_Identity.InitStackWithView();
