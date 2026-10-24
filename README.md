@@ -13,7 +13,9 @@ Current port round: **R130** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 - **Single-player campaign, complete.** All levels, checkpoints, saves,
   vendors/EUK upgrades, movies and credits work end to end.
 - **Multiplayer works.** The versus modes were sorted out early in the port
-  and stay part of it - grab extra pads.
+  and stay part of it - grab extra pads. Secret computer chips collected in
+  the campaign unlock the locked multiplayer arenas, and beating a level's
+  posted time earns its Speed Chip.
 - **Retail Xbox data is not included.** This tree compiles to `ma_win.exe`,
   but at runtime it needs the game data from an original Xbox disc. You must
   supply your own copy; nothing retail (`default.xbe`, master file, movies,
