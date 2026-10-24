@@ -102,6 +102,11 @@ static void _SaveGlobalData( s32 nCheckpoint )
 	CFCheckPoint::SaveData( FLoop_nTotalLoopTicks );
 	CFCheckPoint::SaveData( ai_bUnarmedPlayerRuleDisabled);
 
+	// Port fix (R132, from cobblecorn 7d8a470): the chip entities and
+	// inventory roll back on checkpoint restore; the collected-chip counter
+	// must match or respawned chips can be credited twice after a death.
+	CPlayer::CheckpointSaveSecretChips();
+
 	// save the level parameters.
 	// cjm moved here because level_CheckpointSave() "piggybacks" on to the data handle set above.
 	level_CheckpointSave();
@@ -116,6 +121,9 @@ static void _RestoreGlobalData( s32 nCheckpoint )
 	CFCheckPoint::LoadData( FLoop_nRealTotalLoopTicks );
 	CFCheckPoint::LoadData( FLoop_nTotalLoopTicks );
 	CFCheckPoint::LoadData( ai_bUnarmedPlayerRuleDisabled);
+
+	// Port fix (R132, from cobblecorn 7d8a470): see _SaveGlobalData.
+	CPlayer::CheckpointRestoreSecretChips();
 
 	// Restore the level parameters...
 	// cjm moved here because level_CheckpointRestore() "piggybacks" on to the data handle set above.

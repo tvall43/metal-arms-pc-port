@@ -281,6 +281,11 @@ public:
 	void CreditSecretArea( void );
 	void CreditSecretChip( void );
 
+	// Port fix (R132, from cobblecorn 7d8a470): checkpoint-rollback for the
+	// per-level secret-chip counter (matches chip entities/inventory).
+	static void CheckpointSaveSecretChips( void );
+	static void CheckpointRestoreSecretChips( void );
+
 	// Retrieving game stats
 
 	// Score for one player
