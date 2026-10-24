@@ -160,6 +160,132 @@ void wpr_levelcomplete_ScheduleSinglePlayerScreen( void ) {
 ////////////////////
 // private functions
 
+//////////////////////////////////////////////////////////////////////////////
+// R132b: secret-chip multiplayer-unlock progression.
+//
+// The leak loads the retail "level_unlocking" table (first field: number of
+// free MP levels; remaining fields: chips needed to unlock each further MP
+// level) and gates the MP level list on profile.nNumMPLevelsUnlocked, but no
+// code ever advanced that counter -- the unlock-everything cheat was its
+// only writer, so every multiplayer level past the freebies stayed locked
+// for honest playthroughs. profile.nTotalSecretChipsGathered was likewise
+// only ever initialized, never updated. Both tables live in pick_level$
+// (Level_Names: 6 fields per level, where fields +3/+4 are the level's chip
+// total and its time-to-beat). Unlock rule from the retail table layout:
+// threshold [i] unlocks the (nNumFreebies + i)-th MP level once
+// CountEarnedSecretChips() reaches it.
+
+static u8 _anChipsToUnlock[ LEVEL_MULTIPLAYER_COUNT ];
+static u32 _nNumUnlockThresholds = 0;
+static u32 _nNumFreebies = 0;
+static f32 _fLevelChips = 0.0f;		// chips obtainable on the completed level
+static f32 _fTimeToBeat = 0.0f;		// per-level time-to-beat (0 = no Speed Chip)
+static f32 _fRunSecs = 0.0f;		// completed level: this run's finishing time
+static BOOL _bNewMPUnlock = FALSE;
+static BOOL _bNewSpeedChip = FALSE;
+
+#define _CHIPS_UNLOCK_TABLE		"level_unlocking"
+
+static BOOL _LoadCompletionData( Level_e nLevel ) {
+	FMemFrame_t Frame;
+	FGameDataFileHandle_t hFile;
+	FGameDataTableHandle_t hTable;
+	FGameData_VarType_e nDataType;
+	u32 nNumFields, nIndex, i, nNumUnlockFields;
+
+	_nNumUnlockThresholds = 0;
+	_nNumFreebies = 0;
+	fang_MemZero( _anChipsToUnlock, sizeof( _anChipsToUnlock ) );
+	_fLevelChips = 0.0f;
+	_fTimeToBeat = 0.0f;
+
+	if( (u32)nLevel >= LEVEL_SINGLE_PLAYER_COUNT ) {
+		return FALSE;
+	}
+
+	Frame = fmem_GetFrame();
+
+	hFile = fgamedata_LoadFileToFMem( _LEVEL_NAMES_CSV );
+	if( hFile == FGAMEDATA_INVALID_FILE_HANDLE ) {
+		DEVPRINTF( "levelcomplete : Could not load '%s', secret-chip rewards unavailable.\n", _LEVEL_NAMES_CSV );
+		fmem_ReleaseFrame( Frame );
+		return FALSE;
+	}
+
+	// per-level chip total + time to beat
+	hTable = fgamedata_GetFirstTableHandle( hFile, _LEVEL_NAMES_TABLE );
+	if( hTable != FGAMEDATA_INVALID_TABLE_HANDLE ) {
+		nNumFields = fgamedata_GetNumFields( hTable );
+		nIndex = (u32)nLevel * 6;
+		if( ( (nNumFields % 6) == 0 ) && ( nIndex + 4 < nNumFields ) ) {
+			_fLevelChips = *(f32 *)fgamedata_GetPtrToFieldData( hTable, nIndex + 3, nDataType );
+			_fTimeToBeat = *(f32 *)fgamedata_GetPtrToFieldData( hTable, nIndex + 4, nDataType );
+		}
+	}
+
+	// unlock thresholds
+	hTable = fgamedata_GetFirstTableHandle( hFile, _CHIPS_UNLOCK_TABLE );
+	if( hTable != FGAMEDATA_INVALID_TABLE_HANDLE ) {
+		nNumFields = fgamedata_GetNumFields( hTable );
+		if( nNumFields >= 2 ) {
+			_nNumFreebies = (u32)( *(f32 *)fgamedata_GetPtrToFieldData( hTable, 0, nDataType ) );
+			nNumUnlockFields = LEVEL_MULTIPLAYER_COUNT - _nNumFreebies;
+			if( nNumFields == (nNumUnlockFields + 1) ) {
+				for( i=0; i < nNumUnlockFields; i++ ) {
+					_anChipsToUnlock[i] = (u8)( *(f32 *)fgamedata_GetPtrToFieldData( hTable, i + 1, nDataType ) );
+				}
+				_nNumUnlockThresholds = nNumUnlockFields;
+			} else {
+				DEVPRINTF( "levelcomplete : The '%s' table does not have the expected field count.\n", _CHIPS_UNLOCK_TABLE );
+			}
+		}
+	} else {
+		DEVPRINTF( "levelcomplete : Could not find table '%s', secret-chip rewards unavailable.\n", _CHIPS_UNLOCK_TABLE );
+	}
+
+	fmem_ReleaseFrame( Frame );
+	return TRUE;
+}
+
+static void _ProcessCompletionRewards( CPlayerProfile *pProfile, Level_e nLevel, f32 fRunSecs ) {
+	u32 nEarned;
+
+	_bNewMPUnlock = FALSE;
+	_bNewSpeedChip = FALSE;
+	if( !pProfile ) {
+		return;
+	}
+
+	// Award the Speed Chip first so it also counts toward unlock thresholds.
+	if( (u32)nLevel < LEVEL_SINGLE_PLAYER_COUNT
+		&& _fTimeToBeat > 0.0f
+		&& fRunSecs <= _fTimeToBeat
+		&& !pProfile->m_Data.aLevelProgress[nLevel].nBonusSecretChipEarned ) {
+		pProfile->m_Data.aLevelProgress[nLevel].nBonusSecretChipEarned = 1;
+		_bNewSpeedChip = TRUE;
+	}
+
+	// keep the profile's chip total in step with the earned count
+	nEarned = pProfile->CountEarnedSecretChips();
+	pProfile->m_Data.nTotalSecretChipsGathered = (u8)FMATH_MIN( nEarned, 255 );
+
+	// advance MP unlocks against the retail thresholds
+	if( _nNumUnlockThresholds ) {
+		u32 nMaxUnlock = LEVEL_MULTIPLAYER_COUNT - _nNumFreebies;
+		while( pProfile->m_Data.nNumMPLevelsUnlocked < nMaxUnlock
+			&& nEarned >= _anChipsToUnlock[pProfile->m_Data.nNumMPLevelsUnlocked] ) {
+			pProfile->m_Data.nNumMPLevelsUnlocked++;
+			_bNewMPUnlock = TRUE;
+		}
+	}
+
+	if( _bNewMPUnlock || _bNewSpeedChip ) {
+		if( !pProfile->IsVirtual() ) {
+			pProfile->m_SaveInfo.nFlags |= GAMESAVE_SAVE_INFO_FLAGS_NEEDS_SAVING;
+		}
+	}
+}
+
 static BOOL _SP_Init( void ) {
 	Level_e nLevel;
 	u32 nTemp1, nTemp2, nTemp3;
@@ -177,13 +303,20 @@ static BOOL _SP_Init( void ) {
 	_nHoursToComplete = nTemp1;
 	_nMinsToComplete = nTemp2;
 	_nSecsToComplete = nTemp3;
+	_fRunSecs = Level_fSecsInLevel;
 	nLevel = Level_aInfo[Level_nLoadedIndex].nLevel;
 	_nControllerIndex = Player_aPlayer[0].m_nControllerIndex;
 	_pPlayerProfile = Player_aPlayer[0].m_pPlayerProfile;
 
 	// dump the loaded game
 	game_UnloadLevel();
-	
+
+	// R132b: with the level unloaded, its chips / Speed Chip / finishing time
+	// have been folded into the profile; reconcile thresholds here.
+	if( _LoadCompletionData( nLevel ) ) {
+		_ProcessCompletionRewards( _pPlayerProfile, nLevel, _fRunSecs );
+	}
+
 	DEVPRINTF( "******** LOAD MARKER - START LOADING LEVEL COMPLETE SCREEN***********.\n" );
 #if !GAMELOOP_EXTERNAL_DEMO
 	ffile_LogStart( "Level Complete Screen" );
