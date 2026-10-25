@@ -197,6 +197,9 @@ stay intact. The work so far, in the order it mattered:
 - **Audio.** Music, 3D world SFX and streamed bot dialog rebuilt end to end;
   retail weapon sound groups (the flamer was completely silent before), the
   2D attenuation ladder, stream-tail repetition, and two ini mix knobs.
+- **Fog.** The 52 levels that set fog (depth + height bands, per level CSV) get
+  it: destination-alpha back buffer, vertex-shader fog amounts, and the
+  full-screen fog blend pass, matching the retail Xbox renderer.
 - **Input.** XInput pads (Xbox-family controllers preferred), DirectInput
   fallback, raw mouse look with per-consumer behavior (driving, turrets,
   site weapons), rebindable pad actions via `[KEYMAP]`.
@@ -206,7 +209,7 @@ stay intact. The work so far, in the order it mattered:
   launcher's "Extract from ISO..." button, Bink movies scaled to any
   resolution (`fit`/`fill`/`stretch`), F12 screenshots, crash logger.
 
-Known gaps: level fog is not implemented, the jump-pad effect spreads around
+Known gaps: the jump-pad effect spreads around
 the pad instead of centring on it, and a few other particle/glow effects are
 off; movie playback uses the RAD `binkw32.dll`, which ships with the port next
 to the exe - nothing to obtain separately.
