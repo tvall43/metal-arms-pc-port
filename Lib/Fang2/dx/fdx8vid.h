@@ -50,6 +50,7 @@ typedef BOOL FDX8VidWindowCallback_t( FDX8VidEvent_e nEvent );
 
 
 extern D3DMULTISAMPLE_TYPE FDX8Vid_nBackBufferMultisampleType;
+extern BOOL FDX8Vid_bDestAlpha;	// TRUE: back buffer has an alpha channel (fog needs it)
 extern BOOL fdx8vid_bResetting;	// TRUE: Only ->Release() may be used
 
 

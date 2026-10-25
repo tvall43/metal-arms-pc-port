@@ -1,3 +1,4 @@
+; PC port: fog is read from blue - ps.1.1 texcoord gives alpha 1; see fdx8sh.cpp fsh_Fog_Enable
 ;
 ; Pixel shader 
 
@@ -9,6 +10,6 @@ tex t1
 texcoord t2
 
 mov r0.rgb, t0
-+mov r0.a, t2.a
++mov r0.a, t2.b
 mad r0.rgb, t1, c1, r0
 add r0.rgb, v0, r0

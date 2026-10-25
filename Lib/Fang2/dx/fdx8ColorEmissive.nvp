@@ -1,10 +1,11 @@
+; PC port: fog is read from blue - ps.1.1 texcoord gives alpha 1; see fdx8sh.cpp fsh_Fog_Enable
 ;
 ; Pixel shader 
 
 ; Declare pixel shader version 1.1
 ps.1.1
 
-texcoord t2		; Emissive ecoded as tcoord.
+texcoord t2		; fog (PC port: emissive now comes in c7, see fdx8sh.cpp)
 
-add r0.rgb, t2, v0
-+mov r0.a, t2.a
+add r0.rgb, c7, v0
++mov r0.a, t2.b

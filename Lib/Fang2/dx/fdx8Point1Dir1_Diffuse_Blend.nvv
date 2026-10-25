@@ -163,4 +163,4 @@ mov oD0, R_DIFFUSE
 
 mov oT0.xy, V_TEX0
 mov oT1.xy, V_TEX0
-mov oT2, c[CV_MAT_EMISSIVE]
+mov oT2, c[CV_MAT_EMISSIVE].w		; PC port: fog carrier - see fdx8sh.cpp fsh_Fog_Enable

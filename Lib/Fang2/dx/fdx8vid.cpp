@@ -62,6 +62,7 @@ FVidMode_t FVid_Mode;			// Current video mode
 FVidWin_t  FVid_Win;			// Current window info
 
 D3DMULTISAMPLE_TYPE FDX8Vid_nBackBufferMultisampleType;
+BOOL FDX8Vid_bDestAlpha = FALSE;	//R133: TRUE if the back buffer really has alpha (fog)
 
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -2682,6 +2683,31 @@ static BOOL _CreateWindow( void )
 	}
 
 	_PresentationParms.BackBufferFormat = _CurVidModeInfo.DisplayMode.Format;
+	//R133: fog needs destination alpha. The Xbox back buffer was A8R8G8B8 and
+	//fsh_RenderFogPass() blends by DESTALPHA; with an X8R8G8B8 PC back buffer
+	//DESTALPHA reads 1 and the whole scene turns the fog colour. Ask for
+	//A8R8G8B8 only when the device accepts it with this depth format and
+	//multisample setting; FDX8Vid_bDestAlpha records what we actually got.
+	if( _PresentationParms.BackBufferFormat == D3DFMT_X8R8G8B8 &&
+		SUCCEEDED( FDX8_pD3D->CheckDeviceType( _CurAdapterInfo.nD3DAdapterIndex, _D3DDevType,
+			_CurVidModeInfo.DisplayMode.Format, D3DFMT_A8R8G8B8, TRUE ) ) &&
+		SUCCEEDED( FDX8_pD3D->CheckDepthStencilMatch( _CurAdapterInfo.nD3DAdapterIndex, _D3DDevType,
+			_CurVidModeInfo.DisplayMode.Format, D3DFMT_A8R8G8B8, _CurVidModeInfo.nDepthFormat ) ) &&
+		( FDX8Vid_nBackBufferMultisampleType == D3DMULTISAMPLE_NONE ||
+		  SUCCEEDED( FDX8_pD3D->CheckDeviceMultiSampleType( _CurAdapterInfo.nD3DAdapterIndex, _D3DDevType,
+			D3DFMT_A8R8G8B8, TRUE, FDX8Vid_nBackBufferMultisampleType ) ) ) )
+	{
+		_PresentationParms.BackBufferFormat = D3DFMT_A8R8G8B8;
+		DEVPRINTF( "fvid: back buffer A8R8G8B8 (destination alpha available for fog).\n" );
+	}
+	else if( _PresentationParms.BackBufferFormat == D3DFMT_A8R8G8B8 )
+	{
+		DEVPRINTF( "fvid: back buffer already A8R8G8B8.\n" );
+	}
+	else
+	{
+		DEVPRINTF( "fvid: back buffer X8R8G8B8 (no destination alpha; fog stays off).\n" );
+	}
 	_PresentationParms.BackBufferCount = 1;
 	_PresentationParms.MultiSampleType = FDX8Vid_nBackBufferMultisampleType;
 	_PresentationParms.SwapEffect = D3DSWAPEFFECT_DISCARD;
@@ -2782,6 +2808,14 @@ static BOOL _CreateWindow( void )
 		}
 	}
 
+	//R133: a retry may have fallen back to the desktop (X8R8G8B8) format, so
+	//record the format the device was actually created with, not the request.
+	FDX8Vid_bDestAlpha = ( _PresentationParms.BackBufferFormat == D3DFMT_A8R8G8B8 );
+	if( !FDX8Vid_bDestAlpha )
+	{
+		DEVPRINTF( "fvid: back buffer format %u has no destination alpha; fog will stay off.\n",
+			(unsigned)_PresentationParms.BackBufferFormat );
+	}
 
 	FDX8_pDev->GetBackBuffer( 0, D3DBACKBUFFER_TYPE_MONO, &FDX8_pSurfBack );
 	FDX8_pDev->GetDepthStencilSurface( &FDX8_pSurfDepthStencil );

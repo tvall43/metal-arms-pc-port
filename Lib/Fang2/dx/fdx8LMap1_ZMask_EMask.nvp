@@ -1,3 +1,5 @@
+; PC port: the shipped Xbox shader (fxbLMap1_ZMask_EMask.psh). The PC copy had lost its fog
+; multiply, 'mul r0.a, r0.a, t3.b'.
 ;
 ; Pixel shader 
 
@@ -17,4 +19,4 @@ mad r0.rgb, t0.a, v0, r0
 +mov r0.a, t1.a
 
 cnd r0.a, r0.a, c0, c1
-;mul r0.a, r0.a, t3.a
+mul r0.a, r0.a, t3.b

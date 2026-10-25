@@ -2293,7 +2293,14 @@ void fsh_Fog_Enable( BOOL bEnable, BOOL bForce )
 #if FANG_PLATFORM_XB
 	_bFogEnabled = bEnable;
 #else
-	_bFogEnabled = FALSE;
+	//Port fix (R133): this was hard-wired FALSE, so no PC level ever had fog.
+	//Two PC differences made the Xbox path unusable: the back buffer was
+	//X8R8G8B8 (DESTALPHA reads 1, painting the scene the fog colour) and a
+	//ps.1.1 'texcoord' register gives alpha 1 (the Xbox brought q in as alpha).
+	//fdx8vid.cpp now asks for A8R8G8B8 (FDX8Vid_bDestAlpha), and the fogged
+	//shaders write the amount into every oT2/oT3 component so the pixel
+	//shaders can read it from blue (t2.b/t3.b).
+	_bFogEnabled = bEnable && FDX8Vid_bDestAlpha;
 #endif
 
 	if (_bFogEnabled && !FSh_bAlphaOut)
@@ -3789,6 +3796,17 @@ void _SetupSimpleShader()
 	_SetPixelShader_Fast(PSHADER_COLOR);
 }
 
+//Port fix (R133): the emissive colour used to ride in oT2.xyz next to the fog
+//amount in oT2.w. Fog now fills oT2 (all components), so the pixel shaders that
+//used t2.rgb (ColorEMask, ColorEMask_Inv, ColorEmissive) read it from c7.
+static void _SetMaterialEmissive( const D3DXVECTOR4 &vEmissive )
+{
+	FDX8_pDev->SetVertexShaderConstant( CV_MAT_EMISSIVE, &vEmissive, 1 );
+#if !FANG_PLATFORM_XB
+	FDX8_pDev->SetPixelShaderConstant( 7, &vEmissive, 1 );
+#endif
+}
+
 //Setup render states such as Blend mode, Alphatest, Ztest, Alpha/Color write and Material Constants
 void _SetRenderStates()
 {
@@ -3943,19 +3961,19 @@ void _SetRenderStates()
 						//If the emissive motif exists then load it into the proper register, note the value must be halved for 2X lighting.
 						((const CFColorMotif *)FSh_pnLightInputRegisters[FSHADERS_LIGHT_REG_EMOTIF])->ComputeColor( &pDestColor );
 	#if FANG_LIGHTING_2X
-						FDX8_pDev->SetVertexShaderConstant(CV_MAT_EMISSIVE, D3DXVECTOR4(pDestColor.fRed*0.5f, pDestColor.fGreen*0.5f, pDestColor.fBlue*0.5f, pDestColor.fAlpha), 1);
+						_SetMaterialEmissive( D3DXVECTOR4(pDestColor.fRed*0.5f, pDestColor.fGreen*0.5f, pDestColor.fBlue*0.5f, pDestColor.fAlpha) );
 	#else
-						FDX8_pDev->SetVertexShaderConstant(CV_MAT_EMISSIVE, D3DXVECTOR4(pDestColor.fRed, pDestColor.fGreen, pDestColor.fBlue, pDestColor.fAlpha), 1);
+						_SetMaterialEmissive( D3DXVECTOR4(pDestColor.fRed, pDestColor.fGreen, pDestColor.fBlue, pDestColor.fAlpha) );
 	#endif
 					}
 					else
 					{
-						FDX8_pDev->SetVertexShaderConstant(CV_MAT_EMISSIVE, D3DXVECTOR4(0,0,0,0), 1);
+						_SetMaterialEmissive( D3DXVECTOR4(0,0,0,0) );
 					}
 				}
 				else
 				{
-					FDX8_pDev->SetVertexShaderConstant(CV_MAT_EMISSIVE, D3DXVECTOR4(0,0,0,0), 1);
+					_SetMaterialEmissive( D3DXVECTOR4(0,0,0,0) );
 				}
 
 				if (_aShaderRenderStates[_nShaderID].nDiffuseReg < 0xff)

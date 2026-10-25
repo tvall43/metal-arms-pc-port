@@ -168,10 +168,8 @@ max R_DIFFUSE, c[CV_ZERO], R_DIFFUSE
 mov oD0.xyz, R_DIFFUSE
 mov oD0.w, V_COLOR.w
 
-mov oT2.xyz, c[CV_MAT_EMISSIVE]
-
 mad R_TEMP.z, R_WORLD_VERTEX.z, c[CV_FOG_DEPTH].x, c[CV_FOG_DEPTH].y
 mad R_TEMP.w, R_WORLD_VERTEX.y, c[CV_FOG_DEPTH].z, c[CV_FOG_DEPTH].w
 min R_TEMP.zw, R_TEMP, c[CV_ONE]
 max R_TEMP.zw, R_TEMP, c[CV_FOG_MIN]
-mad oT2.w, R_TEMP.z, R_TEMP.w, c[CV_EPS].w
+mad oT2, R_TEMP.z, R_TEMP.w, c[CV_EPS].w		; PC port: fog carrier - see fdx8sh.cpp fsh_Fog_Enable

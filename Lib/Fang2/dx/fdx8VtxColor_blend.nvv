@@ -68,4 +68,4 @@ mov oT1, r1
 
 ;for testing specular
 ;mov oD0, c[CV_ZERO]
-mov oT2, c[CV_MAT_EMISSIVE]
+mov oT2, c[CV_MAT_EMISSIVE].w		; PC port: fog carrier - see fdx8sh.cpp fsh_Fog_Enable
