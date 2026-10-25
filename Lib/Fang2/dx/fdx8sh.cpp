@@ -2227,6 +2227,33 @@ void fsh_Light_ResetList( void )
 	{
 		_aPerPixelSpotLights[i].pDXTex = _pAttenMap;
 	}
+
+	//Port fix (R134): initialise every point-light attenuation row to the
+	//neutral (1,0,0) at reset.
+	//
+	//The fxbPoint*Dir1_Diffuse vertex shaders compute the per-light falloff as
+	//rcp(a0 + a1*d + a2*d^2) from CV_LIGHT*_ATTENUATION. When a mesh's light
+	//pass uses more light slots than were filled (Point6Dir1 reads six point
+	//lights; a frame with five collected leaves the sixth slot untouched), the
+	//unused row kept an all-zero value: rcp(0) is infinity, its light colour is
+	//also zero, so the product is 0*inf = NaN, and the shader's closing
+	//min(CV_ONE, ...) returns WHITE. The whole lighting fill then rendered white
+	//with every colour input dark - the long-standing bug where destructible
+	//and dynamic objects (pipes, bridge segments, debris, bots, weapon models)
+	//appeared "fully lit" in correctly dark scenes. Which slot was empty
+	//depended on the lights collected that frame, so the object flipped between
+	//correct and over-lit as the camera moved and held its state while still.
+	//
+	//Used slots are written by the per-light setup later in the pass; only
+	//unused ones see this neutral row, which makes their term finite and, with
+	//a zero colour, dark.
+	{
+		static const f32 _afAttenNeutral[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+		for ( i = 0; i < 7; i++ )
+		{
+			FDX8_pDev->SetVertexShaderConstant( CV_LIGHT1_ATTENUATION + i, &_afAttenNeutral, 1 );
+		}
+	}
 }
 
 // Important: pLight must persist until no further fsh_Execute() calls require it.

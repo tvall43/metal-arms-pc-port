@@ -182,6 +182,14 @@ stay intact. The work so far, in the order it mattered:
   prebuilt `ps.1.1` passthrough whose baked-in alpha multiply reduced every
   translucent draw to nothing; vertex-lit / lightmapped passes plus
   particle/glow/locked-on icons were re-derived from the retail image.
+- **Dynamic-object lighting.** Destructible and dynamic objects (pipes,
+  bridge segments, debris, bots, weapon models) rendered as if fully lit in
+  correctly dark scenes, flipping between correct and over-lit as the camera
+  moved. The lighting shaders compute point-light falloff as
+  `1/(a0 + a1*d + a2*d^2)`; light passes that used fewer lights than slots left
+  the unused attenuation rows at zero, so the division produced infinity and
+  the shader's clamp turned the whole fill white. The reset now seeds every
+  unused row with the neutral `(1,0,0)`.
 - **Campaign plow through.** Level-load crash on EUK collectables beyond
   level 2, the never-appearing barter shops (retail table-name drift),
   "Unhandled Exception" load crash, the tether possession softlock, the rat
