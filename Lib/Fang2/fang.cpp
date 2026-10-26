@@ -144,7 +144,13 @@ void fang_Init( void ) {
 	#endif
 	Fang_ConfigDefs.nWorld_MaxSortedObjectsPerNode = 200;
 	Fang_ConfigDefs.nWorld_MaxLightsPerDraw = 500;
-	Fang_ConfigDefs.nWorld_MaxMeshesPerDraw = 500;
+	//Port fix (R136, from RangerXT 76f940e): the startup default of 500
+	//meshes per draw gives a 2000-entry draw list in fRenderSort, and every
+	//mesh material past that is silently not drawn - the suspect for
+	//decorations/textures popping in and out or vanishing in busy frames:
+	//firefights and explosions add many draws, and Hor+ widescreen shows
+	//more of the room than the Xbox 4:3 view ever had.
+	Fang_ConfigDefs.nWorld_MaxMeshesPerDraw = 2000;
 	Fang_ConfigDefs.nWorld_MaxIntersects = 3500;
 
 	// Renderer:

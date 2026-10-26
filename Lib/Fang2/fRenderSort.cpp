@@ -721,6 +721,15 @@ FINLINE _RL_Entry_t* _GetDLEntry( void )
 	
 	if ( !_pFreeDLEntries )
 	{
+		//Port fix (R136, from RangerXT 76f940e): running dry drops the material
+		//without a word - it is simply not drawn this frame. Say so once, with
+		//the size, if it ever happens again.
+		static BOOL _bSaidFull = FALSE;
+		if ( !_bSaidFull )
+		{
+			_bSaidFull = TRUE;
+			DEVPRINTF( "frs: the draw list is full (%u entries) - mesh materials past this are not drawn. Raise Fang_ConfigDefs.nWorld_MaxMeshesPerDraw.\n", _nMaxDLEntries );
+		}
 		return NULL;
 	}
 
@@ -728,6 +737,18 @@ FINLINE _RL_Entry_t* _GetDLEntry( void )
 	_pFreeDLEntries = _pFreeDLEntries->pFreeNext;	
 	
 	_nUsedDLEntryCount++;
+	//Port fix (R136, from RangerXT 76f940e): the Xbox pool was 2000 entries
+	//(500 meshes x 4). Note the first frame that needs more, so a log line
+	//says whether that limit was what hid a material.
+	if ( _nUsedDLEntryCount == 2001 )
+	{
+		static BOOL _bSaidPastXbox = FALSE;
+		if ( !_bSaidPastXbox )
+		{
+			_bSaidPastXbox = TRUE;
+			DEVPRINTF( "frs: a frame needed more than the Xbox 2000 draw-list entries (pool is %u).\n", _nMaxDLEntries );
+		}
+	}
 #if !FANG_PRODUCTION_BUILD
 	if ( _nUsedDLEntryCount > _nHighestUsedDLEntryCount )
 	{
