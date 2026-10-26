@@ -81,7 +81,7 @@ information for each shipped build is archived as `ma_win_<build>.dbg` in
 back from a crash address:
 
 ```
-addr2line -f -e ma_win_r137.dbg 0x<address from the crash log>
+addr2line -f -e ma_win_<build>.dbg 0x<address from the crash log>
 ```
 
 Stripping does not move code, so addresses in the shipped exe and the `.dbg`
@@ -90,12 +90,13 @@ are identical.
 ### Reporting a problem
 
 The build logs everything it might need; a report without the log usually
-cannot be diagnosed. Run `ma_win.exe dev` and tick **Debug log file** on the
-launch dialog, play until it happens again in one session if you can, then
+cannot be diagnosed. Press **Start Dev** in the launcher (development mode with
+logging already on), or run `ma_win.exe dev` and tick **Debug log file** on the
+launch dialog. Play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R139), and
+cannot be replied to. Name the build id printed in the log header (e.g. R140), and
 check what version you have first - fixes land continuously.
 
 ## Configuration (`ma_win.ini`)
@@ -105,7 +106,7 @@ check what version you have first - fixes land continuously.
 | `[Video]` | `Width` / `Height` / `ColorBits` | 640 / 480 / 32 | Present backbuffer size |
 | `[Video]` | `Fullscreen` | 0 | 1 = fullscreen |
 | `[Video]` | `MovieScaling` | `fit` | Bink frame scaler: `fit` (aspect-locked, pillars where needed), `fill`, `stretch` |
-| `[Video]` | `MSAA` | 0 | Multisample anti-aliasing: `0` off, or `2`/`4`/`8`/`16` samples; uses the highest level the driver reports at or below the request |
+| `[Video]` | `MSAA` | 0 | Multisample anti-aliasing: `0` off, or `2`/`4`/`8`/`16` samples; uses the highest level the driver reports at or below the request (also in the launcher) |
 | `[Audio]` | `Volume2D`, `MinDistanceFraction` | engine defaults | Speech/UI volume and 3D sound falloff start |
 | `[Mouse]` | `Sensitivity` | 1.0 | Mouse-look scale |
 | `[KEYMAP]` | `Jump`, `SelectPrimary`, `SelectSecondary`, `Action`, `Start`, `Back`, `Fire`, `Aim`, `Black`, `White`, `Crouch`, `Melee` | default bindings | Keyboard overrides for the pad action layer; buttons only (WASD / IJKL / arrows are fixed), unknown key names fall back to the default |
@@ -116,6 +117,10 @@ check what version you have first - fixes land continuously.
 otherwise the highest smaller level, and `0` stays off. With MSAA enabled,
 movies are presented through an off-screen texture because a multisampled D3D8
 back buffer cannot be locked; that switch is automatic. Default is off.
+
+The launcher shows the same setting next to Resolution. Its **Start Dev**
+button starts in development mode with the log enabled, for machines where
+adding a `-dev` argument is awkward.
 
 The 3D world renders wide; UI/letterbox content stays in the authored 4:3
 canvas centred on screen.

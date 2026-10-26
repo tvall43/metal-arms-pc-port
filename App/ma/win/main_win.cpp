@@ -71,7 +71,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R139"
+#define MA_PORT_ROUND	"R140"
 // Optional banner tag for one-off configurations (CMake MA_BUILD_TAG, e.g.
 // " (O2)"); empty in the normal build so the round alone identifies the exe.
 #ifndef MA_PORT_BUILD_TAG
@@ -345,8 +345,11 @@ static u32  _nMSAA				= 0;	//R139: requested sample count, 0=off
 #define _ID_FULLSCREEN		1011
 #define _ID_DEBUGLOG		1012
 #define _ID_EXTRACT_ISO	1013
+#define _ID_START_DEV		1014
+#define _ID_MSAA			1015
 
 static HWND _hwndStatus = NULL;
+static BOOL _bStartRequested = FALSE;
 
 static void _SetStatus( const char *pszText )
 {
@@ -735,6 +738,15 @@ static void _ReadControls( HWND hwndDlg )
 		}
 	}
 
+	HWND hwndMSAA = GetDlgItem( hwndDlg, _ID_MSAA );
+	if( hwndMSAA ) {
+		const LRESULT nSel = SendMessage( hwndMSAA, CB_GETCURSEL, 0, 0 );
+		static const u32 aMSAA[] = { 0, 2, 4, 8, 16 };
+		if( nSel != CB_ERR && nSel >= 0 && nSel < 5 ) {
+			_nMSAA = aMSAA[nSel];
+		}
+	}
+
 	HWND hwndFS = GetDlgItem( hwndDlg, _ID_FULLSCREEN );
 	if( hwndFS ) {
 		_bFullscreen = ( SendMessage( hwndFS, BM_GETCHECK, 0, 0 ) == BST_CHECKED );
@@ -746,7 +758,7 @@ static void _ReadControls( HWND hwndDlg )
 	}
 }
 
-static BOOL _OnStart( HWND hwndDlg )
+static BOOL _OnStart( HWND hwndDlg, BOOL bStartDev )
 {
 	_ReadControls( hwndDlg );
 
@@ -766,7 +778,17 @@ static BOOL _OnStart( HWND hwndDlg )
 		return FALSE;
 	}
 
+	//R140: only flip to dev after the master-file validation, so a failed
+	//Start Dev leaves the dialog in its original state. In an already-dev run
+	//the visible Debug log checkbox is respected; a retail Start Dev turns the
+	//log on because that checkbox is not shown.
+	if( bStartDev && !_bDevMode ) {
+		_bDevMode = TRUE;
+		_bLogFileEnabled = TRUE;
+	}
+
 	_SaveConfig();
+	_bStartRequested = TRUE;
 	PostMessage( hwndDlg, WM_CLOSE, 0, 0 );
 	return TRUE;
 }
@@ -832,6 +854,7 @@ static void _OnExtractIso( HWND hwndDlg )
 
 	_bExtracting = TRUE;
 	EnableWindow( GetDlgItem( hwndDlg, _ID_START ), FALSE );
+	EnableWindow( GetDlgItem( hwndDlg, _ID_START_DEV ), FALSE );
 	EnableWindow( GetDlgItem( hwndDlg, _ID_CANCEL ), FALSE );
 	EnableWindow( GetDlgItem( hwndDlg, _ID_EXTRACT_ISO ), FALSE );
 	_SetStatus( "Locating the Xbox partition and extracting..." );
@@ -844,6 +867,7 @@ static void _OnExtractIso( HWND hwndDlg )
 		szErr, sizeof(szErr), &uFiles, &uBytes );
 
 	EnableWindow( GetDlgItem( hwndDlg, _ID_START ), TRUE );
+	EnableWindow( GetDlgItem( hwndDlg, _ID_START_DEV ), TRUE );
 	EnableWindow( GetDlgItem( hwndDlg, _ID_CANCEL ), TRUE );
 	EnableWindow( GetDlgItem( hwndDlg, _ID_EXTRACT_ISO ), TRUE );
 	_bExtracting = FALSE;
@@ -883,10 +907,11 @@ static LRESULT CALLBACK _DlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		case _ID_BROWSE:		_OnBrowseMasterFile( hwndDlg ); return 0;
 		case _ID_BROWSE_SSHOT:	_OnBrowseScreenshotDir( hwndDlg ); return 0;
 		case _ID_EXTRACT_ISO:	_OnExtractIso( hwndDlg ); return 0;
-		case _ID_START:		if( _OnStart( hwndDlg ) ) { DestroyWindow( hwndDlg ); } return 0;
+		case _ID_START:		if( _OnStart( hwndDlg, FALSE ) ) { DestroyWindow( hwndDlg ); } return 0;
+		case _ID_START_DEV:	if( _OnStart( hwndDlg, TRUE ) ) { DestroyWindow( hwndDlg ); } return 0;
 		case _ID_CANCEL:		DestroyWindow( hwndDlg ); return 0;
 		case IDCANCEL:			DestroyWindow( hwndDlg ); return 0;
-		case IDOK:				if( _OnStart( hwndDlg ) ) { DestroyWindow( hwndDlg ); } return 0;
+		case IDOK:				if( _OnStart( hwndDlg, FALSE ) ) { DestroyWindow( hwndDlg ); } return 0;
 		}
 		return 0;
 
@@ -969,12 +994,31 @@ static void _CreateDialogControls( HWND hwndDlg )
 	nY += 32;
 
 	_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Resolution:" );
-	_AddCombo( hwndDlg, _ID_WIDTH, nCtrlX, nY, 120 );
+	_AddCombo( hwndDlg, _ID_WIDTH, nCtrlX, nY, 110 );
+	_AddLabel( hwndDlg, 230, nY + 4, 38, 20, "MSAA:" );
 	{
-		const int nFSX = nCtrlX + 136;
+		HWND hwnd = CreateWindowEx( 0, "COMBOBOX", "",
+			WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
+			268, nY, 62, 120, hwndDlg, (HMENU)(INT_PTR)_ID_MSAA, _hInstance, NULL );
+		if( hwnd ) {
+			SetWindowPos( hwnd, HWND_TOP, 268, nY, 62, 24, SWP_NOZORDER | SWP_NOACTIVATE );
+			static const u32 aMSAA[] = { 0, 2, 4, 8, 16 };
+			static const char *aszMSAA[] = { "Off", "2x", "4x", "8x", "16x" };
+			int nSel = 0;
+			for( int i = 0; i < 5; i++ ) {
+				SendMessage( hwnd, CB_ADDSTRING, 0, (LPARAM)aszMSAA[i] );
+				if( aMSAA[i] == _nMSAA ) {
+					nSel = i;
+				}
+			}
+			SendMessage( hwnd, CB_SETCURSEL, nSel, 0 );
+		}
+	}
+	{
+		const int nFSX = 338;
 		HWND hwnd = CreateWindowEx( 0, "BUTTON", "Fullscreen",
 			WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
-			nFSX, nY + 2, 120, 20, hwndDlg, (HMENU)(INT_PTR)_ID_FULLSCREEN, _hInstance, NULL );
+			nFSX, nY + 2, 100, 20, hwndDlg, (HMENU)(INT_PTR)_ID_FULLSCREEN, _hInstance, NULL );
 		if( hwnd ) {
 			SendMessage( hwnd, BM_SETCHECK, _bFullscreen ? BST_CHECKED : BST_UNCHECKED, 0 );
 		}
@@ -1016,9 +1060,10 @@ static void _CreateDialogControls( HWND hwndDlg )
 		nX, nY, 420, 20, hwndDlg, (HMENU)(INT_PTR)_ID_STATUS, _hInstance, NULL );
 	nY += 28;
 
-	_AddButton( hwndDlg, _ID_EXTRACT_ISO, "Extract from ISO...", nX, nY, 150, 26 );
-	_AddButton( hwndDlg, _ID_START, "Start",  nX + 250, nY, 80, 26 );
-	_AddButton( hwndDlg, _ID_CANCEL, "Cancel", nX + 340, nY, 80, 26 );
+	_AddButton( hwndDlg, _ID_EXTRACT_ISO, "Extract from ISO...", nX, nY, 140, 26 );
+	_AddButton( hwndDlg, _ID_START, "Start", 160, nY, 80, 26 );
+	_AddButton( hwndDlg, _ID_START_DEV, "Start Dev", 248, nY + 2, 74, 22 );
+	_AddButton( hwndDlg, _ID_CANCEL, "Cancel", 330, nY, 80, 26 );
 }
 
 // Returns TRUE if the user asked to start the game.
@@ -1046,7 +1091,7 @@ static BOOL _ShowStartupDialog( void )
 	}
 	_CreateDialogControls( hwndDlg );
 
-	BOOL bRun = FALSE;
+	_bStartRequested = FALSE;
 	MSG msg;
 	while( GetMessageA( &msg, NULL, 0, 0 ) > 0 ) {
 		TranslateMessage( &msg );
@@ -1056,12 +1101,10 @@ static BOOL _ShowStartupDialog( void )
 		}
 	}
 
-	// WM_QUIT is posted on destroy, so "quit" means either the user cancelled or
-	// they pressed Start. Start removes the master-file requirement and closes
-	// the window; a cancel leaves _szMasterFile possibly set, so use an explicit
-	// flag written by _OnStart instead.
-	bRun = (_szMasterFile[0] != '\0');
-	return bRun;
+	//R140: WM_QUIT is posted on destroy for Start, Cancel, Escape and the X
+	//button alike. _OnStart sets this flag only after validation, so Cancel
+	//with a stored master file no longer starts the game.
+	return _bStartRequested;
 }
 
 // ---------------------------------------------------------------------------
