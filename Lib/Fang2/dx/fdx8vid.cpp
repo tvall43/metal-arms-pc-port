@@ -62,6 +62,8 @@ FVidMode_t FVid_Mode;			// Current video mode
 FVidWin_t  FVid_Win;			// Current window info
 
 D3DMULTISAMPLE_TYPE FDX8Vid_nBackBufferMultisampleType;
+u32 FDX8Vid_nRequestedMSAA = 0;		//R139: [Video] MSAA sample count requested (0=off)
+BOOL FDX8Vid_bBackBufferLockable = TRUE;	//R139: what CreateDevice actually accepted
 BOOL FDX8Vid_bDestAlpha = FALSE;	//R133: TRUE if the back buffer really has alpha (fog)
 
 
@@ -2269,13 +2271,27 @@ static D3DMULTISAMPLE_TYPE _GetMultiSampleType( const _AdapterInfo_t *pAdapterIn
 		}
 	}
 
-	nTableIndex = (u32)( *pfUnitFSAA * (float)nTableEntryCount );
-	if( nTableIndex == nTableEntryCount ) 
+	//R139: [Video] MSAA asks for a sample count explicitly (0=off). Take the
+	//highest table entry at or below it that the adapter reports, never above:
+	//requesting 4x must not silently become 8x. The old fUnitFSAA fraction is
+	//still written back for the log, but it is no longer the input.
+	if( FDX8Vid_nRequestedMSAA == 0 )
 	{
-		nTableIndex--;
+		*pfUnitFSAA = 0.0f;
+		return D3DMULTISAMPLE_NONE;
 	}
 
-	for( ; !__aMultiSampleTable[nTableIndex].bSupported; nTableIndex-- );
+	nTableIndex = 0;
+	for( i=1; i<nTableEntryCount; i++ )
+	{
+		if( (u32)__aMultiSampleTable[i].nD3DMultiSampleType > FDX8Vid_nRequestedMSAA )
+		{
+			break;
+		}
+		nTableIndex = i;
+	}
+
+	for( ; nTableIndex>0 && !__aMultiSampleTable[nTableIndex].bSupported; nTableIndex-- );
 
 	*pfUnitFSAA = (float)nTableIndex / (float)(nTableEntryCount-1);
 
@@ -2723,7 +2739,11 @@ static BOOL _CreateWindow( void )
 	_PresentationParms.EnableAutoDepthStencil = TRUE;
 	_PresentationParms.AutoDepthStencilFormat = _CurVidModeInfo.nDepthFormat;
 #if FANG_PLATFORM_WIN
-	_PresentationParms.Flags = D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;
+	//R139: D3D8 rejects a multisampled back buffer that is also lockable, so
+	//this is a choice. The Bink blit needs the lock, MSAA needs it gone;
+	//_BltWinFrame() uses an off-screen texture when the lock is absent.
+	_PresentationParms.Flags = ( FDX8Vid_nBackBufferMultisampleType == D3DMULTISAMPLE_NONE )
+		? D3DPRESENTFLAG_LOCKABLE_BACKBUFFER : 0;
 #else
 	_PresentationParms.Flags = 0;
 #endif
@@ -2762,6 +2782,11 @@ static BOOL _CreateWindow( void )
 		apTEMPTry[nTEMPAttempts++] = "as requested";
 		aTEMPAttempt[nTEMPAttempts] = _PresentationParms;
 		aTEMPAttempt[nTEMPAttempts].MultiSampleType = D3DMULTISAMPLE_NONE;
+#if FANG_PLATFORM_WIN
+		//R139: if MSAA was the only reason the lock was dropped, restore it so
+		//a failed MSAA request still leaves the normal movie path intact.
+		aTEMPAttempt[nTEMPAttempts].Flags |= D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;
+#endif
 		apTEMPTry[nTEMPAttempts++] = "multisample off";
 		aTEMPAttempt[nTEMPAttempts] = aTEMPAttempt[nTEMPAttempts-1];
 		aTEMPAttempt[nTEMPAttempts].Flags = 0;
@@ -2807,6 +2832,15 @@ static BOOL _CreateWindow( void )
 			return FALSE;
 		}
 	}
+
+	//R139: record what the device accepted, not what was requested. A retry
+	//may have dropped MSAA (and restored the lockable flag with it).
+	FDX8Vid_bBackBufferLockable = !!( _PresentationParms.Flags & D3DPRESENTFLAG_LOCKABLE_BACKBUFFER );
+	FDX8Vid_nBackBufferMultisampleType = _PresentationParms.MultiSampleType;
+	DEVPRINTF( "fvid: multisample requested %u, accepted %u; back buffer %s\n",
+		(unsigned)FDX8Vid_nRequestedMSAA, (unsigned)FDX8Vid_nBackBufferMultisampleType,
+		FDX8Vid_bBackBufferLockable ? "lockable (movie blit locks it)"
+			: "not lockable (movie blit uses a texture)" );
 
 	//R133: a retry may have fallen back to the desktop (X8R8G8B8) format, so
 	//record the format the device was actually created with, not the request.

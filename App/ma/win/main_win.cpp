@@ -22,6 +22,7 @@
 #include "fang.h"
 #include "ffile.h"
 #include "fvid.h"
+#include "fdx8vid.h"
 
 #include "../gameloop.h"
 #include "../gamepad.h"	// Gamepad_fMouseSensitivity
@@ -70,7 +71,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R138"
+#define MA_PORT_ROUND	"R139"
 // Optional banner tag for one-off configurations (CMake MA_BUILD_TAG, e.g.
 // " (O2)"); empty in the normal build so the round alone identifies the exe.
 #ifndef MA_PORT_BUILD_TAG
@@ -327,6 +328,7 @@ static u32  _nScreenWidth			= 640;
 static u32  _nScreenHeight		= 480;
 static u32  _nColorBits			= 32;
 static BOOL _bFullscreen		= FALSE;
+static u32  _nMSAA				= 0;	//R139: requested sample count, 0=off
 
 // Control identifiers.
 #define _ID_MASTEREDIT		1000
@@ -492,6 +494,15 @@ static void _LoadConfig( void )
 	_nScreenHeight = oSettings.ReadCustomInt( "Video", "Height", 480 );
 	_nColorBits    = oSettings.ReadCustomInt( "Video", "ColorBits", 32 );
 	_bFullscreen   = oSettings.ReadCustomInt( "Video", "Fullscreen", 0 ) ? TRUE : FALSE;
+	//R139: MSAA is a requested sample count; 1x is not a D3D multisample type,
+	//and more than 16 is clamped rather than silently ignored. Default off.
+	{
+		int nMSAA = oSettings.ReadCustomInt( "Video", "MSAA", 0 );
+		if( nMSAA > 16 ) nMSAA = 16;
+		if( nMSAA < 2 ) nMSAA = 0;
+		_nMSAA = (u32)nMSAA;
+		FDX8Vid_nRequestedMSAA = _nMSAA;
+	}
 	_bLogFileEnabled = oSettings.ReadCustomInt( "Debug", "LogFile", _LOGFILE_DEFAULT ) ? TRUE : FALSE;
 	//R62: the R45-R61 invisibility-hunt probes are opt-in (see ma_winDlg.cpp).
 	FWin_bTEMPDebugProbes = oSettings.ReadCustomInt( "Debug", "TempProbes", 0 ) ? TRUE : FALSE;
@@ -587,6 +598,7 @@ static void _SaveConfig( void )
 	oSettings.WriteCustomInt( "Video", "Height", _nScreenHeight );
 	oSettings.WriteCustomInt( "Video", "ColorBits", _nColorBits );
 	oSettings.WriteCustomInt( "Video", "Fullscreen", _bFullscreen ? 1 : 0 );
+	oSettings.WriteCustomInt( "Video", "MSAA", (int)_nMSAA );
 	if( _bDevMode ) {
 		oSettings.WriteCustomInt( "Debug", "LogFile", _bLogFileEnabled ? 1 : 0 );
 		oSettings.WriteCustomInt( "Debug", "TempProbes", FWin_bTEMPDebugProbes ? 1 : 0 );
@@ -1123,6 +1135,7 @@ static BOOL _RunGame( void )
 	_Trace( "[ma] level       : %s\n", _szLevelFile[0] ? _szLevelFile : "(none)" );
 	_Trace( "[ma] video       : %ux%u %u-bit %s\n", _nScreenWidth, _nScreenHeight, _nColorBits,
 		_bFullscreen ? "fullscreen" : "windowed" );
+	_Trace( "[ma] video MSAA  : %u (0=off)\n", _nMSAA );
 
 	fang_Init();
 	_Trace( "[ma] fang_Init done\n" );
@@ -1211,6 +1224,10 @@ static BOOL _RunGame( void )
 	GameloopParms.bDemoLaunched			= FALSE;
 	GameloopParms.uTimeoutInterval		= 0;
 
+	//R139: _LoadConfig() runs before fang_Init(); re-apply the request here so
+	//module startup cannot have cleared it.
+	FDX8Vid_nRequestedMSAA = _nMSAA;
+
 	// Video window: the engine creates the window itself from this description.
 	FVidWin_t* pVidWin = &GameloopParms.VidWin;
 	memset( pVidWin, 0, sizeof(*pVidWin) );
@@ -1232,7 +1249,7 @@ static BOOL _RunGame( void )
 	pVidWin->VidMode.nPixelsDown	= (u16)_nScreenHeight;
 
 	pVidWin->nSwapInterval		= 1;
-	pVidWin->fUnitFSAA			= 0.0f;
+	pVidWin->fUnitFSAA			= 0.0f;	//R139: the request lives in FDX8Vid_nRequestedMSAA
 	pVidWin->hInstance			= _hInstance;
 	pVidWin->hWnd				= NULL;
 	pVidWin->nIconIDI			= 0;

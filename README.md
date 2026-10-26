@@ -95,7 +95,7 @@ launch dialog, play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R137), and
+cannot be replied to. Name the build id printed in the log header (e.g. R139), and
 check what version you have first - fixes land continuously.
 
 ## Configuration (`ma_win.ini`)
@@ -105,11 +105,17 @@ check what version you have first - fixes land continuously.
 | `[Video]` | `Width` / `Height` / `ColorBits` | 640 / 480 / 32 | Present backbuffer size |
 | `[Video]` | `Fullscreen` | 0 | 1 = fullscreen |
 | `[Video]` | `MovieScaling` | `fit` | Bink frame scaler: `fit` (aspect-locked, pillars where needed), `fill`, `stretch` |
+| `[Video]` | `MSAA` | 0 | Multisample anti-aliasing: `0` off, or `2`/`4`/`8`/`16` samples; uses the highest level the driver reports at or below the request |
 | `[Audio]` | `Volume2D`, `MinDistanceFraction` | engine defaults | Speech/UI volume and 3D sound falloff start |
 | `[Mouse]` | `Sensitivity` | 1.0 | Mouse-look scale |
 | `[KEYMAP]` | `Jump`, `SelectPrimary`, `SelectSecondary`, `Action`, `Start`, `Back`, `Fire`, `Aim`, `Black`, `White`, `Crouch`, `Melee` | default bindings | Keyboard overrides for the pad action layer; buttons only (WASD / IJKL / arrows are fixed), unknown key names fall back to the default |
 | `[Paths]` | `MasterFile`, `Level`, `ScreenshotDir` | auto | Advanced; `MasterFile` is normally not needed |
 | `[Debug]` | `LogFile`, `TempProbes`, `WireLightForce`, `WireCullNone` | off | Development-only diagnostics; retail mode ignores them |
+
+`MSAA` is requested, not forced: `4` uses 4x only if the driver reports it,
+otherwise the highest smaller level, and `0` stays off. With MSAA enabled,
+movies are presented through an off-screen texture because a multisampled D3D8
+back buffer cannot be locked; that switch is automatic. Default is off.
 
 The 3D world renders wide; UI/letterbox content stays in the authored 4:3
 canvas centred on screen.

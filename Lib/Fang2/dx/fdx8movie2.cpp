@@ -23,6 +23,7 @@
 #include "fmovie2.h"
 #include "fres.h"
 #include "fdx8.h"
+#include "fdx8vid.h"
 #include "bink.h"
 #include "fclib.h"
 #include "fDataStreaming.h"
@@ -77,6 +78,12 @@ static u8 *_pMovieScratch = NULL;
 static u32 _uMovieScratchW = 0;
 static u32 _uMovieScratchH = 0;
 static BOOL _bMovieScaleWarned = FALSE;
+
+//R139: destination for the non-lockable (MSAA) back buffer path. A managed
+//texture survives device Reset and is lockable, which is all Bink needs.
+static IDirect3DTexture8 *_pMovieTexture = NULL;
+static u32 _uMovieTextureW = 0;
+static u32 _uMovieTextureH = 0;
 
 #if !_USE_STREAMING_MEMORY
 //windows management variables
@@ -147,6 +154,12 @@ BOOL fmovie2_ModuleStartup( void ) {
 void fmovie2_ModuleShutdown( void ) {
 
 	fmovie2_Uninstall();
+
+	if( _pMovieTexture ) {
+		_pMovieTexture->Release();
+		_pMovieTexture = NULL;
+	}
+	_uMovieTextureW = _uMovieTextureH = 0;
 
 	_apMovieTable = NULL;
 	_uNumMovieTableEntries = 0;
@@ -798,6 +811,171 @@ static void _MovieScaleFrame( const u8 *pSrc, u32 uSrcW, u32 uSrcH, u32 uSrcPitc
 	free( pnIX0 ); free( pnIX1 ); free( pnFX );
 }
 
+//Ensure a native-size Bink scratch frame exists.
+static BOOL _MovieEnsureScratch( void )
+{
+	if( !_pMovieScratch || _uMovieScratchW != _hBink->Width || _uMovieScratchH != _hBink->Height ) {
+		free( _pMovieScratch );
+		_uMovieScratchW = _hBink->Width;
+		_uMovieScratchH = _hBink->Height;
+		_pMovieScratch = (u8 *)malloc( (size_t)_uMovieScratchW * _uMovieScratchH * 4 );
+	}
+	return _pMovieScratch != NULL;
+}
+
+//Decode the current Bink frame into the scratch buffer. Do this before the
+//destination is locked, so the lock is not held across the decoder.
+static BOOL _MovieCopyToScratch( DWORD dwBinkSurfaceType )
+{
+	if( !_MovieEnsureScratch() ) {
+		return FALSE;
+	}
+
+	BinkCopyToBuffer( _hBink, _pMovieScratch, (S32)( _uMovieScratchW * 4 ), _uMovieScratchH,
+		0, 0, dwBinkSurfaceType | BINKCOPYALL );
+	return TRUE;
+}
+
+//Black the whole destination, then scale the scratch frame into it.
+//_MovieScaleFrame() writes only the aspect-correct sub-rect; the blacking is
+//what makes the fit/fill bars.
+static void _MovieScaleScratchInto( u8 *pDst, u32 uDstPitch, u32 uDstW, u32 uDstH )
+{
+	memset( pDst, 0, (size_t)uDstPitch * uDstH );
+	_MovieScaleFrame( _pMovieScratch, _uMovieScratchW, _uMovieScratchH, _uMovieScratchW * 4,
+		(const u8 *)pDst, uDstPitch, uDstW, uDstH );
+}
+
+//A managed texture survives a device Reset without any extra callback and is
+//lockable, which is exactly what the Bink copy needs.
+static BOOL _MovieTextureEnsure( u32 uW, u32 uH )
+{
+	if( _pMovieTexture && _uMovieTextureW == uW && _uMovieTextureH == uH ) {
+		return TRUE;
+	}
+	if( _pMovieTexture ) {
+		_pMovieTexture->Release();
+		_pMovieTexture = NULL;
+	}
+	_uMovieTextureW = _uMovieTextureH = 0;
+
+	HRESULT hr = FDX8_pDev->CreateTexture( uW, uH, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
+		&_pMovieTexture );
+	if( FAILED( hr ) ) {
+		DEVPRINTF( "[ FMOVIE2 ] Error : could not create %ux%u movie texture, hr=0x%08X\n",
+			uW, uH, (unsigned)hr );
+		return FALSE;
+	}
+
+	_uMovieTextureW = uW;
+	_uMovieTextureH = uH;
+	return TRUE;
+}
+
+//Draw the movie texture over the whole back buffer. The draw is bracketed by
+//a D3DSBT_ALL state block so the engine's own state cache is not disturbed;
+//the back buffer and viewport are restored explicitly as well.
+static BOOL _MovieDrawQuad( IDirect3DTexture8 *pTexture, u32 uW, u32 uH )
+{
+	//D3D8 state blocks are opaque tokens, not objects (that is D3D9).
+	DWORD dwStateToken = 0;
+	if( FAILED( FDX8_pDev->CreateStateBlock( D3DSBT_ALL, &dwStateToken ) ) ) {
+		DEVPRINTF( "[ FMOVIE2 ] Error : could not capture state for the movie quad.\n" );
+		return FALSE;
+	}
+
+	IDirect3DBaseTexture8 *pOldTexture = NULL;
+	IDirect3DSurface8 *pOldRT = NULL;
+	IDirect3DSurface8 *pOldDS = NULL;
+	D3DVIEWPORT8 oOldViewport;
+	DWORD dwOldVS = 0, dwOldPS = 0;
+
+	FDX8_pDev->GetTexture( 0, &pOldTexture );
+	FDX8_pDev->GetRenderTarget( &pOldRT );
+	FDX8_pDev->GetDepthStencilSurface( &pOldDS );
+	FDX8_pDev->GetViewport( &oOldViewport );
+	FDX8_pDev->GetVertexShader( &dwOldVS );
+	FDX8_pDev->GetPixelShader( &dwOldPS );
+
+	IDirect3DSurface8 *pBackBuffer = NULL;
+	FDX8_pDev->GetBackBuffer( 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuffer );
+	if( pBackBuffer ) {
+		FDX8_pDev->SetRenderTarget( pBackBuffer, FDX8_pSurfDepthStencil );
+	}
+
+	D3DVIEWPORT8 oViewport = { 0, 0, uW, uH, 0.0f, 1.0f };
+	FDX8_pDev->SetViewport( &oViewport );
+
+	FDX8_pDev->SetVertexShader( D3DFVF_XYZRHW | D3DFVF_TEX1 | D3DFVF_TEXCOORDSIZE2(0) );
+	FDX8_pDev->SetPixelShader( 0 );
+	FDX8_pDev->SetTexture( 0, pTexture );
+
+	FDX8_pDev->SetRenderState( D3DRS_ZENABLE, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_ZWRITEENABLE, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
+	FDX8_pDev->SetRenderState( D3DRS_FILLMODE, D3DFILL_SOLID );
+	FDX8_pDev->SetRenderState( D3DRS_VERTEXBLEND, D3DVBF_DISABLE );
+	FDX8_pDev->SetRenderState( D3DRS_INDEXEDVERTEXBLENDENABLE, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_LIGHTING, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_FOGENABLE, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_ALPHATESTENABLE, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_STENCILENABLE, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_CLIPPING, FALSE );
+	FDX8_pDev->SetRenderState( D3DRS_COLORWRITEENABLE, 0x0000000F );
+
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_COLOROP, D3DTOP_SELECTARG1 );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_COLORARG1, D3DTA_TEXTURE );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1 );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_TEXCOORDINDEX, 0 );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE );
+	for( u32 i = 1; i < 8; i++ ) {
+		FDX8_pDev->SetTextureStageState( i, D3DTSS_COLOROP, D3DTOP_DISABLE );
+		FDX8_pDev->SetTextureStageState( i, D3DTSS_ALPHAOP, D3DTOP_DISABLE );
+	}
+
+	//D3D8 has no sampler-state objects; filtering lives in the texture stage.
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_MINFILTER, D3DTEXF_POINT );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_MAGFILTER, D3DTEXF_POINT );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_MIPFILTER, D3DTEXF_NONE );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP );
+
+	const f32 fW = (f32)uW, fH = (f32)uH;
+	struct { f32 x, y, z, rhw, u, v; } aVertices[4] = {
+		{ 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f },
+		{ fW,   0.0f, 0.0f, 1.0f, 1.0f, 0.0f },
+		{ 0.0f, fH,   0.0f, 1.0f, 0.0f, 1.0f },
+		{ fW,   fH,   0.0f, 1.0f, 1.0f, 1.0f }
+	};
+	const HRESULT hr = FDX8_pDev->DrawPrimitiveUP( D3DPT_TRIANGLESTRIP, 2, aVertices,
+		sizeof(aVertices[0]) );
+	if( FAILED( hr ) ) {
+		DEVPRINTF( "[ FMOVIE2 ] Error : movie quad draw failed, hr=0x%08X\n", (unsigned)hr );
+	}
+
+	//Apply() puts back the state captured above; release the saved surfaces
+	//after it, because Apply() may re-bind them.
+	//Unconditional: stage 0 may have been unbound (NULL) before the movie, and
+	//a state block does not necessarily capture texture bindings.
+	FDX8_pDev->SetTexture( 0, pOldTexture );
+	FDX8_pDev->SetViewport( &oOldViewport );
+	FDX8_pDev->ApplyStateBlock( dwStateToken );
+	FDX8_pDev->DeleteStateBlock( dwStateToken );
+	if( pOldRT ) {
+		FDX8_pDev->SetRenderTarget( pOldRT, pOldDS );
+	}
+	FDX8_pDev->SetVertexShader( dwOldVS );
+	FDX8_pDev->SetPixelShader( dwOldPS );
+	if( pOldTexture ) pOldTexture->Release();
+	if( pOldRT ) pOldRT->Release();
+	if( pOldDS ) pOldDS->Release();
+	if( pBackBuffer ) pBackBuffer->Release();
+
+	return SUCCEEDED( hr );
+}
+
 BOOL _BltWinFrame( void ) {
 
 	//This routine copies the new Bink frame to the back buffer. The frame is
@@ -819,6 +997,37 @@ BOOL _BltWinFrame( void ) {
 		DEVPRINTF( "[ FMOVIE2 ] Error : Could not get DX8 Backbuffer Description!\n");
         pDX8BackBuffer->Release();
 		return FALSE;
+	}
+
+	//R139: MSAA makes the back buffer non-lockable by definition. Bink needs a
+	//CPU-writable destination, so decode into a managed texture and draw that
+	//as one full-screen quad. The texture is always 32-bit, so this path skips
+	//the b32/centred fallback below.
+	if( !FDX8Vid_bBackBufferLockable ) {
+		pDX8BackBuffer->Release();
+
+		if( !_MovieTextureEnsure( BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height ) ) {
+			return FALSE;
+		}
+		if( !_MovieCopyToScratch( BINKSURFACE32 ) ) {
+			return FALSE;
+		}
+
+		D3DLOCKED_RECT LockedTex;
+		if( FAILED( _pMovieTexture->LockRect( 0, &LockedTex, NULL, 0 ) ) ) {
+			DEVPRINTF( "[ FMOVIE2 ] Error : Failed Lock of the movie texture!\n" );
+			return FALSE;
+		}
+
+		_MovieScaleScratchInto( (u8 *)LockedTex.pBits, (u32)LockedTex.Pitch,
+			BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height );
+
+		if( FAILED( _pMovieTexture->UnlockRect( 0 ) ) ) {
+			DEVPRINTF( "[ FMOVIE2 ] Error : Failed Unlock of the movie texture!\n" );
+			return FALSE;
+		}
+
+		return _MovieDrawQuad( _pMovieTexture, BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height );
 	}
 
 	//The software path assumes a 32-bit back buffer, which is what Bink's
@@ -844,20 +1053,10 @@ BOOL _BltWinFrame( void ) {
 		return TRUE;
 	}
 
-	//Keep a scratch frame at the movie's native size.
-	if( !_pMovieScratch || _uMovieScratchW != _hBink->Width || _uMovieScratchH != _hBink->Height ) {
-		free( _pMovieScratch );
-		_uMovieScratchW = _hBink->Width;
-		_uMovieScratchH = _hBink->Height;
-		_pMovieScratch = (u8 *)malloc( (size_t)_uMovieScratchW * _uMovieScratchH * 4 );
-	}
-	if( !_pMovieScratch ) {
+	if( !_MovieCopyToScratch( dwBinkSurfaceType ) ) {
 		pDX8BackBuffer->Release();
 		return FALSE;
 	}
-
-	BinkCopyToBuffer( _hBink, _pMovieScratch, (S32)( _uMovieScratchW * 4 ), _uMovieScratchH,
-		0, 0, dwBinkSurfaceType | BINKCOPYALL );
 
 	if( FAILED( pDX8BackBuffer->LockRect( &LockedRect, NULL, NULL ) ) ) {
 		DEVPRINTF( "[ FMOVIE2 ] Error : Failed Lock of Backbuffer!\n");
@@ -865,14 +1064,7 @@ BOOL _BltWinFrame( void ) {
 		return FALSE;
 	}
 
-	//Black the whole frame first so fit/fill bars cannot show stale pixels.
-	for( u32 y = 0; y < BackBufferSurfaceDesc.Height; y++ ) {
-		memset( (u8 *)LockedRect.pBits + (size_t)y * LockedRect.Pitch, 0,
-			(size_t)BackBufferSurfaceDesc.Width * 4 );
-	}
-
-	_MovieScaleFrame( _pMovieScratch, _uMovieScratchW, _uMovieScratchH, _uMovieScratchW * 4,
-		(const u8 *)LockedRect.pBits, LockedRect.Pitch,
+	_MovieScaleScratchInto( (u8 *)LockedRect.pBits, (u32)LockedRect.Pitch,
 		BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height );
 
 	if( FAILED( pDX8BackBuffer->UnlockRect() ) ) {
