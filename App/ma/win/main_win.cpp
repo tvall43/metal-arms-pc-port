@@ -70,7 +70,12 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R136"
+#define MA_PORT_ROUND	"R137"
+// Optional banner tag for one-off configurations (CMake MA_BUILD_TAG, e.g.
+// " (O2)"); empty in the normal build so the round alone identifies the exe.
+#ifndef MA_PORT_BUILD_TAG
+#define MA_PORT_BUILD_TAG ""
+#endif
 
 static BOOL _bLogFileEnabled = FALSE;
 
@@ -1110,7 +1115,7 @@ static BOOL _RunGame( void )
 	//R69: the log now identifies the build and the state of the diagnostic switches.
 	//Two rides were spent on "is the new exe actually running" and "did the ini key get
 	//read"; this answers both in the first three lines.
-	_Trace( "[ma] port build  : %s\n", MA_PORT_ROUND );
+	_Trace( "[ma] port build  : %s%s\n", MA_PORT_ROUND, MA_PORT_BUILD_TAG );
 	_Trace( "[ma] diagnostics : TempProbes=%d WireLightForce=%d WireCullNone=%d\n",
 		FWin_bTEMPDebugProbes ? 1 : 0, FWin_bTEMPDebugLightForce ? 1 : 0, FWin_bTEMPDebugCullNone ? 1 : 0 );
 	_Trace( "[ma] ---- startup ----\n" );

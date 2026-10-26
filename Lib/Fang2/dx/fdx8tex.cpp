@@ -5252,7 +5252,11 @@ BOOL ftex_HandleRenderTargets( void )
 //
 //
 //
-FINLINE void ftex_FlushRenderTarget(CFTexInst *pTexInst)
+// Port fix (R137): this is declared extern in ftex.h and called from other
+// translation units, so it must not be *defined* inline here. At -O0 GCC
+// still emitted an out-of-line copy; at -O2 every use in this file inlined
+// and the symbol disappeared -> undefined reference from game.cpp.
+void ftex_FlushRenderTarget(CFTexInst *pTexInst)
 {
 	pTexInst->SetFlag( CFTexInst::FLAG_FLUSH_RENDERTARGET );
 }

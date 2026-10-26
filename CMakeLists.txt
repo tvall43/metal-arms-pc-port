@@ -87,6 +87,13 @@ if(MA_WINGC)
   add_compile_definitions(_FANGDEF_WINGC)
 endif()
 
+# Optional banner tag for one-off configurations, e.g. -DMA_BUILD_TAG=" (O2)".
+# It only affects the "[ma] port build" line, so a test exe can be told apart
+# from the ordinary build of the same round without changing the round itself.
+if(MA_BUILD_TAG)
+  add_compile_definitions("MA_PORT_BUILD_TAG=\"${MA_BUILD_TAG}\"")
+endif()
+
 # ---------------------------------------------------------------------------
 # SmallAMX -- the scripting VM (Pawn-like) the game logic is scripted against.
 # Third-party C, needs <stdint.h> types that used to arrive transitively.
