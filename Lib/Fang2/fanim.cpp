@@ -1986,7 +1986,18 @@ void CFAnimCombiner::Mask_BatchUpdateTapBoneMask( const u8 *pnBoneNameIndexTable
 		if( pnBoneNameIndexTable ) {
 			// Bone mask provided...
 
-			for( ; *pnBoneNameIndexTable != 255; pnBoneNameIndexTable++ ) {
+			//Port fix (R138): the 255 terminator is the API contract (botanim.h).
+			//A table without it walked into adjacent .rdata; stop instead of
+			//trusting memory, and say so once.
+			for( u32 nMaskEntries = 0; *pnBoneNameIndexTable != 255; pnBoneNameIndexTable++ ) {
+				if( ++nMaskEntries > 256 ) {
+					static BOOL _bSaidBadBoneMask = FALSE;
+					if( !_bSaidBadBoneMask ) {
+						_bSaidBadBoneMask = TRUE;
+						DEVPRINTF( "fanim: bone mask table is not 255-terminated; stopped after 256 entries.\n" );
+					}
+					break;
+				}
 				pszBoneName = ppszBoneNameTable[ *pnBoneNameIndexTable ];
 
 				if( pAnimSource->FindBoneIndex( pszBoneName ) != -1 ) {
@@ -2005,7 +2016,18 @@ void CFAnimCombiner::Mask_BatchUpdateTapBoneMask( const u8 *pnBoneNameIndexTable
 		if( pnBoneNameIndexTable ) {
 			// Bone mask provided...
 
-			for( ; *pnBoneNameIndexTable != 255; pnBoneNameIndexTable++ ) {
+			//Port fix (R138): the 255 terminator is the API contract (botanim.h).
+			//A table without it walked into adjacent .rdata; stop instead of
+			//trusting memory, and say so once.
+			for( u32 nMaskEntries = 0; *pnBoneNameIndexTable != 255; pnBoneNameIndexTable++ ) {
+				if( ++nMaskEntries > 256 ) {
+					static BOOL _bSaidBadBoneMask = FALSE;
+					if( !_bSaidBadBoneMask ) {
+						_bSaidBadBoneMask = TRUE;
+						DEVPRINTF( "fanim: bone mask table is not 255-terminated; stopped after 256 entries.\n" );
+					}
+					break;
+				}
 				pszBoneName = ppszBoneNameTable[ *pnBoneNameIndexTable ];
 
 				if( pAnimSource->FindBoneIndex( pszBoneName ) != -1 ) {
@@ -2139,7 +2161,18 @@ void CFAnimCombiner::Mask_UpdateTapBoneMask( s32 nTapID, const u8 *pnBoneNameInd
 
 			_Mask_DisableAllBones( pCombinerTap );
 
-			for( ; *pnBoneNameIndexTable != 255; pnBoneNameIndexTable++ ) {
+			//Port fix (R138): the 255 terminator is the API contract (botanim.h).
+			//A table without it walked into adjacent .rdata; stop instead of
+			//trusting memory, and say so once.
+			for( u32 nMaskEntries = 0; *pnBoneNameIndexTable != 255; pnBoneNameIndexTable++ ) {
+				if( ++nMaskEntries > 256 ) {
+					static BOOL _bSaidBadBoneMask = FALSE;
+					if( !_bSaidBadBoneMask ) {
+						_bSaidBadBoneMask = TRUE;
+						DEVPRINTF( "fanim: bone mask table is not 255-terminated; stopped after 256 entries.\n" );
+					}
+					break;
+				}
 				pszBoneName = ppszBoneNameTable[ *pnBoneNameIndexTable ];
 
 				if( pAnimSource->FindBoneIndex( pszBoneName ) != -1 ) {
@@ -2163,7 +2196,18 @@ void CFAnimCombiner::Mask_UpdateTapBoneMask( s32 nTapID, const u8 *pnBoneNameInd
 
 			_Mask_EnableAllBones( pCombinerTap );
 
-			for( ; *pnBoneNameIndexTable != 255; pnBoneNameIndexTable++ ) {
+			//Port fix (R138): the 255 terminator is the API contract (botanim.h).
+			//A table without it walked into adjacent .rdata; stop instead of
+			//trusting memory, and say so once.
+			for( u32 nMaskEntries = 0; *pnBoneNameIndexTable != 255; pnBoneNameIndexTable++ ) {
+				if( ++nMaskEntries > 256 ) {
+					static BOOL _bSaidBadBoneMask = FALSE;
+					if( !_bSaidBadBoneMask ) {
+						_bSaidBadBoneMask = TRUE;
+						DEVPRINTF( "fanim: bone mask table is not 255-terminated; stopped after 256 entries.\n" );
+					}
+					break;
+				}
 				pszBoneName = ppszBoneNameTable[ *pnBoneNameIndexTable ];
 
 				if( pAnimSource->FindBoneIndex( pszBoneName ) != -1 ) {

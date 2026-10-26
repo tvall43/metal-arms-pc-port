@@ -1267,6 +1267,11 @@ const u8 CBotGlitch::m_aBoneEnableIndices_TapFire1_Lower[] = {
 	BONE_LEFT_TOE,
 	BONE_LEFT_FOOT_BACK,
 	BONE_LEFT_HEEL,
+	// Port fix (R138): the API requires a 255 terminator (botanim.h).
+	// Without it the mask scan walked into adjacent .rdata; at -O2 the
+	// rat race turret's array is followed by the "armrturret1" string,
+	// so 'a' (0x61) was read as a bone index and the name lookup crashed.
+	255,
 };
 
 

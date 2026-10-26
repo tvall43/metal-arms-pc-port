@@ -362,6 +362,10 @@ const u8 CBotSniper::m_anEnableBoneNameIndexTableForSummer_Normal[] = {
 	BONE_GUN_BARREL,		
 	BONE_ARM_PISTONB_R,		
 	BONE_ARM_PISTONA_R,		
+	// Port fix (R138): the API requires a 255 terminator (botanim.h).
+	// Without it the mask scan walks past the array; a data table that
+	// lacks one crashed the rat race turret on the -O2 build.
+	255,
 };
 
 

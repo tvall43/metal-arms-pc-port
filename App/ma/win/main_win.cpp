@@ -70,7 +70,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R137"
+#define MA_PORT_ROUND	"R138"
 // Optional banner tag for one-off configurations (CMake MA_BUILD_TAG, e.g.
 // " (O2)"); empty in the normal build so the round alone identifies the exe.
 #ifndef MA_PORT_BUILD_TAG

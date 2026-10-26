@@ -333,10 +333,20 @@ const u8 CRatGun::m_aBoneEnableIndices_FullBody[] =
 	BONE_ATTACHPOINT_GUNNER,
 	BONE_BALLTURRETRIBS,
 	BONE_SHELL_EJECT,
+	// Port fix (R138): the API requires a 255 terminator (botanim.h).
+	// Without it the mask scan walked into adjacent .rdata; at -O2 the
+	// rat race turret's array is followed by the "armrturret1" string,
+	// so 'a' (0x61) was read as a bone index and the name lookup crashed.
+	255,
 };
 const u8 CRatGun::m_aBoneEnableIndices_OpenClose[] = 
 {
 	BONE_BALLTURRETRIBS,
+	// Port fix (R138): the API requires a 255 terminator (botanim.h).
+	// Without it the mask scan walked into adjacent .rdata; at -O2 the
+	// rat race turret's array is followed by the "armrturret1" string,
+	// so 'a' (0x61) was read as a bone index and the name lookup crashed.
+	255,
 };
 const u8 CRatGun::m_anTagPointBoneNameIndexArray[TAG_POINT_COUNT] =
 {
