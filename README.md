@@ -74,9 +74,11 @@ starts clean. A VectoredExceptionHandler crash logger is always active and
 writes a backtrace next to the exe on a hard crash.
 
 Public releases ship a stripped `ma_win.exe` (about 7 MB; the unstripped build
-is 70 MB because of DWARF). The debug information for each shipped build is
-archived as `ma_win_<build>.dbg` beside the release zip; binaries are not
-reproducible, so that file is the only way back from a crash address:
+is 70 MB because of DWARF). Development/test zips are deliberately left unstripped, so a crash address
+can be resolved on the spot; only the release packager strips. The debug
+information for each shipped build is archived as `ma_win_<build>.dbg` in
+`releasedbg/`; binaries are not reproducible, so that file is the only way
+back from a crash address:
 
 ```
 addr2line -f -e ma_win_r137.dbg 0x<address from the crash log>
