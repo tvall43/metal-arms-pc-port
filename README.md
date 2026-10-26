@@ -73,6 +73,18 @@ Retail mode never writes a log file, ignores the dev-only debug options, and
 starts clean. A VectoredExceptionHandler crash logger is always active and
 writes a backtrace next to the exe on a hard crash.
 
+Public releases ship a stripped `ma_win.exe` (about 7 MB; the unstripped build
+is 70 MB because of DWARF). The debug information for each shipped build is
+archived as `ma_win_<build>.dbg` beside the release zip; binaries are not
+reproducible, so that file is the only way back from a crash address:
+
+```
+addr2line -f -e ma_win_r137.dbg 0x<address from the crash log>
+```
+
+Stripping does not move code, so addresses in the shipped exe and the `.dbg`
+are identical.
+
 ### Reporting a problem
 
 The build logs everything it might need; a report without the log usually
