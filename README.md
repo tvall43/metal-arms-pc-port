@@ -73,6 +73,17 @@ Retail mode never writes a log file, ignores the dev-only debug options, and
 starts clean. A VectoredExceptionHandler crash logger is always active and
 writes a backtrace next to the exe on a hard crash.
 
+### Reporting a problem
+
+The build logs everything it might need; a report without the log usually
+cannot be diagnosed. Run `ma_win.exe dev` and tick **Debug log file** on the
+launch dialog, play until it happens again in one session if you can, then
+quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
+backtrace next to the exe with no flags. File a GitHub issue rather than a
+comment on a download page: issues allow replies and detail, page comments
+cannot be replied to. Name the build id printed in the log header (e.g. R137), and
+check what version you have first - fixes land continuously.
+
 ## Configuration (`ma_win.ini`)
 
 | Section | Key | Default | Meaning |
