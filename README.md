@@ -190,6 +190,10 @@ stay intact. The work so far, in the order it mattered:
   the unused attenuation rows at zero, so the division produced infinity and
   the shader's clamp turned the whole fill white. The reset now seeds every
   unused row with the neutral `(1,0,0)`.
+- **Starting health.** A fresh profile started with three health batteries,
+  where retail starts the first mission with one. The authored battery pickups
+  are numbered 2 and 3, so both looked like already-owned repeats. New profiles
+  now start with one; existing saves keep the count they carry.
 - **Campaign plow through.** Level-load crash on EUK collectables beyond
   level 2, the never-appearing barter shops (retail table-name drift),
   "Unhandled Exception" load crash, the tether possession softlock, the rat

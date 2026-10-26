@@ -414,7 +414,18 @@ void CInventory::SetToInitial() {
 
 	fang_MemZero( this, sizeof( CInventory ) );
 
-	m_uNumBatteries = 3;
+	//Port fix (R135): a fresh profile starts with ONE battery, as retail does.
+	//The leaked source seeds three. Retail's own level Inventory tables carry
+	//the authored counts (wedmmines01 = 1 battery, 2 primary / 1 secondary, 6
+	//items, starting primary 1; wedmmines02 = 1; wedmmines03 = 2), so one is
+	//ground truth for the first mission - this is a leak-versus-retail
+	//divergence, not a platform one, and it applies to every build.
+	//The battery pickups are genuinely numbered 2 and 3 (collectable.cpp maps
+	//them to COLLECTABLE_BATTERY), so starting at three made both look like
+	//already-owned repeats. Existing profiles are not rewritten - their count
+	//comes from the save - and SetToUnarmed() keeps the leak's value for the
+	//paths that use it. See cobblecorn 943c552 for the same fix.
+	m_uNumBatteries = 1;
 	m_auNumWeapons[0] = 2;
 	m_auNumWeapons[1] = 1;
 	m_auCurWeapon[0] = 1;
