@@ -489,6 +489,8 @@ public:
 	virtual BOOL CheckpointSave( void );
 
 	CWeapon *SetStoredWeapon( CWeapon *pWeapon );
+
+	virtual void Die( BOOL bSpawnDeathEffects=TRUE, BOOL bSpawnGoodies=TRUE );
 	
 //----------------------------------------------------------------------------------------------------------------------------------
 // Protected Functions:

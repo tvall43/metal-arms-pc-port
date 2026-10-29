@@ -223,6 +223,9 @@ CFAnimFrame CBotMiner::m_Rocket1TorsoUntwistQuat;
 
 CFVec3A CBotMiner::m_GroinVecY_WS;
 CBotPartPool *CBotMiner::m_pPartPool;
+
+// One breakup pool per shipped Miner mesh (they have different skeletons).
+static CBotPartPool *_apMinerDeathPartPools[3] = {};
 CBotMiner*   CBotMiner::m_pCBMiner = NULL;
 
 
@@ -488,6 +491,13 @@ BOOL CBotMiner::ClassHierarchyBuild( void ) {
 	}
 
 	// Build parent class...
+	// InitSystem reads bp_Miner before the localized debris/sound resources
+	// exist; refresh the authored references now so the Miner death debris
+	// groups are populated instead of NULL.
+	if( !ReadBotInfoFile( m_aGameDataMap, _BOTINFO_FILENAME ) ) {
+		goto _ExitWithError;
+	}
+
 	if( !CBot::ClassHierarchyBuild() ) {
 		// Parent class could not be built...
 		goto _ExitWithError;
@@ -747,13 +757,20 @@ BOOL CBotMiner::ClassHierarchyBuild( void ) {
 		goto _ExitWithError;
 	}
 	
-	//if (!fclib_strnicmp(_pszMinerMeshFilenameRoot,  pszMeshFilename, fclib_strlen(_pszMinerMeshFilenameRoot)))
-	//{
-	//	if( !m_pPartMgr->Create( this, &m_pPartPool, _BOTPART_FILENAME, PART_INSTANCE_COUNT_PER_TYPE, LIMB_TYPE_COUNT ) ) {
-	//		FASSERT(!m_pPartMgr->IsCreated());
-	//	//	goto _ExitWithError;
-	//	}
-	//}
+	// The shipped bp_Miner has one (invulnerable head) limb and complete bone
+	// breakup settings; the old disabled block expected four limbs and never ran.
+	{
+		const char *deathMeshes[] = { "GRDMminer00", "GRDMminer01", "GRDMminernl" };
+		for( u32 n = 0; n < 3; ++n ) {
+			if( !fclib_stricmp( pszMeshFilename, deathMeshes[n] ) ) {
+				if( !m_pPartMgr->Create( this, &_apMinerDeathPartPools[n], _BOTPART_FILENAME,
+						PART_INSTANCE_COUNT_PER_TYPE, 1 ) ) {
+					DEVPRINTF( "CBotMiner: could not initialize death breakup for '%s'.\n", pszMeshFilename );
+				}
+				break;
+			}
+		}
+	}
 
 	// Set up data port stuff...
 //	DataPort_SetupTetherShockInfo();
@@ -890,7 +907,13 @@ void CBotMiner::ClassHierarchyAddToWorld( void ) {
 	CBot::ClassHierarchyAddToWorld();
 	m_pWorldMesh->UpdateTracker();
 
-	m_uBotDeathFlags |= BOTDEATHFLAG_PLAYDEATHANIM | BOTDEATHFLAG_COMEAPART | BOTDEATHFLAG_AUTOPERSISTAFTERDEATH;
+	if( m_pPartMgr && m_pPartMgr->IsCreated() ) {
+		// The part manager shows the breakup; the Miner has no death animation
+		// entry, so requesting it made the droid vanish with no effect.
+		m_uBotDeathFlags |= BOTDEATHFLAG_COMEAPART;
+	} else {
+		m_uBotDeathFlags |= BOTDEATHFLAG_PLAYDEATHANIM | BOTDEATHFLAG_COMEAPART | BOTDEATHFLAG_AUTOPERSISTAFTERDEATH;
+	}
 	
 	if( m_apWeapon[0] ) {
 		m_apWeapon[0]->Attach_UnitMtxToParent_PS( this, m_apszBoneNameTable[BONE_ATTACHPOINT_PRIMARY] );
@@ -911,6 +934,16 @@ void CBotMiner::ClassHierarchyAddToWorld( void ) {
 		}
 	}*/
 
+}
+
+
+void CBotMiner::Die( BOOL bSpawnDeathEffects, BOOL bSpawnGoodies ) {
+	if( m_pPartMgr && m_pPartMgr->IsCreated() ) {
+		// Also discard stale defaults restored from an earlier checkpoint. The
+		// part manager owns the visible death until its final debris is gone.
+		m_uBotDeathFlags &= ~( BOTDEATHFLAG_PLAYDEATHANIM | BOTDEATHFLAG_AUTOPERSISTAFTERDEATH );
+	}
+	CBot::Die( bSpawnDeathEffects, bSpawnGoodies );
 }
 
 
@@ -1093,6 +1126,7 @@ BOOL CBotMiner::GrabCable( CEZipLine *pCable ) {
 
 	if( m_pPartMgr && 
 		m_pPartMgr->IsCreated() &&
+		m_pPartMgr->GetLimbTypeCount() > LIMB_TYPE_LEFT_ARM &&
 		m_pPartMgr->GetLimbState( LIMB_TYPE_LEFT_ARM ) != CBotPartMgr::LIMB_STATE_INTACT ) {
 		return FALSE;
 	}
@@ -2076,7 +2110,7 @@ void CBotMiner::_HandleWeaponFiring( void ) {
 	}
 
 	u32 uRightArmLimbState = CBotPartMgr::LIMB_STATE_COUNT;
-	if (m_pPartMgr && m_pPartMgr->IsCreated())
+	if (m_pPartMgr && m_pPartMgr->IsCreated() && m_pPartMgr->GetLimbTypeCount() > LIMB_TYPE_RIGHT_ARM)
 	{
 		uRightArmLimbState = m_pPartMgr->GetLimbState( LIMB_TYPE_RIGHT_ARM );
 	}
