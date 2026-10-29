@@ -40,8 +40,8 @@
 BOOL CLaserBeam::m_bSystemInitted = FALSE;
 CLaserBeam *CLaserBeam::m_pLastCreated = NULL;
 //cchar *CLaserBeam::m_pszTexName = "circ_2";
-cchar *CLaserBeam::m_pszTexName = "tfdmlaser01";//"circ_2_a";
-cchar *CLaserBeam::m_pszMuzzleFlash = "tfdmlaser02";
+cchar *CLaserBeam::m_pszTexName = "tewrlaser01";//retail white/magenta laser bar; tfdmlaser01 is not shipped
+cchar *CLaserBeam::m_pszMuzzleFlash = "tfdmflasha1";//"tfdmlaser02" is not shipped
 CFTexInst CLaserBeam::m_texBeam, CLaserBeam::m_texMuzzleFlash;
 FDecalDefHandle_t CLaserBeam::m_hDecalDef = FDECALDEF_INVALID_HANDLE;
 
@@ -246,6 +246,7 @@ CLaserBeam::CLaserBeam()
 	m_uFlags = 0;
 	m_pImpactEntity = NULL;
 	m_fTexScroll = 0.0f;
+	m_ColorRGBA.OpaqueWhite();
 }
 
 
@@ -573,7 +574,9 @@ void CLaserBeam::_Draw()
 	//
 	//////////////////////////////////////////////////////////////////////
 
-	fdraw_Alpha_SetBlendOp(FDRAW_BLENDOP_LERP_WITH_ALPHA_OPAQUE);
+	// Additive: the retail laser texture is opaque with a black background, so
+	// a lerp blend drew a black wedge. Additive makes black contribute nothing.
+	fdraw_Alpha_SetBlendOp(FDRAW_BLENDOP_ALPHA_TIMES_SRC_PLUS_DST);
 	fdraw_SetTexture(&m_texBeam);
 
 	//////////////////////////////////////////////////////////////////////
@@ -587,7 +590,7 @@ void CLaserBeam::_Draw()
 		// JUSTIN: Check for collision.
 
 		// Lower right.
-		pVtxArray[uCurVtxArryIdx].ColorRGBA.OpaqueWhite();
+		pVtxArray[uCurVtxArryIdx].ColorRGBA = m_ColorRGBA;
 		pVtxArray[uCurVtxArryIdx].Pos_MS = avecPt[0].v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecOfs.v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecJitter.v3;
@@ -595,7 +598,7 @@ void CLaserBeam::_Draw()
 		pVtxArray[uCurVtxArryIdx++].ST.Set(1.0f, afT[0]);
 
 		// Lower left.
-		pVtxArray[uCurVtxArryIdx].ColorRGBA.OpaqueWhite();
+		pVtxArray[uCurVtxArryIdx].ColorRGBA = m_ColorRGBA;
 		pVtxArray[uCurVtxArryIdx].Pos_MS = avecPt[0].v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS -= vecOfs.v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecJitter.v3;
@@ -603,7 +606,7 @@ void CLaserBeam::_Draw()
 		pVtxArray[uCurVtxArryIdx++].ST.Set(0.0f, afT[0]);
 
 		// Upper right.
-		pVtxArray[uCurVtxArryIdx].ColorRGBA.OpaqueWhite();
+		pVtxArray[uCurVtxArryIdx].ColorRGBA = m_ColorRGBA;
 		pVtxArray[uCurVtxArryIdx].Pos_MS = avecPt[1].v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecOfs.v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecJitter.v3;
@@ -611,7 +614,7 @@ void CLaserBeam::_Draw()
 		pVtxArray[uCurVtxArryIdx++].ST.Set(1.0f, afT[1]);
 
 		// Lower left.
-		pVtxArray[uCurVtxArryIdx].ColorRGBA.OpaqueWhite();
+		pVtxArray[uCurVtxArryIdx].ColorRGBA = m_ColorRGBA;
 		pVtxArray[uCurVtxArryIdx].Pos_MS = avecPt[0].v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS -= vecOfs.v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecJitter.v3;
@@ -619,7 +622,7 @@ void CLaserBeam::_Draw()
 		pVtxArray[uCurVtxArryIdx++].ST.Set(0.0f, afT[0]);
 
 		// Upper right.
-		pVtxArray[uCurVtxArryIdx].ColorRGBA.OpaqueWhite();
+		pVtxArray[uCurVtxArryIdx].ColorRGBA = m_ColorRGBA;
 		pVtxArray[uCurVtxArryIdx].Pos_MS = avecPt[1].v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecOfs.v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecJitter.v3;
@@ -627,7 +630,7 @@ void CLaserBeam::_Draw()
 		pVtxArray[uCurVtxArryIdx++].ST.Set(1.0f, afT[1]);
 
 		// Upper left.
-		pVtxArray[uCurVtxArryIdx].ColorRGBA.OpaqueWhite();
+		pVtxArray[uCurVtxArryIdx].ColorRGBA = m_ColorRGBA;
 		pVtxArray[uCurVtxArryIdx].Pos_MS = avecPt[1].v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS -= vecOfs.v3;
 		pVtxArray[uCurVtxArryIdx].Pos_MS += vecJitter.v3;

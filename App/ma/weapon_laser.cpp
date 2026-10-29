@@ -91,6 +91,17 @@ CDamageProfile *CWeaponLaser::m_apDamageProfile[EUK_COUNT_LASER];
 TracerDef_t CWeaponLaser::m_aoTracerDef[EUK_COUNT_LASER];
 CFTexInst CWeaponLaser::m_aTracerTexInst[EUK_COUNT_LASER];
 
+// Retail tracer colour: w_laser.csv fields 3..6 (RGBA), per upgrade level.
+// The leak hardcoded white, which is why the laser tracer rendered grey.
+// Defaults are the retail values; InitSystem refreshes them from the CSV.
+static f32 _aRetailTracerColor[CWeapon::EUK_COUNT_LASER][4] = {
+	{ 0.25f, 1.00f, 0.25f, 1.0f },	// LaserL1  (green)
+	{ 1.00f, 0.75f, 0.25f, 1.0f },	// LaserL2  (orange)
+	{ 1.00f, 0.25f, 0.25f, 1.0f },	// LaserL3  (red)
+	{ 0.25f, 0.25f, 1.00f, 1.0f },	// LaserMil (blue)
+	{ 0.25f, 0.25f, 1.00f, 1.0f },	// LaserMil_Possessed
+};
+
 
 // This table describes to fgamedata how our user property table is to be interpreted:
 const FGameData_TableEntry_t CWeaponLaser::m_aUserPropVocab[] = {
@@ -322,14 +333,51 @@ BOOL CWeaponLaser::InitSystem( void ) {
 		return FALSE;
 	}
 
+	// Retail tracer colour lives in fields 3..6 of each laser table. Read it
+	// explicitly: the source's 25-field vocab has no slot for it.
+	{
+		static const FGameData_TableEntry_t RetailFloat = {
+			FGAMEDATA_VAR_TYPE_FLOAT | FGAMEDATA_FLAGS_FLOAT_X, sizeof(f32),
+			F32_DATATABLE_0, F32_DATATABLE_0 };
+		FMemFrame_t Frame = fmem_GetFrame();
+		FGameDataFileHandle_t hFile = fgamedata_LoadFileToFMem( _USER_PROP_FILENAME );
+		if( hFile != FGAMEDATA_INVALID_FILE_HANDLE ) {
+			for( u32 n = 0; n < EUK_COUNT_LASER; ++n ) {
+				FGameDataTableHandle_t hTable = fgamedata_GetFirstTableHandle( hFile, m_aUserPropMapTable[n].pszTableName );
+				if( hTable == FGAMEDATA_INVALID_TABLE_HANDLE ) {
+					continue;
+				}
+				f32 afColor[4];
+				BOOL bOK = TRUE;
+				for( u32 c = 0; bOK && c < 4; ++c ) {
+					bOK = fgamedata_GetFieldFromTable( hTable, 3 + c, &RetailFloat, &afColor[c] );
+				}
+				if( bOK ) {
+					for( u32 c = 0; c < 4; ++c ) {
+						_aRetailTracerColor[n][c] = afColor[c];
+					}
+				}
+			}
+		}
+		fmem_ReleaseFrame( Frame );
+	}
+
 	// PC port: the fire sound now resolves through the 'LaserFire' sound
 	// group (retail semantics - w_laser.csv field 65 is a group name), which
 	// replaces the old raw-SFX alias fallback that remapped the never-
 	// resolving 'LaserFire' bank name to 'Fire Laser EUK1' by hand.
 
 	// Do this for each EUK level...
+	// The retail laser muzzle flash is a particle (fields 47-50); the source's
+	// textured card used fields that map to unrelated retail floats (400x50),
+	// which drew a screen-sized flash. Disable the card.
+	for( i=0; i<EUK_COUNT_LASER; ++i ) {
+		m_aUserProps[i].pszMuzzleTex = NULL;
+		m_aUserProps[i].fMuzzleWidth = 0.0f;
+		m_aUserProps[i].fMuzzleHeight = 0.0f;
+	}
+
 	for( i=0; i<EUK_COUNT_LASER; i++ ) {
-		if(i != 2)
 		{
 			m_aoTracerDef[i].pUser = NULL;				// This will get set at the point of spawning the tracers.
 			m_aoTracerDef[i].pFcnKillCallback = _TracerKilledCallback;
@@ -338,7 +386,11 @@ BOOL CWeaponLaser::InitSystem( void ) {
 			m_aoTracerDef[i].fSpeed_WS = m_aUserProps[i].fRocketSpeed;
 			m_aoTracerDef[i].fMaxTailDist_WS = m_aUserProps[i].fMaxLiveRange;
 			m_aoTracerDef[i].fBeginDeathUnitFade_WS = 0.25f;
-			m_aoTracerDef[i].uFlags = TRACERFLAG_NONE;
+			// The retail tracer texture (TF_1shot_01) is opaque, with a black
+			// background around the streak. Lerp blending drew that background
+			// as a black wedge; additive blending adds zero for black, leaving
+			// only the coloured core.
+			m_aoTracerDef[i].uFlags = TRACERFLAG_DRAW_ADDITIVE;
 			m_aoTracerDef[i].pFcnBuildSkipList = _LaserTracerBuildSkipListCallback;
 
 			pTexDef = (FTexDef_t *)(fresload_Load(FTEX_RESNAME, m_aUserProps[i].pszL12_TexName));
@@ -546,6 +598,13 @@ BOOL CWeaponLaser::ClassHierarchyBuild( void ) {
 				DEVPRINTF("CWeaponLaser::ClassHierarchyBuild(): Could not get laser beam object.\n");
 				goto _ExitWithError;
 			}
+			{
+				CFColorRGBA BeamColor;
+				BeamColor.Set( _aRetailTracerColor[2][0], _aRetailTracerColor[2][1],
+							   _aRetailTracerColor[2][2], _aRetailTracerColor[2][3] );
+				m_apL3_LaserBeam[0]->SetColor( BeamColor );
+				m_apL3_LaserBeam[1]->SetColor( BeamColor );
+			}
 		}
 	}
 
@@ -679,6 +738,9 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 
 		const CGCollMaterial *pCollMaterial = CGColl::GetMaterial( pImpact->nUserType );
 
+		// A laser hit is a brief flash, not a continuous spark shower: use the
+		// burst emitter so the sparks do not keep spawning and spreading far
+		// past the impact point.
 		pCollMaterial->DrawAllDrawableParticles(
 			&pImpact->ImpactPoint,
 			&pImpact->UnitFaceNormal,
@@ -1034,20 +1096,17 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 			{
 				if((m_nClipAmmo >= _uFizzleThreshhold) || (fmath_RandomChance(1.0f - (f32)(m_nClipAmmo) * (1.0f / (f32)(_uFizzleThreshhold)))))
 				{
-					m_apL3_LaserBeam[0]->SetStartPosAndDir(vecMuzzlePoint, vFireUnitDir, this, m_apDamageProfile[2]);
+					// The leak's continuous L3 beam path is broken in this port (white
+					// screen). Retail GameCube L3 uses the same tracer path as L1/L2;
+					// do the same here and fall through to the shared tracer code.
 
 					if( IsDrawEnabled() ) {
-						CMuzzleFlash::AddFlash_Card3D(m_ahMuzzleFlashGroup[MUZZLEFLASH_TYPE_LASER_RED], vecMuzzlePoint, m_aUserProps[2].fMuzzleWidth, m_aUserProps[2].fMuzzleHeight, 0.5f * (f32)(FLoop_nTotalLoopTicks) * FLoop_fSecsPerTick);
-						CMuzzleFlash::AddFlash_Card3D(m_ahMuzzleFlashGroup[MUZZLEFLASH_TYPE_LASER_RED], vecMuzzlePoint, m_aUserProps[2].fMuzzleWidth, m_aUserProps[2].fMuzzleHeight, -0.4f * (f32)(FLoop_nTotalLoopTicks) * FLoop_fSecsPerTick);
 					}
 
 					if(m_pvecBuddyFirePos_WS != NULL)
 					{
-						m_apL3_LaserBeam[1]->SetStartPosAndDir(*m_pvecBuddyFirePos_WS, vFireUnitDir, this, m_apDamageProfile[2]);
 
 						if( IsDrawEnabled() ) {
-							CMuzzleFlash::AddFlash_Card3D(m_ahMuzzleFlashGroup[MUZZLEFLASH_TYPE_LASER_RED], *m_pvecBuddyFirePos_WS, m_aUserProps[2].fMuzzleWidth, m_aUserProps[2].fMuzzleHeight, 0.5f * (f32)(FLoop_nTotalLoopTicks) * FLoop_fSecsPerTick);
-							CMuzzleFlash::AddFlash_Card3D(m_ahMuzzleFlashGroup[MUZZLEFLASH_TYPE_LASER_RED], *m_pvecBuddyFirePos_WS, m_aUserProps[2].fMuzzleWidth, m_aUserProps[2].fMuzzleHeight, -0.4f * (f32)(FLoop_nTotalLoopTicks) * FLoop_fSecsPerTick);
 						}
 					}
 
@@ -1070,8 +1129,7 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 					m_pSoundEmitter->Destroy();
 					m_pSoundEmitter = NULL;
 				}
-				break;
-
+				// fall through to the shared tracer path (L3 red tracer)
 			}
 			case 0:
 			case 1:
@@ -1097,7 +1155,10 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 				}
 
 				m_aoTracerDef[m_nUpgradeLevel].pUser = this;
-				m_aoTracerDef[m_nUpgradeLevel].ColorRGBA.OpaqueWhite();
+				m_aoTracerDef[m_nUpgradeLevel].ColorRGBA.Set( _aRetailTracerColor[m_nUpgradeLevel][0],
+															  _aRetailTracerColor[m_nUpgradeLevel][1],
+															  _aRetailTracerColor[m_nUpgradeLevel][2],
+															  _aRetailTracerColor[m_nUpgradeLevel][3] );
 				m_aoTracerDef[m_nUpgradeLevel].UnitDir_WS = vFireUnitDir;
 				m_aoTracerDef[m_nUpgradeLevel].TailPos_WS = vecMuzzlePoint;
 //				m_aoTracerDef[m_nUpgradeLevel].ppCollSkipTrackers = &m_pOwnerBot->m_pWorldMesh;
@@ -1107,7 +1168,6 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 				if(m_nUpgradeLevel == 1)
 				{
 					if( IsDrawEnabled() ) {
-						CMuzzleFlash::AddFlash_Card3D(m_ahMuzzleFlashGroup[MUZZLEFLASH_TYPE_LASER_YELLOW], vecMuzzlePoint, m_aUserProps[1].fMuzzleWidth, m_aUserProps[1].fMuzzleHeight, 0.5f * (f32)(FLoop_nTotalLoopTicks) * FLoop_fSecsPerTick);
 					}
 				}
 

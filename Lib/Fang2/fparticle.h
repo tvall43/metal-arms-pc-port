@@ -67,6 +67,11 @@ typedef struct {
 	f32 fSndUnitVolume;			// how loud should we play any attached sound
 	f32 fSndPitchMultiplier;	// how should we pitch the sound, 1.0f is none
 
+	// Retail v8 serializes this extra 8-byte value here, before NumPerBurst;
+	// the leaked struct had it at the end, which shifted every later field.
+	// Its meaning is unknown; it holds (1,100) in most shipped files.
+	CFVec2 V8Extra;
+
 	/////////////////////////////////////////////////////////////////////////////////////////
 	// BURST PARTICLE VARIABLES - THOSE AFFECTING ALL OF THE PARTICLE OF AN INDIVIDUAL BURST
 	/////////////////////////////////////////////////////////////////////////////////////////
@@ -140,7 +145,6 @@ typedef struct {
 	CFVec2 SpikeScale;		// scale to spike to (min - max % of regular scale)
 	CFVec2 SpikeDuration;	// secs in and out of the spike effect
 	CFVec2 SpikeHold;		// secs to hold the effect at 100% (min - max)
-	CFVec2 V8Extra;
 
 	//////////////////////////////////////////////////////////////////////////////
 	// THIS FUNCTION MUST BE PRESENT AND MUST BE UPDATED FOR PASM TO WORK PROPERLY

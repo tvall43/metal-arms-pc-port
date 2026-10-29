@@ -1390,11 +1390,8 @@ BOOL CPEmitter::Work( f32 fSecsSinceLastWork ) {
 					pPart->fAge = 0.0f;
 					pPart->fUnitAge = 0.0f;
 					pPart->fOOLifeSpan = FMATH_FPOT( fURand3, _pFrame->OOLifeSecs.x, _pFrame->OOLifeSecs.y );
-					//OOLifeSecs is "1 / lifetime". It is authored as (0,0) in 142 of
-					//the 235 shipped defs, which would be 1/0: the particle would
-					//never age and never die. With BURST_FOREVER and bubble motion
-					//that filled the level with immortal, accelerating particles, so
-					//treat 0 as the one-second default the sparkle defs use.
+					//OOLifeSecs is "1 / lifetime". A def that authors 0 would never
+					//age; use the one-second default those sparkle defs use.
 					if( pPart->fOOLifeSpan <= 0.0f ) {
 						pPart->fOOLifeSpan = 1.0f;
 					}

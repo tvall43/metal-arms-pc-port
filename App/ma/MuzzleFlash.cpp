@@ -74,7 +74,15 @@ BOOL CMuzzleFlash::CMuzzleFlashGroup::Create(MuzzleFlashType_e nType, u32 uNumFl
 		FTexDef_t *pTexDef = (FTexDef_t *)(fresload_Load(FTEX_RESNAME, pszResName));
 		if(pTexDef == NULL)
 		{
-			DEVPRINTF("CMuzzleFlashGroup::Create() : Could not load texture '%s'.\n", pszResName);
+			// Retail data references a few flash textures that are not in the
+			// shipped asset set (TFDMLaser02/04). Use the generic star flash
+			// instead of leaving the weapon with no flash at all.
+			DEVPRINTF("CMuzzleFlashGroup::Create() : Could not load texture '%s', using tfdmflasha1.\n", pszResName);
+			pTexDef = (FTexDef_t *)(fresload_Load(FTEX_RESNAME, "tfdmflasha1"));
+		}
+		if(pTexDef == NULL)
+		{
+			DEVPRINTF("CMuzzleFlashGroup::Create() : Could not load fallback texture 'tfdmflasha1'.\n");
 			goto _ExitWithError;
 		}
 

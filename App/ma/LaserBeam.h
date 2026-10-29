@@ -67,6 +67,7 @@ public:
 	//////////////////////////////////////////////////////////////////////
 	// 
 	void SetStartPosAndDir(const CFVec3A &vecPos, const CFVec3A &vecUnitDir, CWeapon *pOwnerWeapon, const CDamageProfile *pDamageProfile);
+	void SetColor( const CFColorRGBA &c ) { m_ColorRGBA = c; }
 	//
 	//////////////////////////////////////////////////////////////////////
 
@@ -138,6 +139,7 @@ private:
 	BOOL m_bHitSomething;
 
 	f32 m_fTexScroll;
+	CFColorRGBA m_ColorRGBA;
 	//
 	//////////////////////////////////////////////////////////////////////
 

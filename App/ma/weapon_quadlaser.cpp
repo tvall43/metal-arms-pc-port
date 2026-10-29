@@ -379,15 +379,19 @@ BOOL CWeaponQuadLaser::ClassHierarchyLoadSharedResources( void ) {
 
 		pTexDef = (FTexDef_t *)(fresload_Load(FTEX_RESNAME, m_aUserProps[i].pszPriTracerTex));
 		if(pTexDef == NULL) {
-				DEVPRINTF("CWeaponQuadLaser::ClassHierarchyLoadSharedResources() : Could not load tracer texture '%s'.\n", m_aUserProps[i].pszPriTracerTex);
-		} else {
+				DEVPRINTF("CWeaponQuadLaser::ClassHierarchyLoadSharedResources() : Could not load tracer texture '%s', using tewrlaser01.\n", m_aUserProps[i].pszPriTracerTex);
+				pTexDef = (FTexDef_t *)(fresload_Load(FTEX_RESNAME, "tewrlaser01"));
+		}
+		if(pTexDef != NULL) {
 			m_aTracerTexInstPri[i].SetTexDef( pTexDef );
 		}
 
 		pTexDef = (FTexDef_t *)(fresload_Load(FTEX_RESNAME, m_aUserProps[i].pszSecTracerTex));
 		if(pTexDef == NULL) {
-				DEVPRINTF("CWeaponQuadLaser::ClassHierarchyLoadSharedResources() : Could not load tracer texture '%s'.\n", m_aUserProps[i].pszSecTracerTex);
-		} else {
+				DEVPRINTF("CWeaponQuadLaser::ClassHierarchyLoadSharedResources() : Could not load tracer texture '%s', using tewrlaser01.\n", m_aUserProps[i].pszSecTracerTex);
+				pTexDef = (FTexDef_t *)(fresload_Load(FTEX_RESNAME, "tewrlaser01"));
+		}
+		if(pTexDef != NULL) {
 			m_aTracerTexInstSec[i].SetTexDef( pTexDef );
 		}
 
