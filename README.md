@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R142** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R143** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -246,8 +246,9 @@ stay intact. The work so far, in the order it mattered:
   retail weapon sound groups (the flamer was completely silent before), the
   2D attenuation ladder, stream-tail repetition, and two ini mix knobs.
 - **Effects.** Retail laser colour/tracer, the FPR v8 particle keyframe layout
-  (impact sparks, dust and the old drifting glow blobs), jump-pad centring, and
-  the friendly Miner droids' authored death breakup instead of vanishing.
+  (impact sparks, dust and the old drifting glow blobs), jump-pad centring, the
+  liquid-volume `EnableRender` suppression (the Wasteland drain plane), and the
+  friendly Miner droids' authored death breakup instead of vanishing.
 - **Fog.** The 52 levels that set fog (depth + height bands, per level CSV) get
   it: destination-alpha back buffer, vertex-shader fog amounts, and the
   full-screen fog blend pass, matching the retail Xbox renderer.

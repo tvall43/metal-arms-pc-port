@@ -61,6 +61,8 @@ void CELiquidVolumeBuilder::SetDefaults( u64 nEntityTypeBits, u64 nEntityLeafTyp
 	m_fTile = 4.0f;
 	m_fBumpTile = 1.0f;
 	m_fGlowScale = 1.0f;
+	m_bEnableRender = TRUE;
+	m_fDamageIntensity = 1.0f;
 	
 	m_Color.fRed = m_Color.fGreen = m_Color.fBlue = 1.0f;
 	m_fCullDist = 500.0f;
@@ -80,7 +82,18 @@ void CELiquidVolumeBuilder::SetDefaults( u64 nEntityTypeBits, u64 nEntityLeafTyp
 
 BOOL CELiquidVolumeBuilder::InterpretTable( void ) {
 	f32 foo255 = (1.0f/255.0f);
-	if( !fclib_stricmp( CEntityParser::m_pszTableName, "LiqType" ) ) {
+	if( !fclib_stricmp( CEntityParser::m_pszTableName, "EnableRender" ) ) {
+		f32 fEnable = 1.0f;
+		BOOL bOK = CEntityParser::Interpret_F32( &fEnable );
+		m_bEnableRender = ( fEnable != 0.0f );
+		return bOK;
+	} else if( !fclib_stricmp( CEntityParser::m_pszTableName, "DamageIntensity" ) ) {
+		return CEntityParser::Interpret_F32( &m_fDamageIntensity, 0.0f, 1000.0f, TRUE );
+	} else if( !fclib_stricmp( CEntityParser::m_pszTableName, "texture" ) ) {
+		// Retail name for the liquid type string (the leak calls it LiqType).
+		CEntityParser::Interpret_String( &m_pszType );
+		return TRUE;
+	} else if( !fclib_stricmp( CEntityParser::m_pszTableName, "LiqType" ) ) {
 		CEntityParser::Interpret_String( &m_pszType );
 
 		return TRUE;
@@ -484,6 +497,7 @@ BOOL CELiquidVolume::ClassHierarchyBuild( void ) {
 			m_pLiquid->SetBumpTile(pBuilder->m_fBumpTile);
 			m_pLiquid->SetCurrent(pBuilder->m_vCurrent);
 			m_pLiquid->SetGlowScale(pBuilder->m_fGlowScale);
+			m_pLiquid->m_bRenderEnabled = pBuilder->m_bEnableRender;
 			
 			m_pLiquid->Init();
 			

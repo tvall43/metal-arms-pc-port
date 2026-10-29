@@ -142,6 +142,8 @@ public:
 	f32 m_fTile;
 	f32 m_fBumpTile;
 	f32 m_fGlowScale;
+	BOOL m_bEnableRender;
+	f32 m_fDamageIntensity;
 	cchar *m_pszType;
 	cchar *m_pszTexLayer0;
 	cchar *m_pszTexLayer1;

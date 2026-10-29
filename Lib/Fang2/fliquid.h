@@ -142,6 +142,7 @@ FCLASS_ALIGN_PREFIX class CFLiquidVolume
 		
 		CFLiquidVolume *m_pConnect;
 		BOOL m_bRender;
+		BOOL m_bRenderEnabled;
 		
 		f32 m_fRadius, m_fRadius2;
 		f32 m_fCullDist2, m_fGeoDraw;

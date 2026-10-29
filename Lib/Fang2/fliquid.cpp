@@ -113,6 +113,7 @@ CFLiquidVolume::CFLiquidVolume( void )
 	m_pData		= NULL;
 	m_bInit		= FALSE;
 	m_bInteract = TRUE;
+	m_bRenderEnabled = TRUE;
 	m_bProcedural = FALSE;
 	m_pTracker[0]	= NULL;
 	m_pTracker[1]	= NULL;
@@ -955,6 +956,10 @@ void CFLiquidVolume::Work()
 
 void CFLiquidVolume::Render()
 {
+	if (!m_bRenderEnabled)
+	{
+		return;
+	}
 	if (m_pData)
 	{
 		fsh_RenderPlane(m_nRenderPlaneID, 1.0f, 1.0f, m_vScroll.x, m_vScroll.y, m_pData->m_pEMBM, m_fGlowScale, m_fBumpTile);
@@ -1385,6 +1390,11 @@ void CFLiquidSystem::Work()
 	
 	for (i=0; i<m_nNumLiquidVolume; i++)
 	{
+		if (!m_LiquidVolumes[i]->m_bRenderEnabled)
+		{
+			m_LiquidVolumes[i]->m_bRender = FALSE;
+			continue;
+		}
 		if (!m_LiquidVolumes[i]->m_bProcedural)
 		{
 			m_LiquidVolumes[i]->m_bRender=FALSE;
