@@ -1752,6 +1752,14 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 	{
 		_poTempArea = _poAreasHead;
 
+		// ftext_Install() creates the default area before any game viewport
+		// exists, so ftext_SetToDefaults() bakes in a screen height of 1.0.
+		// The font scale is derived from that height; on the 4:3 menu layer it
+		// must be the viewport's height/width (0.75), otherwise every XY string
+		// is drawn 4/3 too large. Keep the default area in step with the
+		// viewport the text is actually laid out in.
+		_poTempArea->oAttributes.fLowerRightY = _PHYSICAL_DEVICE_ASPECT_RATIO_HoW;
+
 		// Save the viewport boundaries for later border drawing
 		_poTempArea->oVpRect = pVP->ScreenCorners;
 		_poTempArea->oVpRes = pVP->Res;
@@ -1767,23 +1775,6 @@ void _InitializeWorkingVarsBasedOnPrintfType( const _FTextPrintf_e oType,
 		// XY area cursor.
 		_fTempX = _fTempCursorOriginX = fVpLeft + ( _fTempResX * fX );
 		_fTempY = _fTempCursorOriginY = fVpTop + ( _fTempResY * fY ) * _PHYSICAL_DEVICE_ASPECT_RATIO_WoH;
-
-		// TEMPORARY DIAGNOSTIC.
-		// The bootup menu is still black. Glyph Y coordinates came out around 525..722
-		// in a 480-tall target, and fY=0.075 should give roughly Y=36, so this
-		// expression is producing a value near the bottom of the screen for a
-		// coordinate near the top. Log every term so it is visible which one is
-		// wrong: fVpTop, _fTempResY (the active viewport's resolution), fY itself,
-		// the aspect ratio, and the result. Three of these per frame is plenty.
-		{
-			static u32 _nLoggedXY = 0;
-			if( _nLoggedXY < 3 ) {
-				_nLoggedXY++;
-				DEVPRINTF( "[ma] ftext XY: fY=%.4f fVpTop=%.1f vpResY=%.1f vpResX=%.1f aspect=%.4f -> Y=%.1f (X=%.1f)\r\n",
-					fY, fVpTop, (f32)_fTempResY, (f32)_fTempResX,
-					(f32)_PHYSICAL_DEVICE_ASPECT_RATIO_WoH, (f32)_fTempY, (f32)_fTempX );
-			}
-		}
 
 		_oTempHorzAlign = _poTempArea->oAttributes.oHorzAlign;
 
@@ -2392,11 +2383,16 @@ void _CalculateHorizontalAlignmentOffset( const _FTextPrintf_e oType, const f32 
 	}
 	else if( _FTEXT_PRINTF_AREA_AND_XY == oType )
 	{
-		_fTempDeltaX = ( _fTempResX * ( _poTempArea->oAttributes.fUpperLeftX + _poTempArea->oAttributes.fBorderThicknessX + ( fX * ( _poTempArea->oAttributes.fLowerRightX - _poTempArea->oAttributes.fUpperLeftX - ( 2.0f * _poTempArea->oAttributes.fBorderThicknessX ) ) ) ) ) - _fTempDeltaX - 1.0f;
+		// The glyphs were laid out from _fTempCursorOriginX, which is an
+		// absolute screen coordinate (it includes the 4:3 UI layer's left
+		// edge). Measure the alignment delta from that same origin.
+		_fTempDeltaX = _fTempCursorOriginX - _fTempDeltaX - 1.0f;
 	}
 	else // _FTEXT_PRINTF_XY_ONLY || _FTEXT_PRINTF_DEBUG_XY_ONLY
 	{
-		_fTempDeltaX = ( _fTempResX * fX ) - _fTempDeltaX - 1.0f;
+		// As above: on a widescreen mode the menu layer is a centred 4:3
+		// viewport, so fX alone is missing the viewport's left offset.
+		_fTempDeltaX = _fTempCursorOriginX - _fTempDeltaX - 1.0f;
 	}
 
 	if( _bTempFixedWidthFont )

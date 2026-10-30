@@ -263,7 +263,7 @@ void wpr_drawutils_DrawMesh_WithRot( Wpr_DataTypes_MeshLayout_t *pMesh,
 									f32 fRotX, f32 fRotY, f32 fRotZ ) {
 	if( pMesh->pMeshInst ) {
 		wpr_drawutils_SetupMtx( pMesh->pMeshInst,
-			pMesh->fScale,// * fScaleMultiplier,
+			pMesh->fScale * fScaleMultiplier,
 			pMesh->fBiPolarUnitX * fHalfXRes,
 			pMesh->fBiPolarUnitY * fHalfYRes,
 			pMesh->fDrawZ,

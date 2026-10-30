@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R143** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R144** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -261,6 +261,5 @@ stay intact. The work so far, in the order it mattered:
   launcher's "Extract from ISO..." button, Bink movies scaled to any
   resolution (`fit`/`fill`/`stretch`), F12 screenshots, crash logger.
 
-Known gaps: menu text layouts are still being aligned on some screens. Movie
-playback uses the RAD `binkw32.dll`, which ships with the port next to the exe
-- nothing to obtain separately.
+Known gaps: movie playback uses the RAD `binkw32.dll`, which ships with the
+port next to the exe - nothing to obtain separately.

@@ -9127,8 +9127,11 @@ static void _MultiLevel_DrawOrtho( f32 fScaleMultiplier, f32 fHalfXRes, f32 fHal
 				u32 nNeeded = (u32)_MenuState.MLUnLockInfo.panChipsToUnlock[nThrIndex];
 				u32 nMoreChips = (nNeeded > nEarned) ? (nNeeded - nEarned) : 1;
 
+				// Four centred lines, as the PS2 screen wraps them, so the hint
+				// stays between the level thumbnails instead of running across
+				// them. ftext has no wrap width for centred XY text.
 				wchar wszHint[96];
-				_snwprintf( wszHint, 96, L"%ls %d %ls %ls",
+				_snwprintf( wszHint, 96, L"%ls\n%d\n%ls\n%ls",
 					_apwszPhrases[WPR_DATATYPES_PHRASES_COLLECT],
 					nMoreChips,
 					( nMoreChips == 1 ? _apwszPhrases[WPR_DATATYPES_PHRASES_MORE_CHIP]
