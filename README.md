@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R145** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R147** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -20,6 +20,9 @@ Current port round: **R145** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
   but at runtime it needs the game data from an original Xbox disc. You must
   supply your own copy; nothing retail (`default.xbe`, master file, movies,
   sounds, textures) ships with the repo or any release zip.
+- **USA Xbox data is the tested source.** The port is developed and validated
+  against the USA Xbox release. PAL/European discs may extract, but their data
+  and localization layout differs; they are not supported yet.
 - **The source drop is copyrighted.** The code in this repository belongs to
   the game's original authors and publisher. This port exists for personal and
   research use. Do not redistribute the tree or a build that includes the
@@ -51,8 +54,10 @@ First run:
 2. Launch `ma_win.exe` and use **Extract from ISO...** in the launcher to read
    the game out of your own Xbox disc image (both game-only `.xiso` images and
    full-disc `.iso` images are supported; the extraction also sets the master
-   file for you). Alternatively, place your already-extracted disc contents in
-   `assets/` so that `mettlearms_xb.mst` sits at its top.
+   file for you). Use the USA Xbox release - that is the data set the port is
+   built and tested against; PAL/European discs are not supported yet.
+   Alternatively, place your already-extracted disc contents in `assets/` so
+   that `mettlearms_xb.mst` sits at its top.
 3. Press play. Profiles live in `saves/profile-*`; an old flat `profile-*` next
    to the exe is migrated into `saves/` on first start.
 
@@ -96,8 +101,13 @@ launch dialog. Play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R140), and
+cannot be replied to. Name the build id printed in the log header (e.g. R147), and
 check what version you have first - fixes land continuously.
+
+If startup stops at `_GameInit: FAILED at gameloop.cpp:779`, include the line
+immediately above it. That line names the game system that failed; the generic
+779 line alone does not identify the cause. A PAL/European disc is not a
+supported source yet (see Known gaps).
 
 ## Configuration (`ma_win.ini`)
 
@@ -261,5 +271,12 @@ stay intact. The work so far, in the order it mattered:
   launcher's "Extract from ISO..." button, Bink movies scaled to any
   resolution (`fit`/`fill`/`stretch`), F12 screenshots, crash logger.
 
-Known gaps: movie playback uses the RAD `binkw32.dll`, which ships with the
-port next to the exe - nothing to obtain separately.
+Known gaps:
+
+- Movie playback uses the RAD `binkw32.dll`, which ships with the port next to
+  the exe.
+- PAL/European Xbox data is not supported yet. The port is developed against
+  the USA release; a PAL image can extract but may stop during
+  `_InitGameSystems()` because its data tables and localized resources differ.
+  Reports with the full console output or `ma_win_log.txt` are welcome, but
+  there is no PAL compatibility work yet.
