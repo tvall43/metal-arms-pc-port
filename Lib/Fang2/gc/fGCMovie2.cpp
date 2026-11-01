@@ -354,6 +354,14 @@ BOOL fmovie2_TimeToDraw( void ) {
 
 
 
+//R146: Windows-only presentation control; the GameCube path always fills
+//the frame buffer.
+void fmovie2_SetDestinationRect( s32 nLeft, s32 nTop, u32 nWidth, u32 nHeight ) {
+}
+
+void fmovie2_ClearDestinationRect( void ) {
+}
+
 BOOL fmovie2_Draw( BOOL bBlockTillNextFrame ) {
 	//this routine should get called by the game loop once a frame when movies are playing.
 	// a) block until next frame movie frame is ready for display (unless paused or bBlockTillNextFrame == FALSE)

@@ -67,6 +67,14 @@ static BOOL _bNextFrameReady;
 static u32 _nSkippedFrames;
 static u32 _uPlayFlags = FMOVIE2_PLAYFLAGS_NONE;
 
+//R146: optional destination rect for movies that need to render into the 4:3
+//authored canvas (the loading screen) instead of the full back buffer.
+static BOOL _bDestRectSet = FALSE;
+static s32 _nDestRectLeft = 0;
+static s32 _nDestRectTop = 0;
+static u32 _uDestRectW = 0;
+static u32 _uDestRectH = 0;
+
 //Movie scaling: 0 = fit (preserve aspect), 1 = fill (cover, crop),
 //2 = stretch (fill, distort). Set from [Video] MovieScaling.
 int FMovie2_nScalingMode = 0;
@@ -381,8 +389,21 @@ void fmovie2_Play( cchar *pszFileName, f32 fVolume, cu32 uPlayFlags ) {
 	_bMoviePaused = FALSE;
 	_bNextFrameReady = TRUE; //have the Work() function decompress the first frame of the video
 	_nSkippedFrames = 0;
+	_bDestRectSet = FALSE;
 }
 
+
+void fmovie2_SetDestinationRect( s32 nLeft, s32 nTop, u32 nWidth, u32 nHeight ) {
+	_nDestRectLeft = nLeft;
+	_nDestRectTop = nTop;
+	_uDestRectW = nWidth;
+	_uDestRectH = nHeight;
+	_bDestRectSet = ( nWidth > 0 && nHeight > 0 );
+}
+
+void fmovie2_ClearDestinationRect( void ) {
+	_bDestRectSet = FALSE;
+}
 
 
 void fmovie2_Pause( BOOL bPaused ) {
@@ -414,6 +435,7 @@ void fmovie2_Unload( void ) {
 	_bMoviePaused = FALSE;
 	_bNextFrameReady = FALSE;
 	_nSkippedFrames = 0;
+	_bDestRectSet = FALSE;
 
 	free( _pMovieScratch );
 	_pMovieScratch = NULL;
@@ -836,14 +858,20 @@ static BOOL _MovieCopyToScratch( DWORD dwBinkSurfaceType )
 	return TRUE;
 }
 
-//Black the whole destination, then scale the scratch frame into it.
-//_MovieScaleFrame() writes only the aspect-correct sub-rect; the blacking is
-//what makes the fit/fill bars.
-static void _MovieScaleScratchInto( u8 *pDst, u32 uDstPitch, u32 uDstW, u32 uDstH )
+//Black the whole destination, then scale the scratch frame into a sub-rect.
+//_MovieScaleFrame() writes only the aspect-correct part; the blacking is what
+//makes the fit/fill bars. R146: the loading screen uses the sub-rect to keep
+//the movie inside the 4:3 authored canvas so the text stays in the bars.
+static void _MovieScaleScratchIntoRect( u8 *pDst, u32 uDstPitch, u32 uDstW, u32 uDstH,
+	u32 uRectL, u32 uRectT, u32 uRectW, u32 uRectH )
 {
 	memset( pDst, 0, (size_t)uDstPitch * uDstH );
+	if( uRectW == 0 || uRectH == 0 ) {
+		return;
+	}
+	u8 *pSub = pDst + (size_t)uRectT * uDstPitch + (size_t)uRectL * 4;
 	_MovieScaleFrame( _pMovieScratch, _uMovieScratchW, _uMovieScratchH, _uMovieScratchW * 4,
-		(const u8 *)pDst, uDstPitch, uDstW, uDstH );
+		(const u8 *)pSub, uDstPitch, uRectW, uRectH );
 }
 
 //A managed texture survives a device Reset without any extra callback and is
@@ -999,6 +1027,36 @@ BOOL _BltWinFrame( void ) {
 		return FALSE;
 	}
 
+	//R146: default to the full back buffer. The loading screen sets a 4:3
+	//destination rect so the movie is pillarboxed with the rest of the UI.
+	s32 nDstL = 0, nDstT = 0;
+	u32 nDstW = BackBufferSurfaceDesc.Width;
+	u32 nDstH = BackBufferSurfaceDesc.Height;
+	if( _bDestRectSet ) {
+		nDstL = _nDestRectLeft;
+		nDstT = _nDestRectTop;
+		nDstW = _uDestRectW;
+		nDstH = _uDestRectH;
+		if( nDstL < 0 ) {
+			u32 nCut = (u32)( -nDstL );
+			nDstW = ( nDstW > nCut ) ? ( nDstW - nCut ) : 0;
+			nDstL = 0;
+		}
+		if( nDstT < 0 ) {
+			u32 nCut = (u32)( -nDstT );
+			nDstH = ( nDstH > nCut ) ? ( nDstH - nCut ) : 0;
+			nDstT = 0;
+		}
+		if( (u32)nDstL + nDstW > BackBufferSurfaceDesc.Width ) {
+			nDstW = ( (u32)nDstL < BackBufferSurfaceDesc.Width ) ?
+				( BackBufferSurfaceDesc.Width - (u32)nDstL ) : 0;
+		}
+		if( (u32)nDstT + nDstH > BackBufferSurfaceDesc.Height ) {
+			nDstH = ( (u32)nDstT < BackBufferSurfaceDesc.Height ) ?
+				( BackBufferSurfaceDesc.Height - (u32)nDstT ) : 0;
+		}
+	}
+
 	//R139: MSAA makes the back buffer non-lockable by definition. Bink needs a
 	//CPU-writable destination, so decode into a managed texture and draw that
 	//as one full-screen quad. The texture is always 32-bit, so this path skips
@@ -1019,8 +1077,9 @@ BOOL _BltWinFrame( void ) {
 			return FALSE;
 		}
 
-		_MovieScaleScratchInto( (u8 *)LockedTex.pBits, (u32)LockedTex.Pitch,
-			BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height );
+		_MovieScaleScratchIntoRect( (u8 *)LockedTex.pBits, (u32)LockedTex.Pitch,
+			BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height,
+			(u32)nDstL, (u32)nDstT, nDstW, nDstH );
 
 		if( FAILED( _pMovieTexture->UnlockRect( 0 ) ) ) {
 			DEVPRINTF( "[ FMOVIE2 ] Error : Failed Unlock of the movie texture!\n" );
@@ -1044,8 +1103,8 @@ BOOL _BltWinFrame( void ) {
 			pDX8BackBuffer->Release();
 			return FALSE;
 		}
-		u32 uX = ( BackBufferSurfaceDesc.Width - _hBink->Width ) / 2;
-		u32 uY = ( BackBufferSurfaceDesc.Height - _hBink->Height ) / 2;
+		u32 uX = ( nDstW > _hBink->Width ) ? ( (u32)nDstL + ( nDstW - _hBink->Width ) / 2 ) : (u32)nDstL;
+		u32 uY = ( nDstH > _hBink->Height ) ? ( (u32)nDstT + ( nDstH - _hBink->Height ) / 2 ) : (u32)nDstT;
 		BinkCopyToBuffer( _hBink, LockedRect.pBits, LockedRect.Pitch, _hBink->Height,
 			uX, uY, dwBinkSurfaceType | BINKCOPYALL );
 		pDX8BackBuffer->UnlockRect();
@@ -1064,8 +1123,9 @@ BOOL _BltWinFrame( void ) {
 		return FALSE;
 	}
 
-	_MovieScaleScratchInto( (u8 *)LockedRect.pBits, (u32)LockedRect.Pitch,
-		BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height );
+	_MovieScaleScratchIntoRect( (u8 *)LockedRect.pBits, (u32)LockedRect.Pitch,
+		BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height,
+		(u32)nDstL, (u32)nDstT, nDstW, nDstH );
 
 	if( FAILED( pDX8BackBuffer->UnlockRect() ) ) {
 		DEVPRINTF( "[ FMOVIE2 ] Error : Failed Unlock of Backbuffer!\n");

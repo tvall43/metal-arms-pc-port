@@ -92,6 +92,13 @@ extern BOOL fmovie2_MovieExists( cchar *pszFileName );
 //     of frequency.
 extern BOOL fmovie2_Draw( BOOL bBlockTillNextFrame = TRUE ); //call this function to have the movie draw to the Destination buffer 
 
+//Port fix (R146): constrain movie output to a sub-rect. The loading screen
+//uses this to keep the movie inside the 4:3 authored canvas so the level
+//heading and "Loading..." text stay in the letterbox bars. Clear it to
+//restore full-screen output.
+extern void fmovie2_SetDestinationRect( s32 nLeft, s32 nTop, u32 nWidth, u32 nHeight );
+extern void fmovie2_ClearDestinationRect( void );
+
 //Use this function when you don't want to block on draw calls.  This function MUST be called with a high degree of 
 //frequency.
 //This function returns TRUE when it's time to call fmovie2_Draw, and false otherwise.

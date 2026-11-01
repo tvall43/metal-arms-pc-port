@@ -78,6 +78,7 @@ BOOL loadingscreen_Init( cchar *pszLoadingMovie, cwchar *pwszHeading/*=NULL*/ ) 
 void loadingscreen_Uninit( void ) {
 	//Unregister fresload Progress callback here
 	fmovie2_Unload();
+	fmovie2_ClearDestinationRect();
 	fresload_SetProgressCallback( NULL );
 	_bInitialized = FALSE;
 #if _DEBUG_LOADING_STATS
@@ -132,7 +133,16 @@ BOOL loadingscreen_Update( cchar *pszDebugString/*=NULL*/ ) {
 		}
 #endif
 
+		//R146: draw the movie inside the same 4:3 authored canvas the text
+		//uses, so the level heading and loading text stay in the letterbox
+		//bars instead of over the movie on a 16:9 window.
+		u32 nCanvasL, nCanvasT, nCanvasW, nCanvasH;
+		fviewport_GetAuthored43SubRect( &nCanvasL, &nCanvasT, &nCanvasW, &nCanvasH );
+		fmovie2_SetDestinationRect( (s32)nCanvasL, (s32)nCanvasT, nCanvasW, nCanvasH );
+
 		fmovie2_Draw( FALSE );
+
+		launcher_SetupTextCanvas();
 
 		// draw the loading text...
 		launcher_DrawLoadingText();

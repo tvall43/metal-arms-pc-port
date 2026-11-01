@@ -35,6 +35,7 @@
 #include "fsndfx.h"
 #include "fforce.h"
 #include "fmovie2.h"
+#include "loadingscreen.h"
 #include "player.h"
 #include "fresload.h"
 #include "fclib.h"
@@ -1986,6 +1987,14 @@ static BOOL _Init( void ) {
 	_ResFrame = fres_GetFrame();
 	hMemFrame = fmem_GetFrame();
 
+	if( bWrappers ) {
+		// Port fix (R146): the Xbox wrappers load plays xb_loading2.bik while
+		// the wrapper resources load. loadingscreen_Init installs its own
+		// progress callback, so put the wrappers callback back afterwards.
+		loadingscreen_Init( "xb_loading2.bik", NULL );
+		fresload_SetProgressCallback( _WrappersLoadingCallback );
+	}
+
 	#if !FANG_PRODUCTION_BUILD
 		u32 nFreeBytes = fres_GetFreeBytes();
 	#endif
@@ -2447,7 +2456,7 @@ static BOOL _Init( void ) {
 
 	if( bWrappers ) {
 		DEVPRINTF( "******** LOAD MARKER - END OF WRAPPERS***********.\n" );
-		fresload_SetProgressCallback( NULL );
+		loadingscreen_Uninit();
 	}
 
 	return TRUE;
@@ -2464,7 +2473,7 @@ _EXIT_WITH_ERROR:
     fdelete_array( _MenuState.MLLevelSelectInfo.paTexInsts );
 
 	if( bWrappers ) {
-		fresload_SetProgressCallback( NULL );
+		loadingscreen_Uninit();
 		CGColl::ClearMaterialTable();
 		DEVPRINTF( "******** LOAD MARKER - END OF WRAPPERS***********.\n" );
 	}
@@ -2486,8 +2495,9 @@ _EXIT_WITH_ERROR:
 }// _Init()
 
 static BOOL _WrappersLoadingCallback( cchar *pszLoadingString ) {
-	// Just check to see if the platform reset button is being pressed.
-	gameloop_CheckForPlatformReset( TRUE );
+	// Port fix (R146): pump the wrappers loading movie. loadingscreen_Update
+	// also checks the platform reset button.
+	loadingscreen_Update( pszLoadingString );
 
 	return TRUE;
 }
