@@ -1616,7 +1616,10 @@ BOOL level_Load( cchar *pszLevelTitle, BOOL bShowLoadingScreen, cwchar *pwszLoad
 					goto _LevelLoadError;
 				}
 			#else
-				if( !loadingscreen_Init( "load620x340.bik", pwszLoadScreenHeading ) ) {
+				// Port fix (R145): the Xbox/PC retail asset is xb_loading.bik
+				// (620x340).  load620x340.bik is the old GameCube-era name and
+				// is not present in the retail movie set.
+				if( !loadingscreen_Init( "xb_loading.bik", pwszLoadScreenHeading ) ) {
 					goto _LevelLoadError;
 				}
 			#endif
