@@ -86,6 +86,7 @@ static u8 *_pMovieScratch = NULL;
 static u32 _uMovieScratchW = 0;
 static u32 _uMovieScratchH = 0;
 static BOOL _bMovieScaleWarned = FALSE;
+static BOOL _bMovieGpuScaleLogged = FALSE;
 
 //R139: destination for the non-lockable (MSAA) back buffer path. A managed
 //texture survives device Reset and is lockable, which is all Bink needs.
@@ -903,7 +904,9 @@ static BOOL _MovieTextureEnsure( u32 uW, u32 uH )
 //Draw the movie texture over the whole back buffer. The draw is bracketed by
 //a D3DSBT_ALL state block so the engine's own state cache is not disturbed;
 //the back buffer and viewport are restored explicitly as well.
-static BOOL _MovieDrawQuad( IDirect3DTexture8 *pTexture, u32 uW, u32 uH )
+static BOOL _MovieDrawQuad( IDirect3DTexture8 *pTexture, u32 uBackW, u32 uBackH,
+	f32 fDstL, f32 fDstT, f32 fDstR, f32 fDstB,
+	f32 fU0, f32 fV0, f32 fU1, f32 fV1 )
 {
 	//D3D8 state blocks are opaque tokens, not objects (that is D3D9).
 	DWORD dwStateToken = 0;
@@ -931,7 +934,7 @@ static BOOL _MovieDrawQuad( IDirect3DTexture8 *pTexture, u32 uW, u32 uH )
 		FDX8_pDev->SetRenderTarget( pBackBuffer, FDX8_pSurfDepthStencil );
 	}
 
-	D3DVIEWPORT8 oViewport = { 0, 0, uW, uH, 0.0f, 1.0f };
+	D3DVIEWPORT8 oViewport = { 0, 0, uBackW, uBackH, 0.0f, 1.0f };
 	FDX8_pDev->SetViewport( &oViewport );
 
 	FDX8_pDev->SetVertexShader( D3DFVF_XYZRHW | D3DFVF_TEX1 | D3DFVF_TEXCOORDSIZE2(0) );
@@ -964,18 +967,19 @@ static BOOL _MovieDrawQuad( IDirect3DTexture8 *pTexture, u32 uW, u32 uH )
 	}
 
 	//D3D8 has no sampler-state objects; filtering lives in the texture stage.
-	FDX8_pDev->SetTextureStageState( 0, D3DTSS_MINFILTER, D3DTEXF_POINT );
-	FDX8_pDev->SetTextureStageState( 0, D3DTSS_MAGFILTER, D3DTEXF_POINT );
+	//R147: the loading-screen path now scales the native movie texture on the
+	//GPU, so use linear filtering instead of the old 1:1 point sample.
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_MINFILTER, D3DTEXF_LINEAR );
+	FDX8_pDev->SetTextureStageState( 0, D3DTSS_MAGFILTER, D3DTEXF_LINEAR );
 	FDX8_pDev->SetTextureStageState( 0, D3DTSS_MIPFILTER, D3DTEXF_NONE );
 	FDX8_pDev->SetTextureStageState( 0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP );
 	FDX8_pDev->SetTextureStageState( 0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP );
 
-	const f32 fW = (f32)uW, fH = (f32)uH;
 	struct { f32 x, y, z, rhw, u, v; } aVertices[4] = {
-		{ 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f },
-		{ fW,   0.0f, 0.0f, 1.0f, 1.0f, 0.0f },
-		{ 0.0f, fH,   0.0f, 1.0f, 0.0f, 1.0f },
-		{ fW,   fH,   0.0f, 1.0f, 1.0f, 1.0f }
+		{ fDstL, fDstT, 0.0f, 1.0f, fU0, fV0 },
+		{ fDstR, fDstT, 0.0f, 1.0f, fU1, fV0 },
+		{ fDstL, fDstB, 0.0f, 1.0f, fU0, fV1 },
+		{ fDstR, fDstB, 0.0f, 1.0f, fU1, fV1 }
 	};
 	const HRESULT hr = FDX8_pDev->DrawPrimitiveUP( D3DPT_TRIANGLESTRIP, 2, aVertices,
 		sizeof(aVertices[0]) );
@@ -1002,6 +1006,75 @@ static BOOL _MovieDrawQuad( IDirect3DTexture8 *pTexture, u32 uW, u32 uH )
 	if( pBackBuffer ) pBackBuffer->Release();
 
 	return SUCCEEDED( hr );
+}
+
+//R147: copy the native-size Bink frame into a native-size texture and let the
+//GPU do the scale. The old path bilinearly scaled every movie frame on the CPU
+//into a full-screen texture; at 1080p that cost ~33 ms per frame and stretched
+//the wrappers load to the movie's run time.
+static BOOL _MovieDrawNativeTexture( u32 uBackW, u32 uBackH,
+	s32 nDstL, s32 nDstT, u32 nDstW, u32 nDstH )
+{
+	if( nDstW == 0 || nDstH == 0 ) {
+		return TRUE;
+	}
+	if( !_MovieEnsureScratch() ) {
+		return FALSE;
+	}
+	if( !_MovieCopyToScratch( BINKSURFACE32 ) ) {
+		return FALSE;
+	}
+	if( !_MovieTextureEnsure( _uMovieScratchW, _uMovieScratchH ) ) {
+		return FALSE;
+	}
+
+	D3DLOCKED_RECT LockedTex;
+	if( FAILED( _pMovieTexture->LockRect( 0, &LockedTex, NULL, 0 ) ) ) {
+		DEVPRINTF( "[ FMOVIE2 ] Error : Failed Lock of the native movie texture!\n" );
+		return FALSE;
+	}
+	for( u32 y = 0; y < _uMovieScratchH; y++ ) {
+		memcpy( (u8 *)LockedTex.pBits + (size_t)y * (size_t)LockedTex.Pitch,
+			_pMovieScratch + (size_t)y * (size_t)_uMovieScratchW * 4,
+			(size_t)_uMovieScratchW * 4 );
+	}
+	if( FAILED( _pMovieTexture->UnlockRect( 0 ) ) ) {
+		DEVPRINTF( "[ FMOVIE2 ] Error : Failed Unlock of the native movie texture!\n" );
+		return FALSE;
+	}
+
+	const f32 fSrcW = (f32)_uMovieScratchW;
+	const f32 fSrcH = (f32)_uMovieScratchH;
+	f32 fDstL = (f32)nDstL, fDstT = (f32)nDstT;
+	f32 fDstR = (f32)nDstL + (f32)nDstW;
+	f32 fDstB = (f32)nDstT + (f32)nDstH;
+	f32 fU0 = 0.0f, fV0 = 0.0f, fU1 = 1.0f, fV1 = 1.0f;
+
+	if( FMovie2_nScalingMode == 1 ) {
+		//fill (cover, crop): draw the whole rect, crop the source.
+		f32 fScale = FMATH_MAX( (f32)nDstW / fSrcW, (f32)nDstH / fSrcH );
+		f32 fVisW = (f32)nDstW / fScale;
+		f32 fVisH = (f32)nDstH / fScale;
+		fU0 = ( ( fSrcW - fVisW ) * 0.5f ) / fSrcW;
+		fV0 = ( ( fSrcH - fVisH ) * 0.5f ) / fSrcH;
+		fU1 = fU0 + fVisW / fSrcW;
+		fV1 = fV0 + fVisH / fSrcH;
+	} else if( FMovie2_nScalingMode != 2 ) {
+		//fit (preserve aspect): centre an aspect-correct quad in the rect.
+		f32 fScale = FMATH_MIN( (f32)nDstW / fSrcW, (f32)nDstH / fSrcH );
+		f32 fDrawW = fSrcW * fScale;
+		f32 fDrawH = fSrcH * fScale;
+		if( fDrawW < 1.0f ) fDrawW = 1.0f;
+		if( fDrawH < 1.0f ) fDrawH = 1.0f;
+		fDstL += ( (f32)nDstW - fDrawW ) * 0.5f;
+		fDstT += ( (f32)nDstH - fDrawH ) * 0.5f;
+		fDstR = fDstL + fDrawW;
+		fDstB = fDstT + fDrawH;
+	}
+	//stretch (mode 2): use the full rect and the full texture.
+
+	return _MovieDrawQuad( _pMovieTexture, uBackW, uBackH,
+		fDstL, fDstT, fDstR, fDstB, fU0, fV0, fU1, fV1 );
 }
 
 BOOL _BltWinFrame( void ) {
@@ -1057,6 +1130,20 @@ BOOL _BltWinFrame( void ) {
 		}
 	}
 
+	//R147: a destination rect means the loading screen. Scale the native-size
+	//movie texture on the GPU instead of bilinearly scaling every frame into a
+	//full-screen texture on the CPU. The old path made the wrappers load last
+	//as long as the loading movie.
+	if( _bDestRectSet ) {
+		pDX8BackBuffer->Release();
+		if( !_bMovieGpuScaleLogged ) {
+			DEVPRINTF( "[ FMOVIE2 ] R147: GPU movie scaling for destination rect.\n" );
+			_bMovieGpuScaleLogged = TRUE;
+		}
+		return _MovieDrawNativeTexture( BackBufferSurfaceDesc.Width,
+			BackBufferSurfaceDesc.Height, nDstL, nDstT, nDstW, nDstH );
+	}
+
 	//R139: MSAA makes the back buffer non-lockable by definition. Bink needs a
 	//CPU-writable destination, so decode into a managed texture and draw that
 	//as one full-screen quad. The texture is always 32-bit, so this path skips
@@ -1086,7 +1173,10 @@ BOOL _BltWinFrame( void ) {
 			return FALSE;
 		}
 
-		return _MovieDrawQuad( _pMovieTexture, BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height );
+		return _MovieDrawQuad( _pMovieTexture,
+			BackBufferSurfaceDesc.Width, BackBufferSurfaceDesc.Height,
+			0.0f, 0.0f, (f32)BackBufferSurfaceDesc.Width, (f32)BackBufferSurfaceDesc.Height,
+			0.0f, 0.0f, 1.0f, 1.0f );
 	}
 
 	//The software path assumes a 32-bit back buffer, which is what Bink's
