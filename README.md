@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R147** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R148** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -55,9 +55,11 @@ First run:
    the game out of your own Xbox disc image (both game-only `.xiso` images and
    full-disc `.iso` images are supported; the extraction also sets the master
    file for you). Use the USA Xbox release - that is the data set the port is
-   built and tested against; PAL/European discs are not supported yet.
-   Alternatively, place your already-extracted disc contents in `assets/` so
-   that `mettlearms_xb.mst` sits at its top.
+   built and tested against; PAL/European discs are not supported yet. The
+   extractor reads the image's `default.xbe` certificate before copying and
+   warns if it is not the tested USA release, or if no `default.xbe` is
+   present. Alternatively, place your already-extracted disc contents in
+   `assets/` so that `mettlearms_xb.mst` sits at its top.
 3. Press play. Profiles live in `saves/profile-*`; an old flat `profile-*` next
    to the exe is migrated into `saves/` on first start.
 
@@ -101,7 +103,7 @@ launch dialog. Play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R147), and
+cannot be replied to. Name the build id printed in the log header (e.g. R148), and
 check what version you have first - fixes land continuously.
 
 If startup stops at `_GameInit: FAILED at gameloop.cpp:779`, include the line

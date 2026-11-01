@@ -71,7 +71,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R147"
+#define MA_PORT_ROUND	"R148"
 // Optional banner tag for one-off configurations (CMake MA_BUILD_TAG, e.g.
 // " (O2)"); empty in the normal build so the round alone identifies the exe.
 #ifndef MA_PORT_BUILD_TAG
@@ -819,6 +819,16 @@ static void _XisoProgress( void *pUser, const char *pszName, unsigned uFiles, un
 	}
 }
 
+static const char *_XbeRegionLabel( u32 nRegion )
+{
+	if( ( nRegion & 0x1 ) && ( nRegion & 0x2 ) ) return "USA/Japan";
+	if( nRegion & 0x1 ) return "USA";
+	if( nRegion & 0x2 ) return "Japan";
+	if( nRegion & 0x4 ) return "Europe/PAL";
+	if( nRegion & 0x80000000u ) return "region-free";
+	return "unknown";
+}
+
 static void _OnExtractIso( HWND hwndDlg )
 {
 	char szFile[1024] = "";
@@ -833,6 +843,20 @@ static void _OnExtractIso( HWND hwndDlg )
 	ofn.Flags       = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER;
 	if( !GetOpenFileNameA( &ofn ) ) return;
 
+	//R148: probe the disc's root default.xbe before copying anything. The
+	// certificate is in the plaintext XBE header, so this is a few KB of reads
+	// even for a full-disc image. It catches a wrong-region disc before a
+	// multi-GB extraction, not after it.
+	unsigned uTitleId = 0, uRegion = 0;
+	char szProbeErr[640] = "";
+	XisoProbeResult_e eProbe = Xiso_ProbeXbe( szFile, &uTitleId, &uRegion,
+		szProbeErr, sizeof(szProbeErr) );
+	if( eProbe == XISO_PROBE_BAD_IMAGE ) {
+		MessageBoxA( hwndDlg, szProbeErr[0] ? szProbeErr : "This is not an Xbox disc image.",
+			"Metal Arms", MB_OK | MB_ICONERROR );
+		return;
+	}
+
 	char szDest[1024];
 	snprintf( szDest, sizeof(szDest), "%sassets", _szExeDir );
 	char szMst[1024];
@@ -845,11 +869,34 @@ static void _OnExtractIso( HWND hwndDlg )
 			return;
 		}
 	}
-	if( MessageBoxA( hwndDlg,
-		"Extract the disc image into the assets folder next to the exe?\n\n"
-		"This can take a minute for a full-disc image.",
-		"Metal Arms", MB_OKCANCEL | MB_ICONINFORMATION ) != IDOK ) {
-		return;
+	if( eProbe == XISO_PROBE_OK && ( uRegion & 0x1 ) ) {
+		if( MessageBoxA( hwndDlg,
+			"Extract the disc image into the assets folder next to the exe?\n\n"
+			"This can take a minute for a full-disc image.",
+			"Metal Arms", MB_OKCANCEL | MB_ICONINFORMATION ) != IDOK ) {
+			return;
+		}
+	} else {
+		char szWarn[1024];
+		if( eProbe == XISO_PROBE_OK ) {
+			snprintf( szWarn, sizeof(szWarn),
+				"This disc is not the USA Xbox release this port was tested with.\n\n"
+				"Detected: title ID %08X, region %08X (%s).\n\n"
+				"PAL/European game data is not supported yet; it may extract but fail during startup. "
+				"If it does, include the full console output or ma_win_log.txt from a dev run.\n\n"
+				"Extract anyway?",
+				uTitleId, uRegion, _XbeRegionLabel( uRegion ) );
+		} else {
+			snprintf( szWarn, sizeof(szWarn),
+				"No usable default.xbe was found in this image.\n\n"
+				"This is not the tested USA Xbox release. It may be a trimmed or asset-only image, "
+				"or data from another region. PAL/European game data is not supported yet and may fail during startup.\n\n"
+				"Extract anyway?" );
+		}
+		if( MessageBoxA( hwndDlg, szWarn, "Metal Arms - untested disc",
+			MB_YESNO | MB_ICONWARNING ) != IDYES ) {
+			return;
+		}
 	}
 
 	_bExtracting = TRUE;

@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <ctype.h>
 
 #include <string>
 #include <vector>
@@ -252,6 +253,175 @@ static BOOL FindVolume( HANDLE hIso, u64 uFileSize, u64 *puVolumeOffset )
 		}
 	}
 	return FALSE;
+}
+
+static BOOL NameEqualsNoCase( const std::string &sName, const char *pszName )
+{
+	const size_t nLen = strlen( pszName );
+	if( sName.size() != nLen ) return FALSE;
+	for( size_t i = 0; i < nLen; ++i ) {
+		if( tolower( (unsigned char)sName[i] ) != tolower( (unsigned char)pszName[i] ) ) return FALSE;
+	}
+	return TRUE;
+}
+
+static BOOL FindEntryInTable( const std::vector<u8> &db, u32 uOff,
+							  std::vector<u8> &seen, const char *pszName,
+							  u32 *puSector, u32 *puSize )
+{
+	if( uOff + 14 > db.size() ) return FALSE;
+	if( ( uOff & 3 ) != 0 ) return FALSE;
+	const u32 uSlot = uOff / 4;
+	if( uSlot >= seen.size() || seen[uSlot] ) return FALSE;
+	seen[uSlot] = 1;
+
+	u16 uLeft, uRight;
+	u32 uSector, uSize;
+	u8  uAttr, uNameLen;
+	memcpy( &uLeft,   &db[uOff + 0], 2 );
+	memcpy( &uRight,  &db[uOff + 2], 2 );
+	memcpy( &uSector, &db[uOff + 4], 4 );
+	memcpy( &uSize,   &db[uOff + 8], 4 );
+	uAttr    = db[uOff + 12];
+	uNameLen = db[uOff + 13];
+	if( uOff + 14 + uNameLen > db.size() ) return FALSE;
+
+	std::string sName( (const char *)&db[uOff + 14], uNameLen );
+	if( !( uAttr & 0x10 ) && NameEqualsNoCase( sName, pszName ) ) {
+		*puSector = uSector;
+		*puSize   = uSize;
+		return TRUE;
+	}
+
+	if( uLeft ) {
+		u32 uChild = (u32)uLeft * 4;
+		if( uChild < db.size() && FindEntryInTable( db, uChild, seen, pszName, puSector, puSize ) ) return TRUE;
+	}
+	if( uRight ) {
+		u32 uChild = (u32)uRight * 4;
+		if( uChild < db.size() && FindEntryInTable( db, uChild, seen, pszName, puSector, puSize ) ) return TRUE;
+	}
+	return FALSE;
+}
+
+static BOOL FindRootFile( HANDLE hIso, u64 uVolumeBase, u64 uRootOffset, u32 uRootSize,
+						  const char *pszName, u64 *puFileOffset, u32 *puFileSize )
+{
+	if( uRootSize == 0 || uRootSize > XISO_MAX_DIR_BYTES ) return FALSE;
+	std::vector<u8> db( uRootSize );
+	if( !ReadAt( hIso, uRootOffset, &db[0], uRootSize ) ) return FALSE;
+	std::vector<u8> seen( uRootSize / 4 + 1, 0 );
+	u32 uSector = 0, uSize = 0;
+	if( !FindEntryInTable( db, 0, seen, pszName, &uSector, &uSize ) ) return FALSE;
+	if( uSize == 0 ) return FALSE;
+	*puFileOffset = uVolumeBase + (u64)uSector * XISO_SECTOR_SIZE;
+	*puFileSize   = uSize;
+	return TRUE;
+}
+
+//R148: read the root default.xbe certificate without extracting the image.
+XisoProbeResult_e Xiso_ProbeXbe( const char *pszIsoPath,
+								 unsigned *puTitleId, unsigned *puRegion,
+								 char *pszError, int nErrorLen )
+{
+	if( puTitleId ) *puTitleId = 0;
+	if( puRegion )  *puRegion  = 0;
+	if( pszError && nErrorLen > 0 ) pszError[0] = 0;
+
+	if( !pszIsoPath || !pszIsoPath[0] ) {
+		SetErr( pszError, nErrorLen, "No ISO selected." );
+		return XISO_PROBE_BAD_IMAGE;
+	}
+
+	std::string sIso = AbsPath( pszIsoPath );
+	HANDLE hIso = CreateFileA( LongPath( sIso ).c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
+		OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL );
+	if( hIso == INVALID_HANDLE_VALUE ) {
+		SetErr( pszError, nErrorLen, "Cannot open '%s' (error %lu)", sIso.c_str(), GetLastError() );
+		return XISO_PROBE_BAD_IMAGE;
+	}
+
+	LARGE_INTEGER liSize;
+	if( !GetFileSizeEx( hIso, &liSize ) || liSize.QuadPart <= 0 ) {
+		CloseHandle( hIso );
+		SetErr( pszError, nErrorLen, "Cannot read the ISO size." );
+		return XISO_PROBE_BAD_IMAGE;
+	}
+
+	u64 uVolumeDesc = 0;
+	if( !FindVolume( hIso, (u64)liSize.QuadPart, &uVolumeDesc ) ) {
+		CloseHandle( hIso );
+		SetErr( pszError, nErrorLen, "This is not an Xbox XDVDFS image (no MICROSOFT*XBOX*MEDIA descriptor)." );
+		return XISO_PROBE_BAD_IMAGE;
+	}
+	if( uVolumeDesc < 0x10000 ) {
+		CloseHandle( hIso );
+		SetErr( pszError, nErrorLen, "Invalid volume descriptor offset." );
+		return XISO_PROBE_BAD_IMAGE;
+	}
+	u64 uVolume = uVolumeDesc - 0x10000;
+
+	u8 vd[XISO_SECTOR_SIZE];
+	if( !ReadAt( hIso, uVolumeDesc, vd, sizeof(vd) ) ) {
+		CloseHandle( hIso );
+		SetErr( pszError, nErrorLen, "Cannot read the volume descriptor." );
+		return XISO_PROBE_BAD_IMAGE;
+	}
+	u32 uRootSector, uRootSize;
+	memcpy( &uRootSector, &vd[20], 4 );
+	memcpy( &uRootSize,   &vd[24], 4 );
+	if( uRootSize == 0 || uRootSize > XISO_MAX_DIR_BYTES ) {
+		CloseHandle( hIso );
+		SetErr( pszError, nErrorLen, "Invalid root directory size (%u).", uRootSize );
+		return XISO_PROBE_BAD_IMAGE;
+	}
+
+	u64 uRootOffset = uVolume + (u64)uRootSector * XISO_SECTOR_SIZE;
+	u64 uXbeOffset  = 0;
+	u32 uXbeSize    = 0;
+	if( !FindRootFile( hIso, uVolume, uRootOffset, uRootSize, "default.xbe", &uXbeOffset, &uXbeSize ) ) {
+		CloseHandle( hIso );
+		return XISO_PROBE_NO_XBE;
+	}
+	if( uXbeSize < 0x120 ) {
+		CloseHandle( hIso );
+		return XISO_PROBE_NO_XBE;
+	}
+
+	u8 aHeader[0x120];
+	if( !ReadAt( hIso, uXbeOffset, aHeader, sizeof(aHeader) ) ||
+		memcmp( aHeader, "XBEH", 4 ) != 0 ) {
+		CloseHandle( hIso );
+		return XISO_PROBE_NO_XBE;
+	}
+
+	u32 uBase, uCertAddr;
+	memcpy( &uBase,     &aHeader[0x104], 4 );
+	memcpy( &uCertAddr, &aHeader[0x118], 4 );
+	if( uCertAddr < uBase ) {
+		CloseHandle( hIso );
+		return XISO_PROBE_NO_XBE;
+	}
+	u32 uCertOff = uCertAddr - uBase;
+	if( uCertOff > 0x100000 || uCertOff > uXbeSize || ( uXbeSize - uCertOff ) < 0xA4 ) {
+		CloseHandle( hIso );
+		return XISO_PROBE_NO_XBE;
+	}
+
+	u8 aCert[0xA4];
+	if( !ReadAt( hIso, uXbeOffset + uCertOff, aCert, sizeof(aCert) ) ) {
+		CloseHandle( hIso );
+		return XISO_PROBE_NO_XBE;
+	}
+
+	u32 uTitleId, uRegion;
+	memcpy( &uTitleId, &aCert[0x08], 4 );
+	memcpy( &uRegion,  &aCert[0xA0], 4 );
+	if( puTitleId ) *puTitleId = uTitleId;
+	if( puRegion )  *puRegion  = uRegion;
+
+	CloseHandle( hIso );
+	return XISO_PROBE_OK;
 }
 
 BOOL Xiso_Extract( const char *pszIsoPath, const char *pszDestDir,
