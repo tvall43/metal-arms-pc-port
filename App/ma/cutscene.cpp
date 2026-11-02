@@ -71,11 +71,20 @@ void cutscene_UninitSystem( void ) {
 
 
 cutscene_Handle_t cutscene_AcquireHandle( cchar* pszMovieFilename, BOOL bPrependPlatformPrefix ) {
-	FASSERT( _bInitialized = TRUE );
+	FASSERT( _bInitialized == TRUE );
+
+	if( !pszMovieFilename ) {
+		return CUTSCENE_INVALID_HANDLE;
+	}
 
 	//first, create the full movie name
 	char szFullFilename[ 64 ];
 	szFullFilename[ 0 ] = NULL;
+	const size_t nPrefixLen = bPrependPlatformPrefix ? 3u : 0u;
+	if( fclib_strlen( pszMovieFilename ) + nPrefixLen >= sizeof(szFullFilename) ) {
+		DEVPRINTF("[ cutscene_AcquireHandle ] -- Movie name too large for the filename buffer!");
+		return CUTSCENE_INVALID_HANDLE;
+	}
 	if( bPrependPlatformPrefix ) {
 #if FANG_PLATFORM_GC
 		fclib_strcpy( szFullFilename, "GC_" );
@@ -111,7 +120,7 @@ cutscene_Handle_t cutscene_AcquireHandle( cchar* pszMovieFilename, BOOL bPrepend
 
 BOOL cutscene_Start( cutscene_Handle_t hCutscene, f32 fNormalizedVolume ){
 
-	FASSERT( _bInitialized = TRUE );
+	FASSERT( _bInitialized == TRUE );
 	FASSERT( _bStarted == FALSE );
 
 	if( hCutscene == CUTSCENE_INVALID_HANDLE ) {

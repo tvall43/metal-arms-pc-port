@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R151** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R152** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -101,7 +101,7 @@ launch dialog. Play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R151), and
+cannot be replied to. Name the build id printed in the log header (e.g. R152), and
 check what version you have first - fixes land continuously.
 
 If startup stops at `_GameInit: FAILED at gameloop.cpp:779`, include the line

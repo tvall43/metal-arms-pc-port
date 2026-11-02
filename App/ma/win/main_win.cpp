@@ -71,7 +71,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R151"
+#define MA_PORT_ROUND	"R152"
 // Optional banner tag for one-off configurations (CMake MA_BUILD_TAG, e.g.
 // " (O2)"); empty in the normal build so the round alone identifies the exe.
 #ifndef MA_PORT_BUILD_TAG
@@ -123,15 +123,19 @@ static void _Trace( const char *pszFormat, ... )
 // this port writes, so nothing lands in the Windows directory.
 static void _LogFileBuildPath( char *pszOut, int nOutLen )
 {
+	if( !pszOut || nOutLen <= 0 ) return;
 	pszOut[0] = '\0';
 	char szExe[MAX_PATH] = "";
 	DWORD nLen = GetModuleFileName( NULL, szExe, MAX_PATH );
-	if ( nLen == 0 || nLen >= MAX_PATH ) return;
+	if ( nLen == 0 || nLen >= MAX_PATH || nLen + 1 > (DWORD)nOutLen ) return;
 
 	memcpy( pszOut, szExe, nLen + 1 );
 	char *pSlash = strrchr( pszOut, '\\' );
 	if ( pSlash ) { *(pSlash+1) = '\0'; } else { pszOut[0] = '\0'; }
-	strncat( pszOut, "ma_win_log.txt", nOutLen - strlen(pszOut) - 1 );
+	const size_t nUsed = strlen( pszOut );
+	if( nUsed + 1 < (size_t)nOutLen ) {
+		strncat( pszOut, "ma_win_log.txt", (size_t)nOutLen - nUsed - 1 );
+	}
 }
 
 // Open or close the file log so it matches _bLogFileEnabled. Split out of
@@ -1204,14 +1208,17 @@ static BOOL _RunGame( void )
 
 		char szDir[512] = "";
 		strncpy( szDir, _szMasterFile, sizeof(szDir) - 1 );
+		szDir[sizeof(szDir) - 1] = '\0';
 		char *pSlash = strrchr( szDir, '\\' );
 		if ( pSlash ) {
 			*(pSlash+1) = '\0';
 			strncat( szDir, "MOVIES\\", sizeof(szDir) - strlen(szDir) - 1 );
 		} else {
 			strncpy( szDir, "MOVIES\\", sizeof(szDir) - 1 );
+			szDir[sizeof(szDir) - 1] = '\0';
 		}
 		strncpy( _szMoviePath, szDir, sizeof(_szMoviePath) - 1 );
+		_szMoviePath[sizeof(_szMoviePath) - 1] = '\0';
 	}
 
 	//R69: the log now identifies the build and the state of the diagnostic switches.

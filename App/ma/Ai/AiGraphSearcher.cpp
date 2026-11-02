@@ -481,7 +481,7 @@ void CGraphSearcher::ResolveHazardPtrs(void)
 								//we have a hit
 								if (bCanSeeSwitch)
 								{
-									FASSERT(ii = 1);
+									FASSERT(ii == 1);
 									//we can see both switches.  IS this one closer?
 									LookAtLoc.Set(((CESwitch*) pSwitchDoor->AI_GetSwitch(0))->GetBoundingSphere_WS().m_Pos);
 									f32 fDistToSwitch0Sq = LookAtLoc.DistSq(pV->GetLocation());

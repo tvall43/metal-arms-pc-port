@@ -24,6 +24,7 @@
 #define XISO_MAGIC_LEN     20
 #define XISO_MAX_DIR_BYTES (64u * 1024u * 1024u)
 #define XISO_MAX_DEPTH     32
+#define XISO_MAX_TREE_DEPTH 64
 
 typedef unsigned char      u8;
 typedef unsigned short     u16;
@@ -126,6 +127,28 @@ struct XisoCtx {
 
 static BOOL WalkDir( XisoCtx &c, u64 uDirOffset, u32 uDirSize, const std::string &sRel, int nDepth );
 
+// A directory entry name is used verbatim in a Win32 path. Reject embedded
+// NULs/control characters and Windows-invalid characters; a NUL in particular
+// would truncate the path at CreateFileA and can turn a name into "." or "..".
+static bool IsSafeEntryName( const std::string &sName )
+{
+	if( sName.empty() || sName == "." || sName == ".." ) return false;
+	for( size_t i = 0; i < sName.size(); ++i ) {
+		const unsigned char c = (unsigned char)sName[i];
+		if( c < 0x20 || c == '\\' || c == '/' || c == ':' ||
+			c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' ) {
+			return false;
+		}
+	}
+	// Extended-length paths keep trailing dots/spaces literal, but reject a
+	// name that would collapse to "." or ".." if a media layer trims them.
+	size_t nEnd = sName.size();
+	while( nEnd > 0 && ( sName[nEnd - 1] == '.' || sName[nEnd - 1] == ' ' ) ) --nEnd;
+	if( nEnd == 0 ) return false;
+	const std::string sTrimmed = sName.substr( 0, nEnd );
+	return sTrimmed != "." && sTrimmed != "..";
+}
+
 static BOOL ExtractOne( XisoCtx &c, u64 uOffset, u32 uSize, const std::string &sRel, const std::string &sName )
 {
 	std::string sPath = c.sDest + "\\" + sRel + sName;
@@ -164,9 +187,9 @@ static BOOL ExtractOne( XisoCtx &c, u64 uOffset, u32 uSize, const std::string &s
 }
 
 static BOOL WalkTable( XisoCtx &c, const std::vector<u8> &db, u32 uOff, const std::string &sRel,
-					   std::vector<u8> &seen, int nDepth )
+					   std::vector<u8> &seen, int nDepth, int nTreeDepth )
 {
-	if( nDepth > XISO_MAX_DEPTH ) return TRUE;
+	if( nDepth > XISO_MAX_DEPTH || nTreeDepth > XISO_MAX_TREE_DEPTH ) return TRUE;
 	if( uOff + 14 > db.size() ) return TRUE;
 	if( ( uOff & 3 ) != 0 ) return TRUE;
 	const u32 uSlot = uOff / 4;
@@ -186,10 +209,7 @@ static BOOL WalkTable( XisoCtx &c, const std::vector<u8> &db, u32 uOff, const st
 	if( uOff + 14 + uNameLen > db.size() ) return TRUE;
 
 	std::string sName( (const char *)&db[uOff + 14], uNameLen );
-	bool bBad = sName.empty() || sName == "." || sName == ".." ||
-		sName.find( '\\' ) != std::string::npos || sName.find( '/' ) != std::string::npos ||
-		sName.find( ':' ) != std::string::npos;
-	if( !bBad ) {
+	if( IsSafeEntryName( sName ) ) {
 		if( uAttr & 0x10 ) {
 			if( uSize > 0 && uSize <= XISO_MAX_DIR_BYTES ) {
 				u64 uSub = c.uVolumeBase + (u64)uSector * XISO_SECTOR_SIZE;
@@ -203,11 +223,11 @@ static BOOL WalkTable( XisoCtx &c, const std::vector<u8> &db, u32 uOff, const st
 
 	if( uLeft ) {
 		u32 uChild = (u32)uLeft * 4;
-		if( uChild < db.size() && !WalkTable( c, db, uChild, sRel, seen, nDepth ) ) return FALSE;
+		if( uChild < db.size() && !WalkTable( c, db, uChild, sRel, seen, nDepth, nTreeDepth + 1 ) ) return FALSE;
 	}
 	if( uRight ) {
 		u32 uChild = (u32)uRight * 4;
-		if( uChild < db.size() && !WalkTable( c, db, uChild, sRel, seen, nDepth ) ) return FALSE;
+		if( uChild < db.size() && !WalkTable( c, db, uChild, sRel, seen, nDepth, nTreeDepth + 1 ) ) return FALSE;
 	}
 	return TRUE;
 }
@@ -226,7 +246,7 @@ static BOOL WalkDir( XisoCtx &c, u64 uDirOffset, u32 uDirSize, const std::string
 		return FALSE;
 	}
 	std::vector<u8> seen( uDirSize / 4 + 1, 0 );
-	return WalkTable( c, db, 0, sRel, seen, nDepth );
+	return WalkTable( c, db, 0, sRel, seen, nDepth, 0 );
 }
 
 static BOOL FindVolume( HANDLE hIso, u64 uFileSize, u64 *puVolumeOffset )
@@ -267,8 +287,9 @@ static BOOL NameEqualsNoCase( const std::string &sName, const char *pszName )
 
 static BOOL FindEntryInTable( const std::vector<u8> &db, u32 uOff,
 							  std::vector<u8> &seen, const char *pszName,
-							  u32 *puSector, u32 *puSize )
+							  u32 *puSector, u32 *puSize, int nTreeDepth )
 {
+	if( nTreeDepth > XISO_MAX_TREE_DEPTH ) return FALSE;
 	if( uOff + 14 > db.size() ) return FALSE;
 	if( ( uOff & 3 ) != 0 ) return FALSE;
 	const u32 uSlot = uOff / 4;
@@ -287,7 +308,7 @@ static BOOL FindEntryInTable( const std::vector<u8> &db, u32 uOff,
 	if( uOff + 14 + uNameLen > db.size() ) return FALSE;
 
 	std::string sName( (const char *)&db[uOff + 14], uNameLen );
-	if( !( uAttr & 0x10 ) && NameEqualsNoCase( sName, pszName ) ) {
+	if( !( uAttr & 0x10 ) && IsSafeEntryName( sName ) && NameEqualsNoCase( sName, pszName ) ) {
 		*puSector = uSector;
 		*puSize   = uSize;
 		return TRUE;
@@ -295,11 +316,11 @@ static BOOL FindEntryInTable( const std::vector<u8> &db, u32 uOff,
 
 	if( uLeft ) {
 		u32 uChild = (u32)uLeft * 4;
-		if( uChild < db.size() && FindEntryInTable( db, uChild, seen, pszName, puSector, puSize ) ) return TRUE;
+		if( uChild < db.size() && FindEntryInTable( db, uChild, seen, pszName, puSector, puSize, nTreeDepth + 1 ) ) return TRUE;
 	}
 	if( uRight ) {
 		u32 uChild = (u32)uRight * 4;
-		if( uChild < db.size() && FindEntryInTable( db, uChild, seen, pszName, puSector, puSize ) ) return TRUE;
+		if( uChild < db.size() && FindEntryInTable( db, uChild, seen, pszName, puSector, puSize, nTreeDepth + 1 ) ) return TRUE;
 	}
 	return FALSE;
 }
@@ -312,7 +333,7 @@ static BOOL FindRootFile( HANDLE hIso, u64 uVolumeBase, u64 uRootOffset, u32 uRo
 	if( !ReadAt( hIso, uRootOffset, &db[0], uRootSize ) ) return FALSE;
 	std::vector<u8> seen( uRootSize / 4 + 1, 0 );
 	u32 uSector = 0, uSize = 0;
-	if( !FindEntryInTable( db, 0, seen, pszName, &uSector, &uSize ) ) return FALSE;
+	if( !FindEntryInTable( db, 0, seen, pszName, &uSector, &uSize, 0 ) ) return FALSE;
 	if( uSize == 0 ) return FALSE;
 	*puFileOffset = uVolumeBase + (u64)uSector * XISO_SECTOR_SIZE;
 	*puFileSize   = uSize;

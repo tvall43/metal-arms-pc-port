@@ -245,7 +245,10 @@ void VideoDecoder::readTree(Tree& tree) {
       seen[tree.symbolMap[i]] = 1;
     }
     for (int i = 0; i < 16; ++i) {
-      if (!seen[i]) tree.symbolMap[++len] = static_cast<uint8_t>(i);
+      if (!seen[i]) {
+        if (len >= 15) break;
+        tree.symbolMap[++len] = static_cast<uint8_t>(i);
+      }
     }
   } else {
     const int len = static_cast<int>(reader_.readBits(2));
@@ -322,9 +325,18 @@ void VideoDecoder::readPlaneTrees(int blockWidth) {
 
 int VideoDecoder::readCodedDataCount(BlockParamValues& param) {
   if (param.curDec < 0 || param.curDec > param.curPtr) return 0;
-  const int count = static_cast<int>(reader_.readBits(param.len));
-  if (count == 0) param.curDec = -1;
-  return count;
+  const int rawCount = static_cast<int>(reader_.readBits(param.len));
+  if (rawCount == 0) {
+    param.curDec = -1;
+    return 0;
+  }
+  if (rawCount < 0) return 0;
+  /* A malformed stream can encode more values than the plane has pixels.
+   * Clamp to the per-parameter buffer instead of writing past it. */
+  const int room =
+      static_cast<int>(param.items.size()) - param.curDec;
+  if (room <= 0) return 0;
+  return rawCount < room ? rawCount : room;
 }
 
 void VideoDecoder::readBlockTypes(BlockParamValues& param) {
@@ -346,9 +358,14 @@ void VideoDecoder::readBlockTypes(BlockParamValues& param) {
     } else {
       static const int runLengths[4] = {4, 8, 12, 32};
       const int runLength = runLengths[value - 12];
-      for (int j = 0; j < runLength; ++j) {
+      const int room =
+          static_cast<int>(param.items.size()) - param.curDec;
+      if (room <= 0) return;
+      const int writeCount = runLength < room ? runLength : room;
+      for (int j = 0; j < writeCount; ++j) {
         param.items[param.curDec++] = static_cast<int16_t>(prevValue);
       }
+      if (writeCount < runLength) return;
       i += runLength - 1;
     }
   }
@@ -683,6 +700,9 @@ void VideoDecoder::readCoeffsOrResidue(int32_t* block, int quantStartIndex) {
   auto indexSet = [&](int index, int value) {
     if (index >= 0 && index < 64) coeffIndex_[index] = value;
   };
+  auto scanAt = [&](int index) -> int {
+    return (index >= 0 && index < 64) ? tables.scan[index] : 0;
+  };
 
   coeffList_[64] = 4;
   coeffList_[65] = 24;
@@ -747,7 +767,7 @@ void VideoDecoder::readCoeffsOrResidue(int32_t* block, int quantStartIndex) {
               modeSet(listStart, 3);
             } else {
               if (isResidue) {
-                const int offset = tables.scan[i];
+                const int offset = scanAt(i);
                 indexSet(coeffCount, offset);
                 ++coeffCount;
                 block[offset] = reader_.applySign(bits);
@@ -758,7 +778,7 @@ void VideoDecoder::readCoeffsOrResidue(int32_t* block, int quantStartIndex) {
                                static_cast<int>(reader_.readBits(bits)) |
                                (1 << bits))
                          : 1 - (static_cast<int>(reader_.readBit()) << 1);
-                block[tables.scan[i]] = offset;
+                block[scanAt(i)] = offset;
                 indexSet(coeffCount, i);
                 ++coeffCount;
               }
@@ -782,7 +802,7 @@ void VideoDecoder::readCoeffsOrResidue(int32_t* block, int quantStartIndex) {
           modeSet(listPos, 0);
           ++listPos;
           if (isResidue) {
-            const int offset = tables.scan[ccoeff];
+            const int offset = scanAt(ccoeff);
             indexSet(coeffCount, offset);
             ++coeffCount;
             block[offset] = reader_.applySign(bits);
@@ -793,7 +813,7 @@ void VideoDecoder::readCoeffsOrResidue(int32_t* block, int quantStartIndex) {
                            static_cast<int>(reader_.readBits(bits)) |
                            (1 << bits))
                      : 1 - (static_cast<int>(reader_.readBit()) << 1);
-            block[tables.scan[ccoeff]] = offset;
+            block[scanAt(ccoeff)] = offset;
             indexSet(coeffCount, ccoeff);
             ++coeffCount;
           }
@@ -808,12 +828,21 @@ void VideoDecoder::readCoeffsOrResidue(int32_t* block, int quantStartIndex) {
   if (!isResidue) {
     const int quantOffset =
         (static_cast<int>(reader_.readBits(4)) << 6) + quantStartIndex;
-    block[0] = (block[0] * tables.quant[quantOffset]) >> 11;
+    /* Use a wider product so malformed coefficient/quant pairs cannot
+     * overflow the multiply.  Valid values stay exactly as before; only a
+     * value outside int32 is clamped. */
+    auto dequant = [](int value, int quant) -> int {
+      int64_t scaled = (static_cast<int64_t>(value) * quant) >> 11;
+      if (scaled > INT32_MAX) scaled = INT32_MAX;
+      if (scaled < INT32_MIN) scaled = INT32_MIN;
+      return static_cast<int>(scaled);
+    };
+    block[0] = dequant(block[0], tables.quant[quantOffset]);
     while (coeffCount--) {
       const int index = indexGet(coeffCount);
-      const int blockIndex = tables.scan[index];
+      const int blockIndex = scanAt(index);
       block[blockIndex] =
-          (block[blockIndex] * tables.quant[quantOffset + index]) >> 11;
+          dequant(block[blockIndex], tables.quant[quantOffset + index]);
     }
   }
 }

@@ -167,6 +167,10 @@ if(MA_BINK_BACKEND STREQUAL "internal")
     Lib/Bink/internal
   )
   target_compile_definitions(bink_internal PRIVATE __RADINEXE__)
+  # Malformed/mod movie bitstreams can push the integer IDCT outside the
+  # mathematical range.  Signed wrap keeps that defined; retail files are
+  # unaffected and validation against FFmpeg is unchanged.
+  target_compile_options(bink_internal PRIVATE -fwrapv)
   target_link_libraries(bink_internal PUBLIC d3d8 dsound)
   target_compile_definitions(fang2win PUBLIC __RADINEXE__)
 endif()

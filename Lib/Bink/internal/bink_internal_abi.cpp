@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
+#include <exception>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -627,6 +628,15 @@ void writeAudioPacket(Movie* movie, const mabink::AudioPacket& packet) {
                static_cast<U32>(pcm.size() * sizeof(S16)));
 }
 
+void safeWriteAudioPacket(Movie* movie, const mabink::AudioPacket& packet) {
+  try {
+    writeAudioPacket(movie, packet);
+  } catch (const std::exception& e) {
+    logLine("[bink-internal] audio decode exception: %s", e.what());
+    movie->audio.available = false;
+  }
+}
+
 /* The retail DLL and the FFmpeg shim keep ~1.5 s of audio queued before the
  * movie starts.  Bink interleaves audio packets with video frames, so fill the
  * ring by decoding the leading frames once, feed their PCM, then rewind the
@@ -652,8 +662,8 @@ void prefillAudio(Movie* movie) {
     }
     if (movie->audioTrackIndex >= 0 &&
         static_cast<size_t>(movie->audioTrackIndex) < packets.size()) {
-      writeAudioPacket(movie,
-                       packets[static_cast<size_t>(movie->audioTrackIndex)]);
+      safeWriteAudioPacket(movie,
+                           packets[static_cast<size_t>(movie->audioTrackIndex)]);
     }
     ++frames;
   }
@@ -671,6 +681,7 @@ void prefillAudio(Movie* movie) {
 extern "C" {
 
 HBINK RADEXPLINK BinkOpen(const char* name, U32 flags) {
+  (void)flags; /* track IDs are selected through BinkSetSoundTrack */
   Movie* movie = new (std::nothrow) Movie();
   if (!movie) {
     setError("out of memory");
@@ -775,8 +786,8 @@ S32 RADEXPLINK BinkDoFrame(HBINK bink) {
   if (movie->audioDecoder && movie->audioTrackIndex >= 0 &&
       frameIndex >= movie->prefillFrames &&
       static_cast<size_t>(movie->audioTrackIndex) < packets.size()) {
-    writeAudioPacket(movie,
-                     packets[static_cast<size_t>(movie->audioTrackIndex)]);
+    safeWriteAudioPacket(movie,
+                         packets[static_cast<size_t>(movie->audioTrackIndex)]);
   }
 
   movie->decoded = true;

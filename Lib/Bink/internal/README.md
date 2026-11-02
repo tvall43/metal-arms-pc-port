@@ -140,6 +140,26 @@ RGB565/RGB555, and BGR/RGB24. Against FFmpeg's `yuv420p -> bgra` on
 4. **RLE length table.** unbikit's values are already scaled by 8 relative to
    FFmpeg's; the port uses the unbikit table directly and matches FFmpeg.
 
+## Malformed and mod movie files
+
+The retail movies are trusted, but the decoder is also fed user/mod `.bik`
+files. R152 hardens that path:
+
+- headers are capped at 2048x2048 / 4M pixels, 1,000,000 frames and 16 audio
+  tracks; absurd dimensions are rejected before allocating plane buffers
+- Huffman-tree symbol maps and lazily decoded parameter buffers are bounds
+  checked; malformed counts/runs stop the frame instead of writing past them
+- decoder exceptions are converted to `nextFrame` failures, so they cannot
+  unwind through the C ABI and terminate the game
+- dequantisation uses a wider product (clamped only outside int32) and the
+  internal library is built with `-fwrapv`, keeping malformed IDCT inputs
+  defined without changing retail pixels
+
+The host fuzz harness (`tools/bink/fuzz_decode.cpp`) mutates/truncates payloads
+and the header test mutates dimensions/counts; both run under ASan/UBSan. The
+retail validation remains the authority: video/audio comparisons against
+FFmpeg are unchanged.
+
 ## Debugging
 
 Set `MA_BINK_LOG=1` before launching the game to append open/loop/audio/surface
