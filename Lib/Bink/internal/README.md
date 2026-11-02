@@ -142,15 +142,18 @@ RGB565/RGB555, and BGR/RGB24. Against FFmpeg's `yuv420p -> bgra` on
 
 ## Debugging
 
-Set `MA_BINK_LOG` to a writable path before launching the game to append
-open/loop/audio/surface messages, for example:
+Set `MA_BINK_LOG=1` before launching the game to append open/loop/audio/surface
+messages to `bink_internal.log` next to `ma_win.exe`:
 
 ```bat
-set MA_BINK_LOG=%CD%\bink_internal.log
+set MA_BINK_LOG=1
 ma_win.exe
 ```
 
-The log is opt-in and otherwise silent. The probe is the faster way to
+A value other than `1` is treated as a path (relative paths follow the process
+cwd, which the game sets to `assets/`, so prefer an absolute path). Leave it
+unset, or set it to `0`, to disable the file. The log is opt-in and otherwise
+silent. The probe is the faster way to
 reproduce a decode problem: `tools/bink/binkprobe info MOVIE` and
 `tools/bink/binkprobe hash MOVIE` do not need Windows.
 

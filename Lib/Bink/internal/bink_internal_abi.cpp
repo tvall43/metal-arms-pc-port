@@ -52,8 +52,29 @@ void logLine(const char* format, ...) {
   static bool initialised = false;
   if (!initialised) {
     initialised = true;
-    const char* path = std::getenv("MA_BINK_LOG");
-    if (path && *path) file = std::fopen(path, "a");
+    const char* value = std::getenv("MA_BINK_LOG");
+    if (value && *value && !(value[0] == '0' && value[1] == '\0')) {
+      if (std::strcmp(value, "1") == 0) {
+        /* Match the FFmpeg shim: MA_BINK_LOG=1 means "log next to the exe",
+         * not "create a file named 1 in the current directory" (the game
+         * changes cwd to assets/).  A non-1 value is treated as a path. */
+        char path[MAX_PATH] = {};
+        const DWORD length =
+            GetModuleFileNameA(nullptr, path, sizeof(path));
+        if (length > 0 && length < sizeof(path)) {
+          char* slash = std::strrchr(path, '\\');
+          char* slash2 = std::strrchr(path, '/');
+          if (slash2 > slash) slash = slash2;
+          if (slash) {
+            std::strcpy(slash + 1, "bink_internal.log");
+            file = std::fopen(path, "a");
+          }
+        }
+        if (!file) file = std::fopen("bink_internal.log", "a");
+      } else {
+        file = std::fopen(value, "a");
+      }
+    }
   }
   if (!file) return;
   va_list args;
