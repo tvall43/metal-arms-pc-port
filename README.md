@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R148** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R149** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -35,9 +35,9 @@ outside its own folder:
 
 ```
 MetalArmsPC/
-  ma_win.exe          port build
+  ma_win.exe          port build (in-tree Bink decoder)
   ma_win.ini          created on first run; settings only
-  binkw32.dll         ships with the port (RAD movie decoder; loaded by name)
+  LICENSE-unbikit.txt  in-tree decoder license
   assets/             your own extracted Xbox disc contents
     mettlearms_xb.mst master file (auto-detected here)
     MOVIES/ ...
@@ -47,10 +47,8 @@ MetalArmsPC/
 
 First run:
 
-1. Unzip the release (or drop in a locally built `ma_win.exe`). `binkw32.dll`,
-   the RAD movie decoder, is already included in the release - it just needs to
-   stay next to `ma_win.exe`. There is nothing to download or source yourself;
-   if you move `ma_win.exe` somewhere, move `binkw32.dll` along with it.
+1. Unzip the release (or drop in a locally built `ma_win.exe`). The release
+   is self-contained; there are no additional runtime files to install.
 2. Launch `ma_win.exe` and use **Extract from ISO...** in the launcher to read
    the game out of your own Xbox disc image (both game-only `.xiso` images and
    full-disc `.iso` images are supported; the extraction also sets the master
@@ -103,7 +101,7 @@ launch dialog. Play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R148), and
+cannot be replied to. Name the build id printed in the log header (e.g. R149), and
 check what version you have first - fixes land continuously.
 
 If startup stops at `_GameInit: FAILED at gameloop.cpp:779`, include the line
@@ -170,6 +168,11 @@ cmake --build build -j8
 ```
 
 - CMake >= 3.20, a 32-bit mingw-w64 toolchain (i686-w64-mingw32), C++11.
+- `MA_BINK_BACKEND=internal` (the default) compiles the permissively licensed
+  in-tree decoder from `Lib/Bink/internal` into the exe and removes the
+  `binkw32.dll` import. `-DMA_BINK_BACKEND=external` keeps the RAD/FFmpeg
+  `binkw32.dll` drop-in as a fallback build. See
+  `Lib/Bink/internal/README.md` for validation and known gaps.
 - The original `*.vcproj`/`make_ma*.bat` Visual Studio .NET 2003 projects are
   kept for reference; the MFC debug shell (`MA_BUILD_SHELL`) is not buildable
   here and is excluded.
@@ -193,6 +196,7 @@ cmake --build build -j8
 App/ma        game code (bots, weapons, levels, HUD, scripts)
 App/ma/win    the Windows shell: entry point, launcher, input glue, config
 Lib/Fang2     Fang engine (render, D3D8 driver, audio, physics, world/coll)
+Lib/Bink      Bink interface plus the in-tree decoder (`internal/`)
 Exp, Plug     exporters and editor plug-ins from the original drop
 Ref           reference material from the original drop
 TidBits       bits and pieces from the original drop
@@ -275,8 +279,10 @@ stay intact. The work so far, in the order it mattered:
 
 Known gaps:
 
-- Movie playback uses the RAD `binkw32.dll`, which ships with the port next to
-  the exe.
+- Movie playback uses the in-tree Bink decoder; no `binkw32.dll` is needed.
+  The internal path has been exercised under Wine (loading screens, 44.1 kHz
+  campaign intros and 22.05 kHz logos); native Windows reports are welcome.
+  The build-time fallback is `-DMA_BINK_BACKEND=external` (RAD or FFmpeg DLL).
 - PAL/European Xbox data is not supported yet. The port is developed against
   the USA release; a PAL image can extract but may stop during
   `_InitGameSystems()` because its data tables and localized resources differ.

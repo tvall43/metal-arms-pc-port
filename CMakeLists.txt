@@ -26,6 +26,16 @@ endif()
 # setting across every target here; default off matches retail semantics.
 option(MA_WINGC "GameCube alignment, no SSE (must match across all targets)" OFF)
 
+# Bink video backend.  "internal" (the shipping default since R149) compiles
+# the portable decoder in Lib/Bink/internal into ma_win and removes the
+# binkw32.lib import.  "external" keeps the retail/FFmpeg binkw32.dll drop-in
+# as a fallback build.
+set(MA_BINK_BACKEND "internal" CACHE STRING "Bink backend: internal or external")
+set_property(CACHE MA_BINK_BACKEND PROPERTY STRINGS external internal)
+if(NOT MA_BINK_BACKEND MATCHES "^(external|internal)$")
+  message(FATAL_ERROR "MA_BINK_BACKEND must be external or internal, got '${MA_BINK_BACKEND}'")
+endif()
+
 # The MFC debug shell is excluded (see cmake/gen_sources.py). Without this the
 # build still tries to link the asset browser and vidmode picker.
 option(MA_BUILD_SHELL "Build the MFC debug shell (requires MSVC; mingw cannot)" OFF)
@@ -136,6 +146,32 @@ target_link_libraries(fang2win PUBLIC
 )
 
 # ---------------------------------------------------------------------------
+# In-tree Bink backend (optional).
+# ---------------------------------------------------------------------------
+# The decoder and the 14-function ABI are built into a static library.  The
+# game and fang2win must see __RADINEXE__ so bink.h declares the functions as
+# plain static symbols instead of dllimport; the internal library defines it
+# for its own translation unit as well.
+if(MA_BINK_BACKEND STREQUAL "internal")
+  add_library(bink_internal STATIC
+    Lib/Bink/internal/bink_audio.cpp
+    Lib/Bink/internal/bink_dct.cpp
+    Lib/Bink/internal/bink_decoder.cpp
+    Lib/Bink/internal/bink_idct.cpp
+    Lib/Bink/internal/bink_tables.cpp
+    Lib/Bink/internal/bink_video.cpp
+    Lib/Bink/internal/bink_internal_abi.cpp
+  )
+  target_include_directories(bink_internal PUBLIC
+    Lib/Bink
+    Lib/Bink/internal
+  )
+  target_compile_definitions(bink_internal PRIVATE __RADINEXE__)
+  target_link_libraries(bink_internal PUBLIC d3d8 dsound)
+  target_compile_definitions(fang2win PUBLIC __RADINEXE__)
+endif()
+
+# ---------------------------------------------------------------------------
 # ma_win -- the game.
 # ---------------------------------------------------------------------------
 # App/ma/win/main_win.cpp is not in the original .vcproj: the retail PC build
@@ -157,7 +193,15 @@ target_include_directories(ma_win PRIVATE
   Lib/Bink
   compat
 )
-target_link_libraries(ma_win PRIVATE
-  fang2win
-  ${CMAKE_CURRENT_SOURCE_DIR}/Lib/Bink/binkw32.lib   # Bink video (App/ma/win/binkw32.dll)
-)
+if(MA_BINK_BACKEND STREQUAL "internal")
+  target_compile_definitions(ma_win PRIVATE __RADINEXE__)
+  target_link_libraries(ma_win PRIVATE
+    fang2win
+    bink_internal
+  )
+else()
+  target_link_libraries(ma_win PRIVATE
+    fang2win
+    ${CMAKE_CURRENT_SOURCE_DIR}/Lib/Bink/binkw32.lib   # Bink video (App/ma/win/binkw32.dll)
+  )
+endif()
