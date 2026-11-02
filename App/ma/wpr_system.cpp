@@ -2425,6 +2425,12 @@ static BOOL _Init( void ) {
 
 	if( bWrappers ) {
 		//////////////////////////////////////
+		// Close the wrappers loading movie before ResetToStartupScreen starts
+		// the bootup VUG logo.  R146's cleanup used to run at the end of this
+		// function, which unloaded the VUG movie that ResetToStartupScreen had
+		// just opened, leaving only its first frame/transition on screen.
+		loadingscreen_Uninit();
+
 		// start on the startup screen for now
 		wpr_system_ResetToStartupScreen( _bBootup );
 
@@ -2456,7 +2462,6 @@ static BOOL _Init( void ) {
 
 	if( bWrappers ) {
 		DEVPRINTF( "******** LOAD MARKER - END OF WRAPPERS***********.\n" );
-		loadingscreen_Uninit();
 	}
 
 	return TRUE;
