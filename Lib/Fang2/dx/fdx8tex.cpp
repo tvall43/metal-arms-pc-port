@@ -2387,6 +2387,19 @@ void ftex_ReleaseTex(CFTexInst *pTex)
 //
 //
 //
+#if !FANG_PLATFORM_XB
+struct _FEmbmaAttempt {
+	D3DPOOL pool;
+	DWORD usage;
+	const char *pszDesc;
+};
+static const _FEmbmaAttempt _aEMBMAttempts[] = {
+	{ D3DPOOL_MANAGED, 0,					"managed" },
+	{ D3DPOOL_DEFAULT, D3DUSAGE_DYNAMIC,	"default/dynamic" },
+	{ D3DPOOL_DEFAULT, 0,					"default/static" },
+};
+#endif
+
 CFTexInst *ftex_CreateDynamicEMBM( u32 nTexelsAcross, u32 nTexelsDown, cchar *pszName, FResHandle_t hRes, FResHandle_t *phRes )
 {
 	FTexData_t *pTexData;
@@ -2394,6 +2407,8 @@ CFTexInst *ftex_CreateDynamicEMBM( u32 nTexelsAcross, u32 nTexelsDown, cchar *ps
 	FTexInfo_t *pTexInfo;
 	FResFrame_t ResFrame;
 	DWORD nUsage=0;
+	HRESULT hr = E_FAIL;
+	BOOL bCreated = FALSE;
 
 	CFTexInst *pCFTex = NULL;
 
@@ -2466,15 +2481,10 @@ CFTexInst *ftex_CreateDynamicEMBM( u32 nTexelsAcross, u32 nTexelsDown, cchar *ps
 
 	nUsage = 0;//D3DUSAGE_DYNAMIC;
 	
-	HRESULT hr;
 	D3DPOOL d3dPool;
 
 	#if FANG_PLATFORM_XB
 	d3dPool = D3DPOOL_DEFAULT;
-	#else
-	d3dPool = D3DPOOL_MANAGED;
-	#endif
-
 	if( FAILED( hr = FDX8_pDev->CreateTexture(
 								pTexData->nD3DWidth,
 								pTexData->nD3DHeight,
@@ -2487,6 +2497,71 @@ CFTexInst *ftex_CreateDynamicEMBM( u32 nTexelsAcross, u32 nTexelsDown, cchar *ps
 	{
 		goto _CreateEMBMFailure;
 	}
+	#else
+	// D3D9-on-12 (and some native drivers) accept D3DFMT_X8L8V8U8 under
+	// CheckDeviceFormat but reject the actual texture. Try X8L8V8U8 with
+	// each pool, then fall back to the 16-bit signed V8U8 bump format,
+	// which D3D9-on-12 does support. texbem only needs U/V from t0, so the
+	// low two bytes of the existing X8L8V8U8 normal data are sufficient.
+	for ( u32 nFormat = 0; nFormat < 2 && !bCreated; nFormat++ )
+	{
+		if ( nFormat == 1 )
+		{
+			pTexData->nD3DFormatColor = D3DFMT_V8U8;
+			pTexInfo->nTexFmt = FTEX_FMT_A4R4G4B4; // 16-bit descriptor for ftex copies
+			pTexData->nTextureBytes = _ComputeTextureBytes( pTexDef );
+		}
+
+		for ( u32 nAttempt = 0; nAttempt < (sizeof(_aEMBMAttempts)/sizeof(_aEMBMAttempts[0])); nAttempt++ )
+		{
+			d3dPool = _aEMBMAttempts[nAttempt].pool;
+			nUsage = _aEMBMAttempts[nAttempt].usage;
+
+			hr = FDX8_pDev->CreateTexture(
+						pTexData->nD3DWidth,
+						pTexData->nD3DHeight,
+						1,
+						nUsage,
+						pTexData->nD3DFormatColor,
+						d3dPool,
+						&pTexData->pD3DTexture
+					);
+			if ( SUCCEEDED(hr) )
+			{
+				bCreated = TRUE;
+				if ( nUsage & D3DUSAGE_DYNAMIC )
+				{
+					pTexData->nFlags |= FDX8TEXFLAGS_DYNAMIC_DEFAULT;
+				}
+				if ( nAttempt != 0 )
+				{
+					DEVPRINTF("[ FTEX ] EMBM '%s' created with %s after managed failed.\n", pszName, _aEMBMAttempts[nAttempt].pszDesc);
+				}
+				if ( nFormat == 1 )
+				{
+					DEVPRINTF("[ FTEX ] EMBM '%s' using V8U8 fallback (%ux%u).\n", pszName, (unsigned)pTexData->nD3DWidth, (unsigned)pTexData->nD3DHeight);
+				}
+				break;
+			}
+
+			DEVPRINTF("[ FTEX ] EMBM '%s' %s CreateTexture failed (hr=0x%08X).\n", pszName, _aEMBMAttempts[nAttempt].pszDesc, (unsigned)hr);
+		}
+	}
+
+	if ( !bCreated )
+	{
+		DEVPRINTF("[ FTEX ] EMBM format probe: X8L8V8U8=%d/%d L6V5U5=%d/%d V8U8=%d/%d A8R8G8B8=%d/%d (static/dynamic).\n",
+			(int)fdx8vid_CheckDeviceFormat(0, D3DRTYPE_TEXTURE, D3DFMT_X8L8V8U8),
+			(int)fdx8vid_CheckDeviceFormat(D3DUSAGE_DYNAMIC, D3DRTYPE_TEXTURE, D3DFMT_X8L8V8U8),
+			(int)fdx8vid_CheckDeviceFormat(0, D3DRTYPE_TEXTURE, D3DFMT_L6V5U5),
+			(int)fdx8vid_CheckDeviceFormat(D3DUSAGE_DYNAMIC, D3DRTYPE_TEXTURE, D3DFMT_L6V5U5),
+			(int)fdx8vid_CheckDeviceFormat(0, D3DRTYPE_TEXTURE, D3DFMT_V8U8),
+			(int)fdx8vid_CheckDeviceFormat(D3DUSAGE_DYNAMIC, D3DRTYPE_TEXTURE, D3DFMT_V8U8),
+			(int)fdx8vid_CheckDeviceFormat(0, D3DRTYPE_TEXTURE, D3DFMT_A8R8G8B8),
+			(int)fdx8vid_CheckDeviceFormat(D3DUSAGE_DYNAMIC, D3DRTYPE_TEXTURE, D3DFMT_A8R8G8B8));
+		goto _CreateEMBMFailure;
+	}
+	#endif
 
 	if( phRes ) 
 	{
@@ -2509,6 +2584,7 @@ CFTexInst *ftex_CreateDynamicEMBM( u32 nTexelsAcross, u32 nTexelsDown, cchar *ps
 
 _CreateEMBMFailure:
 	// Failure...
+	DEVPRINTF("[ FTEX ] ftex_CreateDynamicEMBM('%s') failed (hr=0x%08X); liquid EMBM unavailable.\n", pszName ? pszName : "?", (unsigned)hr);
 	fres_ReleaseFrame( ResFrame );
 
 	if( phRes ) 
@@ -2547,6 +2623,8 @@ void ftex_HeightMapToEMBM(CFTexInst *pTex, f32 *pfData, BOOL bVec3)
 	FTexData_t *pTexData = pTexDef->pTexData;
 
 	u32 *pPixel32 = (u32*)pBuffer;
+	u16 *pPixel16 = (u16*)pBuffer;
+	const BOOL bV8U8 = (pTexData->nD3DFormatColor == D3DFMT_V8U8);
     s32 nX, nY;
 	f32 fT00, fT01, fT10, fDX, fDY;
 	
@@ -2574,7 +2652,17 @@ void ftex_HeightMapToEMBM(CFTexInst *pTex, f32 *pfData, BOOL bVec3)
 				FMATH_CLAMP(vN.y, -1.0f, 1.0f);
 				FMATH_CLAMP(vN.z, -1.0f, 1.0f);
 				
-				*pPixel32++ = ( 0xff000000 | ((u32)( 128.0f * vN.x + 127.0f )<<16L) | ((u32)( 128.0f * vN.y + 127.0f )<<8L) | ((u32)( 128.0f * vN.z + 127.0f )) );
+				u32 nValue = ( 0xff000000 | ((u32)( 128.0f * vN.x + 127.0f )<<16L) | ((u32)( 128.0f * vN.y + 127.0f )<<8L) | ((u32)( 128.0f * vN.z + 127.0f )) );
+				if ( bV8U8 )
+				{
+					// V8U8 keeps the low two bytes (U,V); texbem does not
+					// consume the X8L8V8U8 luminance/X bytes.
+					*pPixel16++ = (u16)nValue;
+				}
+				else
+				{
+					*pPixel32++ = nValue;
+				}
 			}
 
 			nYOffs0 += pTexDef->TexInfo.nTexelsAcross;
@@ -2601,11 +2689,26 @@ void ftex_HeightMapToEMBM(CFTexInst *pTex, f32 *pfData, BOOL bVec3)
 					fDY = fDY*128.0f + 127.0f;
 					FMATH_CLAMP(fDY, 0.0f, 255.0f);
 					
-					*pPixel32++ = (0x00ff0000&((u8)(0xff)<<8)) | (0x0000ff00&((u8)(fDY)<<8)) | (0x000000ff&((u8)fDX<<0));
+					u32 nValue = (0x00ff0000&((u8)(0xff)<<8)) | (0x0000ff00&((u8)(fDY)<<8)) | (0x000000ff&((u8)fDX<<0));
+					if ( bV8U8 )
+					{
+						*pPixel16++ = (u16)nValue;
+					}
+					else
+					{
+						*pPixel32++ = nValue;
+					}
 				}
 				else
 				{
-					*pPixel32++ = 0x00808080;
+					if ( bV8U8 )
+					{
+						*pPixel16++ = 0x8080;
+					}
+					else
+					{
+						*pPixel32++ = 0x00808080;
+					}
 				}
 			}
 		}
@@ -4517,10 +4620,24 @@ static void _CopyPitchedToImage32( const u32 *pnSrc, u32 *pnDst, u32 nPitch32, u
 BOOL _CopyImageToTexture( FTexData_t *pTexData, const void *pSrcImage, FTexFmt_e nTexFmt, u32 nLod, u32 nWidth, u32 nHeight ) 
 {
 	D3DLOCKED_RECT LockedRect;
+	DWORD nLockFlags = _nD3DSysLockFlag;
 
-	if ( FAILED( pTexData->pD3DTexture->LockRect( nLod, &LockedRect, NULL, _nD3DSysLockFlag ) ) ) 
+	if ( pTexData->nFlags & FDX8TEXFLAGS_DYNAMIC_DEFAULT )
+	{
+		// Dynamic default-pool textures must be locked with DISCARD.
+		nLockFlags |= D3DLOCK_DISCARD;
+	}
+
+	HRESULT hrLock = pTexData->pD3DTexture->LockRect( nLod, &LockedRect, NULL, nLockFlags );
+	if ( FAILED(hrLock) ) 
 	{
 		// Failed to lock the level...
+		static BOOL bLogged = FALSE;
+		if ( !bLogged )
+		{
+			bLogged = TRUE;
+			DEVPRINTF("[ FTEX ] LockRect(lod=%u, flags=0x%08X) failed (hr=0x%08X).\n", (unsigned)nLod, (unsigned)nLockFlags, (unsigned)hrLock);
+		}
 		return FALSE;
 	}
 

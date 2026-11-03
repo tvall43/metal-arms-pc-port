@@ -30,6 +30,7 @@ enum {
 	FDX8TEXFLAGS_DXT				= 0x01,		// DXT texture
 
 	FDX8TEXFLAGS_NOT_IN_CACHE		= 0x01,		// For streaming textures, this indicates that the texture is not in the cache
+	FDX8TEXFLAGS_DYNAMIC_DEFAULT	= 0x02,		// D3DPOOL_DEFAULT + D3DUSAGE_DYNAMIC (lock with DISCARD)
 	FDX8TEXFLAGS_NONE				= 0x00
 };
 

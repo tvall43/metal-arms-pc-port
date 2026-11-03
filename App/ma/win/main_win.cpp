@@ -71,7 +71,7 @@ static char _szMoviePath[512] = "MOVIES\\";
 // open.
 static FILE *_pLogFile = NULL;
 //R69: bump this every round; it is printed in the log header (see the banner).
-#define MA_PORT_ROUND	"R152"
+#define MA_PORT_ROUND	"R153"
 // Optional banner tag for one-off configurations (CMake MA_BUILD_TAG, e.g.
 // " (O2)"); empty in the normal build so the round alone identifies the exe.
 #ifndef MA_PORT_BUILD_TAG
@@ -292,6 +292,32 @@ static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
 		_Trace( "[ma] stack:" );
 		for( i = 0; i < 24; i++ ) _Trace( " %08X", pStack[i] );
 		_Trace( "\n" );
+
+		// EBP is not reliable at -O2 (frame pointers are omitted), so scan the
+		// used stack for words that point into this executable. These are the
+		// likely return addresses; symbolize the offsets with the matching .dbg.
+		HMODULE hMain = GetModuleHandleA( NULL );
+		if( hMain )
+		{
+			const unsigned int uMain = (unsigned int)(ULONG_PTR)hMain;
+			_Trace( "[ma] stackret:" );
+			int nPrinted = 0;
+			for( i = 0; i < 256 && nPrinted < 32; ++i )
+			{
+				const unsigned int uValue = pStack[i];
+				if( !uValue ) continue;
+				HMODULE hFound = NULL;
+				if( GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+										GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+										(LPCSTR)(ULONG_PTR)uValue, &hFound ) &&
+					hFound == hMain )
+				{
+					_Trace( " %08X(+%X)", uValue, uValue - uMain );
+					++nPrinted;
+				}
+			}
+			_Trace( "\n" );
+		}
 	}
 
 	// Module bases, so stack words and the fault address can be attributed to

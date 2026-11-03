@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R152** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R153** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -101,7 +101,7 @@ launch dialog. Play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R152), and
+cannot be replied to. Name the build id printed in the log header (e.g. R153), and
 check what version you have first - fixes land continuously.
 
 If startup stops at `_GameInit: FAILED at gameloop.cpp:779`, include the line
@@ -150,10 +150,13 @@ canvas centred on screen.
 - The full single-player campaign has been completed end to end on **Linux
   under Wine** (D3D8 through WineD3D): every level, shop, movie and
   checkpoint in order.
-- On **Windows**, what got exercised is the versus multiplayer over four
-  Xbox One pads. The Windows build is the same code through native D3D8, so
-  the campaign is expected to behave the way it does under Wine - it just
-  has not been proven end to end there yet.
+- On **Windows**, every single-player level has been load-tested through the
+  dev-menu level jump, and the versus multiplayer has been exercised over four
+  Xbox One pads. The campaign has not been played through end to end on native
+  Windows yet; it uses the same code through native D3D8, so it is expected to
+  match the Wine run.
+- The in-tree Bink decoder has been validated on both native Windows and Wine
+  (loading screens, 44.1 kHz campaign intros and 22.05 kHz logos).
 
 ## Building
 
@@ -280,9 +283,10 @@ stay intact. The work so far, in the order it mattered:
 Known gaps:
 
 - Movie playback uses the in-tree Bink decoder; no `binkw32.dll` is needed.
-  The internal path has been exercised under Wine (loading screens, 44.1 kHz
-  campaign intros and 22.05 kHz logos); native Windows reports are welcome.
-  The build-time fallback is `-DMA_BINK_BACKEND=external` (RAD or FFmpeg DLL).
+  The internal path has been exercised on both Wine and native Windows
+  (loading screens, 44.1 kHz campaign intros and 22.05 kHz logos); edge-case
+  reports are still welcome. The build-time fallback is
+  `-DMA_BINK_BACKEND=external` (RAD or FFmpeg DLL).
 - PAL/European Xbox data is not supported yet. The port is developed against
   the USA release; a PAL image can extract but may stop during
   `_InitGameSystems()` because its data tables and localized resources differ.

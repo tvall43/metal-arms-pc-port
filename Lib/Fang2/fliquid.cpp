@@ -315,11 +315,23 @@ void CFLiquidVolume::InitStaticData()
 		char szName[32];
 
 		m_DataPool = (FLiquid_Data_t *)fres_AlignedAlloc(sizeof(FLiquid_Data_t)*LV_POOLSIZE, 8);
+		if (!m_DataPool)
+		{
+			DEVPRINTF("[ FLIQUID ] Could not allocate liquid data pool; liquids disabled.\n");
+			return;
+		}
 
 		for (i=0; i<LV_POOLSIZE; i++)
 		{
 			sprintf(szName, "LiquidEMBM%d", i);
 			m_DataPool[i].m_pEMBM = ftex_CreateDynamicEMBM(LV_GRID_SIZE, LV_GRID_SIZE, (cchar *)szName, FRES_NULLHANDLE, NULL);
+			if (!m_DataPool[i].m_pEMBM)
+			{
+				// D3D8-on-12/Intel can reject D3DFMT_X8L8V8U8. Collisions and
+				// wave simulation still work; the surface/height-map update
+				// is skipped instead of dereferencing a null texture.
+				DEVPRINTF("[ FLIQUID ] EMBM texture '%s' unavailable; liquid surface rendering disabled.\n", szName);
+			}
 		}
 
 		_bInitStaticData = TRUE;
@@ -420,7 +432,19 @@ void CFLiquidVolume::Init()
 		m_nRenderPlaneID = fsh_AddRenderPlane(m_vSurface, nType, TRUE, &m_fogClr, m_fDensity, m_fGeoDraw, m_fOpacity, m_fTile, m_fRadius, m_pTexInst[0], m_pTexInst[1]);
 	}
 		
+	if (!m_DataPool)
+	{
+		m_bInit = FALSE;
+		m_bRenderEnabled = FALSE;
+		m_bRender = FALSE;
+		return;
+	}
+
 	m_pData = &m_DataPool[(LiquidSystem.m_nNumLiquidVolume-1)%LV_POOLSIZE]; //for now
+	if (!m_pData->m_pEMBM)
+	{
+		DEVPRINTF("[ FLIQUID ] Liquid volume has no EMBM texture; surface rendering disabled, collision work kept.\n");
+	}
 	
 	InitData();
 	m_bInit = TRUE;
@@ -918,30 +942,33 @@ void CFLiquidVolume::Work()
 			nYOffs0 += LV_GRID_SIZE;
 		}
 
-		if (m_nType == LT_OIL)
+		if (m_pData->m_pEMBM)
 		{
-			_FilterData(m_pData->m_pZc, LV_GRID_SIZE, LV_GRID_SIZE);
-			ftex_HeightMapToEMBM(m_pData->m_pEMBM, _pfFilterBuffer, TRUE);	
-		}
-		else
-		{
-//R63: was 'FANG_PLATFORM_XB | FANG_PLATFORM_PC', but FANG_PLATFORM_PC is never
-//defined anywhere in the tree, so the expression is always 0 and the PC build
-//silently took the #else -- the *molten* (unfiltered) height->EMBM path -- for
-//water and ooze. Retail (Xbox) takes this branch and filters non-molten
-//liquids. Match the convention used by the other dx code: FANG_PLATFORM_WIN.
-#if FANG_PLATFORM_XB || FANG_PLATFORM_WIN
-			if (m_nType == LT_MOLTEN)
+			if (m_nType == LT_OIL)
 			{
-				ftex_HeightMapToEMBM(m_pData->m_pEMBM, m_pData->m_pZc);
+				_FilterData(m_pData->m_pZc, LV_GRID_SIZE, LV_GRID_SIZE);
+				ftex_HeightMapToEMBM(m_pData->m_pEMBM, _pfFilterBuffer, TRUE);	
 			}
 			else
 			{
-				ftex_HeightMapToEMBM(m_pData->m_pEMBM, m_pData->m_pZc, TRUE);
+	//R63: was 'FANG_PLATFORM_XB | FANG_PLATFORM_PC', but FANG_PLATFORM_PC is never
+	//defined anywhere in the tree, so the expression is always 0 and the PC build
+	//silently took the #else -- the *molten* (unfiltered) height->EMBM path -- for
+	//water and ooze. Retail (Xbox) takes this branch and filters non-molten
+	//liquids. Match the convention used by the other dx code: FANG_PLATFORM_WIN.
+	#if FANG_PLATFORM_XB || FANG_PLATFORM_WIN
+				if (m_nType == LT_MOLTEN)
+				{
+					ftex_HeightMapToEMBM(m_pData->m_pEMBM, m_pData->m_pZc);
+				}
+				else
+				{
+					ftex_HeightMapToEMBM(m_pData->m_pEMBM, m_pData->m_pZc, TRUE);
+				}
+	#else
+				ftex_HeightMapToEMBM(m_pData->m_pEMBM, m_pData->m_pZc);
+	#endif
 			}
-#else
-			ftex_HeightMapToEMBM(m_pData->m_pEMBM, m_pData->m_pZc);
-#endif
 		}
 		
 		if (m_vCurrent.x || m_vCurrent.y)
@@ -960,7 +987,7 @@ void CFLiquidVolume::Render()
 	{
 		return;
 	}
-	if (m_pData)
+	if (m_pData && m_pData->m_pEMBM)
 	{
 		fsh_RenderPlane(m_nRenderPlaneID, 1.0f, 1.0f, m_vScroll.x, m_vScroll.y, m_pData->m_pEMBM, m_fGlowScale, m_fBumpTile);
 	}
@@ -1266,6 +1293,11 @@ void CFLiquidMesh::Render()
 	if (m_pLiquidVolume)
 	{
 		pEMBM = m_pLiquidVolume->GetEMBM();
+	}
+	if (!pEMBM)
+	{
+		// No EMBM texture (unsupported bump format or failed creation).
+		return;
 	}
 
 	CFVec3 vFront;
