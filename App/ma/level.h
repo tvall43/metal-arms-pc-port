@@ -100,7 +100,11 @@ typedef enum {
 	LEVEL_MULTIPLAYER_13,
 	LEVEL_MULTIPLAYER_14,
 
-	LEVEL_MULTIPLAYER_COUNT = (LEVEL_MULTIPLAYER_14 + 1 - LEVEL_MULTIPLAYER_1)
+	LEVEL_MULTIPLAYER_COUNT = (LEVEL_MULTIPLAYER_14 + 1 - LEVEL_MULTIPLAYER_1),
+
+	// Runtime profiles register additive multiplayer levels after the retail
+	// block. The ids match Cobblecorn's profile API (PC_MODS_LEVEL_BASE).
+	LEVEL_MOD_LEVEL_1 = LEVEL_SINGLE_PLAYER_COUNT + LEVEL_MULTIPLAYER_COUNT
 } Level_e;
 
 typedef enum {

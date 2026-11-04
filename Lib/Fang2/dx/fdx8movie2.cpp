@@ -27,6 +27,7 @@
 #include "bink.h"
 #include "fclib.h"
 #include "fDataStreaming.h"
+#include "pc_mods.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -217,7 +218,7 @@ FMovie2_Error_e fmovie2_Install( void ) {
 	}
 
 	//check to see if we have any movies to play.  If we don't then don't grab memory!
-	if( _uNumMovieTableEntries == 0 )
+	if( _uNumMovieTableEntries == 0 && !pcmods_HasMovies() )
 		return FMOVIE2_NO_ERROR;
 
 #if !_USE_STREAMING_MEMORY
@@ -305,15 +306,19 @@ void fmovie2_Play( cchar *pszFileName, f32 fVolume, cu32 uPlayFlags ) {
 		}
 	}
 
-	if( !pMovieEntry ) {
-		DEVPRINTF( "[ FMOVIE2 ] Error : Couldn't find movie file %s in Movie Filename Table!\n", pszFileName );
-		return;
-	}
-
-	//if we are here, we found this filename in the movie table, lets construct the filename and load it!
 	char szFullMoviePathName[ MAX_PATH ];
-	fclib_strcpy( szFullMoviePathName, pMovieEntry->pszPath );
-	fclib_strcat( szFullMoviePathName, pMovieEntry->pszName );
+	const BOOL bModMovie = pcmods_ResolveMedia( pszFileName, szFullMoviePathName, sizeof( szFullMoviePathName ) );
+	if( !bModMovie ) {
+		if( !pMovieEntry ) {
+			DEVPRINTF( "[ FMOVIE2 ] Error : Couldn't find movie file %s in Movie Filename Table!\n", pszFileName );
+			return;
+		}
+		//if we are here, we found this filename in the movie table, lets construct the filename and load it!
+		fclib_strcpy( szFullMoviePathName, pMovieEntry->pszPath );
+		fclib_strcat( szFullMoviePathName, pMovieEntry->pszName );
+	} else {
+		DEVPRINTF( "PORT-MODS movie override %s\n", szFullMoviePathName );
+	}
 
 	BOOL bFilenameLocalized = ffile_LocalizeFilename( szFullMoviePathName, FALSE ); //DO NOT RENAME FILE, JUST DETERMINE IF IT'S LOCALIZED
 
@@ -463,6 +468,8 @@ FMovie2Status_e fmovie2_GetStatus( void ) {
 
 BOOL fmovie2_MovieExists( cchar* pszFileName ) {
 	BOOL bRetVal = FALSE;
+	char szModMovie[MAX_PATH];
+	if( pcmods_ResolveMedia( pszFileName, szModMovie, sizeof( szModMovie ) ) ) return TRUE;
 	//search the MovieFilenameTable to see if this movie is in our table...
 	_MovieTableEntry_t *pMovieEntry = NULL;
 	for( u32 ui=0; ui<_uNumMovieTableEntries; ui++ ) {

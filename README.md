@@ -42,6 +42,10 @@ MetalArmsPC/
     mettlearms_xb.mst master file (auto-detected here)
     MOVIES/ ...
   saves/              profile files (created automatically: saves/profile-*)
+  mods/               optional runtime profiles (add-on data, not in release)
+    README.txt
+    macmines/         runtime.ini + resources/ + optional media/
+    bloodgulch/
   ma_win_log.txt      only when debug logging is enabled
 ```
 
@@ -61,6 +65,23 @@ First run:
 3. Press play. Profiles live in `saves/profile-*`; an old flat `profile-*` next
    to the exe is migrated into `saves/` on first start.
 
+### Mod profiles (`mods/`)
+
+Mod loading is off by default to keep a clean retail launch. Tick **Enable mod
+loading (scan mods/)** in the launcher before pressing Start to scan
+`<exe>/mods/` for folders with a Cobblecorn-style `runtime.ini` (`[profile]
+api=1`). Each profile can override resources (`.wld`, `.csv`, `.gt`, `.tga`) and
+optionally movies/audio under `media/`, and can add multiplayer levels under
+`[levels]`. The game loads every valid profile in lexical folder order, merges
+their `multi_lvl$.csv` menu rows, and appends the levels after the retail
+multiplayer list. With the checkbox off, or with no profiles installed, the
+launcher takes the same path as a vanilla launch.
+
+For testing, `-mod <folder>`, `ModRoot=` under `[Paths]`, and the
+`MA_PORT_MOD_ROOT` environment variable force a single profile and turn mod
+loading on for that run. The checkbox remains the normal user-facing switch and
+its value is stored as `[Mods] Enabled`.
+
 `ma_win.ini` lookup order for the master file: `assets/mettlearms_xb.mst`
 first, then the stored `[Paths] MasterFile`, then the old flat
 `<exe>/mettlearms_xb.mst` for installs made before the portable layout.
@@ -73,6 +94,7 @@ first, then the stored `[Paths] MasterFile`, then the old flat
 | `play` | Boot straight into the campaign in retail mode |
 | `dev` | Development mode: boot-mode chooser, dev menu, dev cheats, Level jump on the launch dialog |
 | `autorun` | Development mode, boot straight in (the original vcproj behavior) |
+| `mod <folder>` | Force one runtime profile and enable mod loading for this run (testing; `-mod=...` also works) |
 
 Retail mode never writes a log file, ignores the dev-only debug options, and
 starts clean. A VectoredExceptionHandler crash logger is always active and
@@ -120,7 +142,8 @@ supported source yet (see Known gaps).
 | `[Audio]` | `Volume2D`, `MinDistanceFraction` | engine defaults | Speech/UI volume and 3D sound falloff start |
 | `[Mouse]` | `Sensitivity` | 1.0 | Mouse-look scale |
 | `[KEYMAP]` | `Jump`, `SelectPrimary`, `SelectSecondary`, `Action`, `Start`, `Back`, `Fire`, `Aim`, `Black`, `White`, `Crouch`, `Melee` | default bindings | Keyboard overrides for the pad action layer; buttons only (WASD / IJKL / arrows are fixed), unknown key names fall back to the default |
-| `[Paths]` | `MasterFile`, `Level`, `ScreenshotDir` | auto | Advanced; `MasterFile` is normally not needed |
+| `[Paths]` | `MasterFile`, `Level`, `ScreenshotDir`, `ModRoot` | auto | Advanced; `MasterFile` is normally not needed. `ModRoot` forces one profile for testing |
+| `[Mods]` | `Enabled` | 0 | Launcher checkbox; 1 scans `mods/` for runtime profiles |
 | `[Debug]` | `LogFile`, `TempProbes`, `WireLightForce`, `WireCullNone` | off | Development-only diagnostics; retail mode ignores them |
 
 `MSAA` is requested, not forced: `4` uses 4x only if the driver reports it,

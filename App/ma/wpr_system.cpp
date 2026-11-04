@@ -30,6 +30,7 @@
 #include "fstringtable.h"
 #include "fstorage.h"
 #include "level.h"
+#include "pc_mods.h"
 #include "ItemInst.h"
 #include "faudio.h"
 #include "fsndfx.h"
@@ -615,6 +616,19 @@ FINLINE void _SafeCopyFStorageName( wchar *pwszDst, cwchar *pwszSrc, s32 nLimitA
 static void _TryToReadProfileAndSetupProperResponseState( BOOL bMakeRetryTheDefaultOptionIfError );
 static void _SetupLaunchMenu( void );
 static void _IGSaveDisplaySelectMUMsgBox( BOOL bForceStatusUpdate );
+
+// Runtime-profile multiplayer rows are additive and outside the retail chip
+// unlock economy. Identify them by their level number rather than by a fixed
+// row index, so a profile can add one map or several.
+static BOOL _IsProfileMPMenuIndex( u32 nIndex ) {
+	const _LevelSelectInfo_t *pSel = &_MenuState.MLLevelSelectInfo;
+	if( !pSel->panLevelNumbers || nIndex >= pSel->nNumLevels ) return FALSE;
+	return pSel->panLevelNumbers[nIndex] > (u32)( LEVEL_SINGLE_PLAYER_COUNT + LEVEL_MULTIPLAYER_COUNT );
+}
+
+static u32 _ProfileMPMapCount( void ) {
+	return LEVEL_MULTIPLAYER_COUNT + pcmods_CustomLevelCount();
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // GENERIC SCREEN FUNCTIONS THAT CAN BE USED BY ANY SCREEN INSTEAD OF IMPLEMENTING A CUSTOM ROUTINE
@@ -3092,7 +3106,7 @@ BOOL wpr_system_CreateLoadHeading( u8 nLevelNum,
 			pwszTag = _MenuState.PLSelectInfo.papwzNames[nLevelNum];
 			pwszLoc = _MenuState.PLSelectInfo.papwzLocations[nLevelNum];		
 
-		} else if( nLevelNum < (LEVEL_SINGLE_PLAYER_COUNT + LEVEL_MULTIPLAYER_COUNT) ) {
+		} else if( nLevelNum < (LEVEL_SINGLE_PLAYER_COUNT + _ProfileMPMapCount()) ) {
 			// multiplayer level
 			nLevelNum -= LEVEL_SINGLE_PLAYER_COUNT;
 			FASSERT( nLevelNum < _MenuState.MLLevelSelectInfo.nNumLevels );
@@ -3128,7 +3142,7 @@ BOOL wpr_system_CreateLoadHeading( u8 nLevelNum,
 			FASSERT( pwszLoc );
 			FASSERT( pwszTag );
 
-		} else if( nLevelNum < (LEVEL_SINGLE_PLAYER_COUNT + LEVEL_MULTIPLAYER_COUNT) ) {
+		} else if( nLevelNum < (LEVEL_SINGLE_PLAYER_COUNT + _ProfileMPMapCount()) ) {
 			// multiplayer level
 			nLevelNum -= LEVEL_SINGLE_PLAYER_COUNT;
 			FASSERT( nLevelNum < _MenuState.MLLevelSelectInfo.nNumLevels );
@@ -9067,7 +9081,8 @@ static Wpr_DataTypes_NavCode_e _MultiLevel_Work( void ) {
 	
 	// check for the A button
 	if( _CheckAcceptButtons( _MenuState.nControllerIndex ) ) {
-		if( _MenuState.nCurItemIndex >= (_MenuState.MLUnLockInfo.nNumFreebies + _MenuState.nMLNumUnlockedLevels) ) {
+		if( _MenuState.nCurItemIndex >= (_MenuState.MLUnLockInfo.nNumFreebies + _MenuState.nMLNumUnlockedLevels)
+			&& !_IsProfileMPMenuIndex( _MenuState.nCurItemIndex ) ) {
 			fsndfx_Play2D( _ahSounds[WPR_DATATYPES_SOUNDS_NO_CAN_DO] );
 		} else {
 			fsndfx_Play2D( _ahSounds[WPR_DATATYPES_SOUNDS_SUCCESS] );
@@ -9121,7 +9136,8 @@ static void _MultiLevel_DrawOrtho( f32 fScaleMultiplier, f32 fHalfXRes, f32 fHal
 				  0.85f, 
 				  pLevelSelect->papwzNames[_MenuState.nCurItemIndex] );
 	// print the work "locked" over the main screen shot
-	if( _MenuState.nCurItemIndex >= (_MenuState.MLUnLockInfo.nNumFreebies + _MenuState.nMLNumUnlockedLevels) ) {
+	if( _MenuState.nCurItemIndex >= (_MenuState.MLUnLockInfo.nNumFreebies + _MenuState.nMLNumUnlockedLevels)
+		&& !_IsProfileMPMenuIndex( _MenuState.nCurItemIndex ) ) {
 		// draw the lock warning
 		ftext_Printf( 0.5f, 0.375f,
 				  L"~f1~C%ls~w0%ls~a%lc~s%.2f%ls", 
@@ -9171,7 +9187,8 @@ static void _MultiLevel_DrawFDraw( f32 fScaleMultiplier, f32 fHalfXRes, f32 fHal
 	pLevelSelect = &_MenuState.MLLevelSelectInfo;
 
 	// draw the current screenshot
-	wpr_drawutils_DrawTextureToScreen( (_MenuState.nCurItemIndex < (_MenuState.MLUnLockInfo.nNumFreebies + _MenuState.nMLNumUnlockedLevels)),
+	wpr_drawutils_DrawTextureToScreen( (_MenuState.nCurItemIndex < (_MenuState.MLUnLockInfo.nNumFreebies + _MenuState.nMLNumUnlockedLevels))
+		|| _IsProfileMPMenuIndex( _MenuState.nCurItemIndex ),
 					 &pLevelSelect->paTexInsts[_MenuState.nCurItemIndex],
 					 -0.0f, -0.12f,
 					 0.70f,

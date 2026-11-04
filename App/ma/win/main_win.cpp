@@ -21,6 +21,7 @@
 
 #include "fang.h"
 #include "ffile.h"
+#include "pc_mods.h"
 #include "fvid.h"
 #include "fdx8vid.h"
 
@@ -349,6 +350,10 @@ static LONG WINAPI _CrashLogger( EXCEPTION_POINTERS *pEP )
 // ---------------------------------------------------------------------------
 
 static char _szMasterFile[512]	= "";
+static char _szModRoot[512]		= "";  // runtime profile folder; empty = vanilla
+static BOOL _bModRootFromCommandLine = FALSE;
+static BOOL _bModRootFromEnvironment = FALSE;
+static BOOL _bModsEnabled = FALSE;  // launcher checkbox; default off = retail behavior
 static char _szGameRootPath[512]	= "";  // dir of master file, trailing slash; loose .wvs live here
 static char _szExeDir[512]		= "";  // exe dir, trailing slash
 static char _szAssetsDir[512]		= "";  // <exe>\assets\ when that layout is present
@@ -377,6 +382,7 @@ static u32  _nMSAA				= 0;	//R139: requested sample count, 0=off
 #define _ID_EXTRACT_ISO	1013
 #define _ID_START_DEV		1014
 #define _ID_MSAA			1015
+#define _ID_MODS			1016
 
 static HWND _hwndStatus = NULL;
 static BOOL _bStartRequested = FALSE;
@@ -506,6 +512,39 @@ static void _LoadConfig( void )
 	_BuildExeDir();
 	oSettings.ReadCustomString( "Paths", "MasterFile", "", _szMasterFile, sizeof(_szMasterFile) );
 	oSettings.ReadCustomString( "Paths", "Level", "", _szLevelFile, sizeof(_szLevelFile) );
+	if( !_bModRootFromCommandLine ) {
+		oSettings.ReadCustomString( "Paths", "ModRoot", "", _szModRoot, sizeof(_szModRoot) );
+		char szEnv[MAX_PATH];
+		const DWORD nEnv = GetEnvironmentVariableA( "MA_PORT_MOD_ROOT", szEnv, sizeof(szEnv) );
+		if( nEnv > 0 && nEnv < sizeof(szEnv) ) {
+			strncpy( _szModRoot, szEnv, sizeof(_szModRoot) - 1 );
+			_szModRoot[sizeof(_szModRoot) - 1] = '\0';
+			_bModRootFromEnvironment = TRUE;
+		}
+	}
+	{
+		// Store an absolute path. Relative ModRoot values are relative to the
+		// exe, which is where the packaged mods\ folder lives.
+		if( _szModRoot[0] ) {
+			char szFull[MAX_PATH];
+			const BOOL bAbsolute = ( ( _szModRoot[0] == '\\' ) || ( _szModRoot[0] == '/' ) ||
+				( _szModRoot[1] == ':' ) );
+			const char *pszPath = _szModRoot;
+			if( !bAbsolute && _szExeDir[0] ) {
+				snprintf( szFull, sizeof(szFull), "%s%s", _szExeDir, _szModRoot );
+				pszPath = szFull;
+			}
+			if( GetFullPathNameA( pszPath, sizeof(_szModRoot), _szModRoot, NULL ) == 0 ) {
+				_szModRoot[0] = '\0';
+			}
+		}
+	}
+	_bModsEnabled = oSettings.ReadCustomInt( "Mods", "Enabled", 0 ) ? TRUE : FALSE;
+	// A test launch or an automated environment override is explicit; it may
+	// turn mod loading on for this run without changing the saved checkbox.
+	if( _bModRootFromCommandLine || _bModRootFromEnvironment ) {
+		_bModsEnabled = TRUE;
+	}
 	_ResolveAssetPaths();
 	oSettings.ReadCustomString( "Paths", "ScreenshotDir", _szExeDir, _szScreenshotDir, sizeof(_szScreenshotDir) );
 	if( _szScreenshotDir[0] == '\0' || strcmp( _szScreenshotDir, "." ) == 0 ) {
@@ -624,6 +663,10 @@ static void _SaveConfig( void )
 
 	oSettings.WriteCustomString( "Paths", "MasterFile", _szMasterFile );
 	oSettings.WriteCustomString( "Paths", "Level", _szLevelFile );
+	oSettings.WriteCustomInt( "Mods", "Enabled", _bModsEnabled ? 1 : 0 );
+	if( !_bModRootFromCommandLine && !_bModRootFromEnvironment ) {
+		oSettings.WriteCustomString( "Paths", "ModRoot", _szModRoot );
+	}
 	oSettings.WriteCustomString( "Paths", "ScreenshotDir", _szScreenshotDir );
 	oSettings.WriteCustomString( "Video", "MovieScaling",
 		( FMovie2_nScalingMode == 1 ) ? "fill" : ( ( FMovie2_nScalingMode == 2 ) ? "stretch" : "fit" ) );
@@ -785,6 +828,11 @@ static void _ReadControls( HWND hwndDlg )
 	HWND hwndLog = GetDlgItem( hwndDlg, _ID_DEBUGLOG );
 	if( hwndLog ) {
 		_bLogFileEnabled = ( SendMessage( hwndLog, BM_GETCHECK, 0, 0 ) == BST_CHECKED );
+	}
+
+	HWND hwndMods = GetDlgItem( hwndDlg, _ID_MODS );
+	if( hwndMods ) {
+		_bModsEnabled = ( SendMessage( hwndMods, BM_GETCHECK, 0, 0 ) == BST_CHECKED );
 	}
 }
 
@@ -1131,6 +1179,17 @@ static void _CreateDialogControls( HWND hwndDlg )
 	}
 	nY += 32;
 
+	_AddLabel( hwndDlg, nX, nY + 4, nLabelW, 20, "Mods:" );
+	{
+		HWND hwnd = CreateWindowEx( 0, "BUTTON", "Enable mod loading (scan mods/)",
+			WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
+			nCtrlX, nY + 2, 250, 20, hwndDlg, (HMENU)(INT_PTR)_ID_MODS, _hInstance, NULL );
+		if( hwnd ) {
+			SendMessage( hwnd, BM_SETCHECK, _bModsEnabled ? BST_CHECKED : BST_UNCHECKED, 0 );
+		}
+	}
+	nY += 32;
+
 	_AddLabel( hwndDlg, nX, nY, 420, 20, "" );
 	_hwndStatus = CreateWindowEx( 0, "STATIC", "",
 		WS_CHILD | WS_VISIBLE | SS_LEFT,
@@ -1161,7 +1220,7 @@ static BOOL _ShowStartupDialog( void )
 		WS_EX_DLGMODALFRAME | WS_EX_TOPMOST,
 		"MetalArmsStartup", "Metal Arms",
 		WS_POPUPWINDOW | WS_CAPTION | WS_VISIBLE,
-		CW_USEDEFAULT, CW_USEDEFAULT, 470, 250,
+		CW_USEDEFAULT, CW_USEDEFAULT, 470, 300,
 		NULL, NULL, _hInstance, NULL );
 	if( !hwndDlg ) {
 		return FALSE;
@@ -1279,6 +1338,16 @@ static BOOL _RunGame( void )
 	Fang_ConfigDefs.nMaxParticleEmitters		= 500;
 	Fang_ConfigDefs.nMaxParticles				= 3000;
 	Fang_ConfigDefs.nMaxParticleEmitterSprites	= 1000;
+
+	// Runtime profiles are read by ffile during fang_Startup(), so configure
+	// them after fang_Init() has reset the config pointers but before startup.
+	if( _bModsEnabled ) {
+		pcmods_Configure( _szModRoot[0] ? _szModRoot : NULL );
+		_Trace( "[ma] mod profile(s): %s\n", pcmods_IsActive() ? pcmods_GetRoot() : "(none)" );
+	} else {
+		pcmods_Disable();
+		_Trace( "[ma] mod loading : disabled (launcher checkbox off)\n" );
+	}
 
 	if( !fang_Startup() ) {
 		_Trace( "[ma] fang_Startup FAILED\n" );
@@ -1441,6 +1510,52 @@ static BOOL _RunGame( void )
 // Entry point
 // ---------------------------------------------------------------------------
 
+// -mod <folder>, -mod=<folder>, or the same with a leading slash. This is the
+// command-line equivalent of MA_PORT_MOD_ROOT and the [Paths] ModRoot setting.
+static BOOL _ParseModRootArgument( const char *pszCmdLine ) {
+	const char *p = pszCmdLine;
+	while( p && *p ) {
+		while( *p == ' ' || *p == '\t' ) p++;
+		if( !*p ) break;
+		const char *pTok = p;
+		while( *p && *p != ' ' && *p != '\t' ) p++;
+		int nTok = (int)( p - pTok );
+		while( nTok > 0 && ( *pTok == '-' || *pTok == '/' ) ) { pTok++; nTok--; }
+
+		const char *pValue = NULL;
+		int nValue = 0;
+		if( nTok == 3 && ( pTok[0] | 0x20 ) == 'm' && ( pTok[1] | 0x20 ) == 'o' && ( pTok[2] | 0x20 ) == 'd' ) {
+			const char *q = p;
+			while( *q == ' ' || *q == '\t' ) q++;
+			if( *q == '"' ) {
+				q++;
+				pValue = q;
+				while( *q && *q != '"' ) q++;
+				nValue = (int)( q - pValue );
+				if( *q == '"' ) q++;
+			} else {
+				pValue = q;
+				while( *q && *q != ' ' && *q != '\t' ) q++;
+				nValue = (int)( q - pValue );
+			}
+			p = q;
+		} else if( nTok > 4 && ( pTok[0] | 0x20 ) == 'm' && ( pTok[1] | 0x20 ) == 'o' &&
+			( pTok[2] | 0x20 ) == 'd' && pTok[3] == '=' ) {
+			pValue = pTok + 4;
+			nValue = nTok - 4;
+		}
+
+		if( pValue && nValue > 0 ) {
+			if( nValue >= (int)sizeof(_szModRoot) ) nValue = sizeof(_szModRoot) - 1;
+			memcpy( _szModRoot, pValue, nValue );
+			_szModRoot[nValue] = '\0';
+			_bModRootFromCommandLine = TRUE;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 					PSTR pszCmdLine, int nCmdShow )
 {
@@ -1463,6 +1578,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	//   play     boot straight in, retail mode
 	//   (none)   retail-mode launch dialog: dev rows hidden, debug log off
 	BOOL bAutoRun = FALSE;
+	_ParseModRootArgument( pszCmdLine );
 	if( pszCmdLine ) {
 		for( const char* p = pszCmdLine; *p; p++ ) {
 			if( *p == 'a' || *p == 'A' ) {
