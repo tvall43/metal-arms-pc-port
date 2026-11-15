@@ -26,6 +26,7 @@
 #include "fdata.h"
 #include "fclib.h"
 #include "fres.h"
+#include "pc_mods.h"
 
 #if FANG_PLATFORM_WIN
 	#include <time.h>
@@ -475,6 +476,20 @@ FFileHandle ffile_Open( cchar *pszFName, FFileOpenType_e nOpenMode, BOOL bBypass
 
 	ffile_AddToLogFile( pszFName );
 
+	// A mod profile overlays read-only resources without touching the master
+	// archive. Saves and explicit OS accesses bypass this branch.
+	if ( !bBypassMasterFile &&
+		( nOpenMode == FFILE_OPEN_RONLY || nOpenMode == FFILE_OPEN_RONLY_SEQUENTIAL ||
+		  nOpenMode == FFILE_OPEN_RONLY_RANDOM ) )
+	{
+		char szOverridePath[MAX_PATH];
+		if( pcmods_ResolveFile( pszFName, szOverridePath, sizeof( szOverridePath ) ) )
+		{
+			DEVPRINTF( "PORT-MODS resource override %s\n", szOverridePath );
+			return ffile_OSDir_Open( szOverridePath, nOpenMode );
+		}
+	}
+
 	// If we found a master file and the caller hasn't requested bypass, look in the master file
 	if ( _bMasterMode && !bBypassMasterFile ) 
 	{
@@ -713,6 +728,17 @@ const FFileMasterEntry_t* ffile_MF_OpenStream( cchar *pszFName, u32 *pFileSizeOu
 
 	ffile_AddToLogFile( pszFName );
 
+	// A profile can also provide a streamed resource. The entry stays in the
+	// process for as long as any texture or world reader can refer to it.
+	if ( pcmods_IsActive() )
+	{
+		const FFileMasterEntry_t *pOverride = pcmods_OpenStream( pszFName, pFileSizeOut );
+		if ( pOverride )
+		{
+			return pOverride;
+		}
+	}
+
 	// If we found a master file and the caller hasn't requested bypass, look in the master file
 	if ( !_bMasterMode )
 	{
@@ -757,6 +783,12 @@ s32 ffile_MF_ReadStream( const FFileMasterEntry_t *pDirEntry, u32 uReadStart, u3
 #if _ENABLE_TIMING_LOADS
 	CFFileTimer FFileTimer;
 #endif
+
+	s32 nModResult;
+	if( pcmods_ReadStream( pDirEntry, uReadStart, uReadAmt, pDestData, pCallback, pUser, &nModResult ) )
+	{
+		return nModResult;
+	}
 
 	// Seek to the appropriate spot in the master file
 	if ( ffile_OSDir_Seek( &FFile_paFileCookie[FFile_hAsyncMasterFile], pDirEntry->nStartOffset + uReadStart, FFILE_SEEK_SET ) < 0 ) 

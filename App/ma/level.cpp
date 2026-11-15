@@ -26,6 +26,7 @@
 #endif
 
 #include "level.h"
+#include "pc_mods.h"
 #include "fclib.h"
 #include "fres.h"
 #include "fresload.h"
@@ -241,7 +242,12 @@ f32 Level_fSecsInLevel;
 f32 Level_fStartingFadeSecs;
 f32 Level_fEndingFadeSecs;
 
+#if FANG_PLATFORM_WIN
+// Reserve room for runtime profile levels appended by level_InitSystem().
+Level_t Level_aInfo[256] = {
+#else
 Level_t Level_aInfo[] = {
+#endif
 /////////////////////////////////////////////////////////////////////////////////////
 // DEVELOPMENT LEVELS
 /////////////////////////////////////////////////////////////////////////////////////
@@ -1401,6 +1407,32 @@ BOOL level_InitSystem( void ) {
 
 	// Count the number of levels in the table...
 	for( Level_nCount=0; Level_aInfo[Level_nCount].pszTitle; Level_nCount++ ) {}
+
+#if FANG_PLATFORM_WIN
+	// Cobblecorn-style runtime profiles add their multiplayer maps after the
+	// retail table. With no profile this loop does nothing and the list is
+	// exactly the retail one.
+	{
+		const unsigned nCustomLevels = pcmods_CustomLevelCount();
+		for( unsigned i = 0; i < nCustomLevels && Level_nCount < 255; ++i ) {
+			const PcModLevel *pModLevel = pcmods_CustomLevel( i );
+			if( !pModLevel ) {
+				DEVPRINTF( "level: skipping invalid profile level %u\n", i );
+				continue;
+			}
+			Level_t &Level = Level_aInfo[Level_nCount];
+			fang_MemZero( &Level, sizeof( Level ) );
+			Level.pszTitle = pModLevel->title;
+			Level.pszWorldResName = pModLevel->world;
+			Level.nLevel = (Level_e)( PC_MODS_LEVEL_BASE + i );
+			Level.pszCSVFile = pModLevel->csv;
+			Level.pszMaterialCSVFile = pModLevel->materials;
+			DEVPRINTF( "level: profile level %d '%s' world=%s csv=%s materials=%s\n",
+				(int)Level.nLevel, Level.pszTitle, Level.pszWorldResName, Level.pszCSVFile, Level.pszMaterialCSVFile );
+			++Level_nCount;
+		}
+	}
+#endif
 
 	Level_nLoadedIndex = -1;
 	_bSystemInitialized = TRUE;

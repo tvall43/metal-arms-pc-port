@@ -26,6 +26,7 @@
 #include "fresload.h"
 #include "fclib.h"
 #include "ffile.h"
+#include "pc_mods.h"
 #include "floop.h"
 
 #include <dsound.h>
@@ -4608,6 +4609,14 @@ CFAudioStream *CFAudioStream::Create( cchar *pszName, BOOL bWillBeUsedForMusic/*
 	}
 	fclib_strcat( szTemp, pszName );
 	fclib_strcat( szTemp, ".wvs" );
+
+	char szModStream[MAX_PATH];
+	if( pcmods_ResolveMedia( szTemp, szModStream, sizeof( szModStream ) ) )
+	{
+		strncpy( szTemp, szModStream, sizeof( szTemp ) - 1 );
+		szTemp[sizeof( szTemp ) - 1] = '\0';
+		DEVPRINTF( "PORT-MODS stream media=%s\n", szTemp );
+	}
 
 	poStream->ohFile = ffile_Open( szTemp, FFILE_OPEN_RONLY, TRUE );
 	if( FFILE_INVALID_HANDLE == poStream->ohFile )

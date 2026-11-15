@@ -124,6 +124,7 @@ target_compile_options(smallamx PRIVATE -include stdint.h)
 add_library(fang2win STATIC ${FANG2WIN_SOURCES}
   compat/mfc.cpp
   compat/d3dx8_compat.cpp
+  Lib/Fang2/pc_mods.cpp
 )
 target_include_directories(fang2win PUBLIC
   Lib/Fang2
