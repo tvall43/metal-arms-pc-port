@@ -175,9 +175,9 @@ private:
 		CFSoundGroup *pSoundGroupTreads;
 		CFSoundGroup *pSoundGroupAlarmZap;
 		CFSoundGroup *pSoundGroupTick;					//ticking sound for when scout is in blow up state
-		CFSoundGroup *pSoundGroupSiren;					// PC port: retail data inserts this before the detonation profile ('ScoutSiren'); not yet played - without it 'ScoutSiren' was parsed as a damage profile (log: "Damage profile 'ScoutSiren' doesn't exist")
+		CFSoundGroup *pSoundGroupSiren;					// PC port: retail data inserts this before the detonation profile ('ScoutSiren'); played once at detonation, then stopped explicitly
 		CDamageProfile* pScoutDetDamageProfile;
-		CFDebrisGroup *pDebrisGroupGuts;				// PC port: retail data appends this ('ScoutGuts'); not yet spawned
+		CFDebrisGroup *pDebrisGroupGuts;				// PC port: retail data appends this ('ScoutGuts'); spawned from CBotScout::Die()
 	} BotInfo_Scout_t;
 
 
@@ -267,6 +267,7 @@ private:
 	CFAudioEmitter *m_pAudioEmitterScanning;						// Scout scanning audio emitter
 	CFAudioEmitter *m_pAudioEmitterTreads;							// Scout movement audio emitter 
 	CFAudioEmitter *m_pAudioEmitterBeam;							// Scout transmission beam audio emitter 
+	CFAudioEmitter *m_pAudioEmitterSiren;							// Scout transmission-beam siren
 
 	CFAntenna m_Antenna;											// antenna animator
 	//----------------------------------------------------------------------------------------------------------------------------------
@@ -311,6 +312,8 @@ public:
 
 
 	void SetTickRate(f32 fTicksPerSec);
+	void _StartSiren( void );
+	void _StopSiren( void );
 	// bone callback
 	void AnimateHead( u32 uBoneIdx, CFMtx43A &rNewMtx, const CFMtx43A &rParentMtx, const CFMtx43A &rBoneMtx );
 

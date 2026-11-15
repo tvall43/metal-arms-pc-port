@@ -54,6 +54,7 @@
 #include "weapon_staff.h"
 #include "ZipLine.h"
 #include "botpart.h"
+#include "difficulty.h"
 #include "game.h"
 #include "fsound.h"
 #include "botglitch.h"
@@ -1580,6 +1581,11 @@ void Bot_DeathBTAEndCB( CBotTalkInst *pTalkInst, CBot *pBot ) {
 
 
 void CBot::SpawnDeathEffects( void ) {
+	// Retail data appends a per-bot death sound group to the general bot info.
+	if( m_pBotInfo_Gen && m_pBotInfo_Gen->pSoundGroupDeath ) {
+		PlaySound( m_pBotInfo_Gen->pSoundGroupDeath );
+	}
+
 	if( m_pPartMgr && m_pPartMgr->IsCreated() ) {
 		m_pPartMgr->DestroyBot( NULL );
 	}
@@ -9655,6 +9661,12 @@ void CBot::CheckpointRestore( void )
 
 	// set a bunch of vars back to the neutral settings
 	ResetToNeutral();	
+
+	// Retail: restoring a checkpoint tops the player's own body up to the
+	// difficulty's minimum health (Easy 2 containers ... Insane 0.25).
+	if( (m_nOwnerPlayerIndex >= 0) && (NormHealth() < CDifficulty::GetInfo()->m_fRetailField2) ) {
+		SetNormHealth( CDifficulty::GetInfo()->m_fRetailField2 );
+	}
 
 	// restore spotlight state
 	switch( m_eSpotLightState )

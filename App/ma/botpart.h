@@ -264,6 +264,7 @@ public:
 	AnchorDef_t *m_pAnchorDefArray;								// Anchor definitions
 	
 	f32 m_fUnitRepairTimer;										// Timer used while repairing a part
+	f32 m_fDangleRepairSecs;									// Retail: difficulty-scaled time before an AI's dangling limb repairs itself
 
 
 

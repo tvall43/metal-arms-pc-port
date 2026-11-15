@@ -34,6 +34,7 @@
 #include "DebrisTypes.h"
 #include "weapon.h"
 #include "MultiplayerMgr.h"
+#include "difficulty.h"
 #include "fperf.h"
 
 
@@ -146,6 +147,7 @@ BOOL CBotPart::Create( cchar *pszPartName, const CBotPartInit *pBotPartInit, con
 
 	m_nMode = MODE_DISABLED;
 	m_fUnitRepairTimer = 0.0f;
+	m_fDangleRepairSecs = 0.0f;
 	m_DanglingBoneAnimDrivenPos_WS.Zero();
 	m_pDanglingFromBot = NULL;
 	m_nMeshPartsMask = pBotPartInit->m_nMeshPartsMask;
@@ -685,6 +687,7 @@ void CBotPart::SetMode_Dangling( CBot *pDanglingFromBot ) {
 
 	m_nMode = MODE_DANGLING;
 	m_Verlet.Net_Freeze( FALSE );
+	m_fDangleRepairSecs = 0.0f;
 }
 
 
@@ -2248,6 +2251,26 @@ void CBotPartMgr::Work( void ) {
 		m_fSecsUntilNextDebrisBlowSound -= FLoop_fPreviousLoopSecs;
 		FMATH_CLAMPMIN( m_fSecsUntilNextDebrisBlowSound, 0.0f );
 	}
+
+	// Retail: only AI bots auto-repair dangling limbs. The delay is the third
+	// retail difficulty field (Easy 120s ... Insane 20s), jittered 0.9-1.1.
+	if( m_pBot && (m_pBot->m_nPossessionPlayerIndex < 0) ) {
+		for( u32 nLimbType=0; nLimbType<m_nLimbTypeCount; ++nLimbType ) {
+			if( m_pLimbStateArray[nLimbType].nState != LIMB_STATE_DANGLING ) {
+				continue;
+			}
+
+			u32 nPartType = m_pPartPool->m_pLimbDefArray[nLimbType].m_nStartPartType;
+			CBotPart *pBotPart = m_pPartStateArray[nPartType].pDanglingBotPart;
+			if( pBotPart && (pBotPart->m_fDangleRepairSecs > 0.0f) ) {
+				pBotPart->m_fDangleRepairSecs -= FLoop_fPreviousLoopSecs;
+				if( pBotPart->m_fDangleRepairSecs <= 0.0f ) {
+					pBotPart->m_fDangleRepairSecs = 0.0f;
+					RepairLimb( nLimbType );
+				}
+			}
+		}
+	}
 }
 
 
@@ -2620,6 +2643,10 @@ void CBotPartMgr::_Part_Dangle( u32 nPartType ) {
 		m_pPartStateArray[nPartType].pDanglingBotPart->SetMode_Disabled();
 		m_pPartStateArray[nPartType].pDanglingBotPart = NULL;
 	}
+
+	// Retail: dangling AI limbs repair themselves after a difficulty-scaled
+	// delay. Keep the value on the part so the timer survives part movement.
+	pBotPart->m_fDangleRepairSecs = CDifficulty::GetInfo()->m_fRetailField3 * fmath_RandomFloatRange( 0.9f, 1.1f );
 
 	// Update our state info...
 	m_pPartStateArray[nPartType].pDanglingBotPart = pBotPart;

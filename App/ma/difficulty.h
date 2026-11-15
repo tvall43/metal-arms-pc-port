@@ -50,9 +50,9 @@ public:
 	public:
 		f32 m_fDeltaUnitSusceptabilityPlayer;		// The delta to apply to the player's hitpoint susceptability during damage result computation
 		f32 m_fDeltaUnitSusceptabilityNPC;			// The delta to apply to the NPC's hitpoint susceptability during damage result computation
-		f32 m_fRetailField2;						// PC port: retail-only fields, meaning unknown (see LoadData vocab)
-		f32 m_fRetailField3;
-		f32 m_fRetailField4;
+		f32 m_fRetailField2;						// Minimum normalized health when a player-owned bot restores a checkpoint
+		f32 m_fRetailField3;						// AI dangling-limb auto-repair delay in seconds
+		f32 m_fRetailField4;						// Save/profile value; not used by live gameplay (meaning unresolved)
 	};
 
 

@@ -403,7 +403,7 @@ private:
 		f32 fStreamerAlpha;
 		FDecalDefHandle_t hDecalDef;
 		FParticle_DefHandle_t hLaserParticle;
-		CFSoundGroup *pSoundGroupBeamImpact;		// PC port: retail addition (not yet played)
+		CFSoundGroup *pSoundGroupBeamImpact;		// PC port: retail addition (played from the laser impact callback)
 	} EliteInfoStaff_t;
 
 //----------------------------------------------------------------------------------------------------------------------------------

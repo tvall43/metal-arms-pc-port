@@ -1845,6 +1845,13 @@ void CBotCorrosive::_HandleBehaviorAnimations( void ) {
 
 			case BEHAVIOR_STATE_BEAT_CHEST_AND_ROAR:
 				ZeroTime( ANIMTAP_BEAT_CHEST );
+				if( m_BotInfo_Corrosive.pSoundGroupBeatChest ) {
+					if (m_bForce2D_RoarRocket) {
+						PlaySound( m_BotInfo_Corrosive.pSoundGroupBeatChest, 1.0f, 1.0f, -1.0f, NULL, TRUE );
+					} else {
+						PlaySound( m_BotInfo_Corrosive.pSoundGroupBeatChest );
+					}
+				}
 				if (m_bForce2D_RoarRocket)
 				{
 					PlaySound( m_BotInfo_Corrosive.pSoundGroupAngryRoar, 1.0f, 1.0f, -1.0f, NULL, TRUE ); // Start the angry roar sound as well
@@ -1857,9 +1864,16 @@ void CBotCorrosive::_HandleBehaviorAnimations( void ) {
 
 			case BEHAVIOR_STATE_BEAT_CHEST_AND_LAUGH:
 				ZeroTime( ANIMTAP_BEAT_CHEST );
+				if( m_BotInfo_Corrosive.pSoundGroupBeatChest ) {
+					if (m_bForce2D_RoarRocket) {
+						PlaySound( m_BotInfo_Corrosive.pSoundGroupBeatChest, 1.0f, 1.0f, -1.0f, NULL, TRUE );
+					} else {
+						PlaySound( m_BotInfo_Corrosive.pSoundGroupBeatChest );
+					}
+				}
 				if (m_bForce2D_RoarRocket)
 				{
-					PlaySound( m_BotInfo_Corrosive.pSoundGroupLaugh, 1.0f, 1.0f, -1.0f, NULL, TRUE ); // Start the angry roar sound as well
+					PlaySound( m_BotInfo_Corrosive.pSoundGroupLaugh, 1.0f, 1.0f, -1.0f, NULL, TRUE ); // Start the laughing sound as well
 				}
 				else
 				{

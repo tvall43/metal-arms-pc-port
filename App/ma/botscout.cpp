@@ -30,6 +30,7 @@
 #include "gamecam.h"
 #include "eparticlepool.h"
 #include "meshentity.h"
+#include "fdebris.h"
 
 #define _BOTINFO_FILENAME					( "b_scout" )
 #define _SCOUT_SOUND_BANK					( "Scout" )
@@ -357,12 +358,59 @@ void CBotScout::SetTickRate(f32 fTicksPerSec)
 	this->m_fTickRate = fTicksPerSec;
 }
 
+void CBotScout::_StartSiren( void )
+{
+	if( m_pAudioEmitterSiren || !m_pBotInfo_Scout || !m_pBotInfo_Scout->pSoundGroupSiren )
+	{
+		return;
+	}
+
+	m_pAudioEmitterSiren = AllocAndPlaySound( m_pBotInfo_Scout->pSoundGroupSiren );
+	if( m_pAudioEmitterSiren )
+	{
+		m_pAudioEmitterSiren->SetPosition( &m_MtxToWorld.m_vPos );
+	}
+}
+
+void CBotScout::_StopSiren( void )
+{
+	if( m_pAudioEmitterSiren )
+	{
+		m_pAudioEmitterSiren->Destroy();
+		m_pAudioEmitterSiren = NULL;
+	}
+}
+
 void CBotScout::Die( BOOL bSpawnDeathEffects/*=TRUE*/, BOOL bSpawnGoodies )
 {
+	_StopSiren();
 	CBot::Die( bSpawnDeathEffects, bSpawnGoodies );
 
 	if( !bSpawnDeathEffects ) {
 		return;
+	}
+
+	if( m_pBotInfo_Scout )
+	{
+		if( m_pBotInfo_Scout->pDebrisGroupGuts )
+		{
+			CFDebrisSpawner DebrisSpawner;
+			DebrisSpawner.InitToDefaults();
+
+			DebrisSpawner.m_Mtx.m_vPos = m_MtxToWorld.m_vPos;
+			DebrisSpawner.m_Mtx.m_vZ = CFVec3A::m_UnitAxisY;
+			DebrisSpawner.m_nEmitterType = CFDebrisSpawner::EMITTER_TYPE_POINT;
+			DebrisSpawner.m_pDebrisGroup = m_pBotInfo_Scout->pDebrisGroupGuts;
+			DebrisSpawner.m_fSpawnerAliveSecs = 0.0f;
+			DebrisSpawner.m_fMinSpeed = 12.0f;
+			DebrisSpawner.m_fMaxSpeed = 24.0f;
+			DebrisSpawner.m_fUnitDirSpread = 0.75f;
+			DebrisSpawner.m_fScaleMul = 1.0f;
+			DebrisSpawner.m_nMinDebrisCount = 8;
+			DebrisSpawner.m_nMaxDebrisCount = 12;
+			DebrisSpawner.m_nFlags = CFDebrisSpawner::FLAG_PLAY_IMPACT_SOUND;
+			DebrisSpawner.Spawn();
+		}
 	}
 
 	if( m_hExplosionGroup == FEXPLOSION_INVALID_HANDLE )
@@ -828,6 +876,8 @@ void CBotScout::ClassHierarchyRemoveFromWorld( void )
 		m_pAudioEmitterBeam = NULL;
 	}
 
+	_StopSiren();
+
 	CBot::ClassHierarchyRemoveFromWorld();
 }
 
@@ -1012,6 +1062,7 @@ void CBotScout::ClassHierarchyWork( void )
 
 		//---------------------------------------------------------------------
 		case SCOUT_STATE_START_LOWERING_SCANNER:
+			_StopSiren();
 			SetSpotLightOff();
 			PlaySound( m_BotInfo_Scout.pSoundGroupServo2 );
 			m_uScoutState = SCOUT_STATE_LOWERING_SCANNER;
@@ -1061,6 +1112,7 @@ void CBotScout::ClassHierarchyWork( void )
 		case SCOUT_STATE_SURPRISE_JUMP:
 			vTemp.Set( 0.0f, _fSupriseHopImpulseMag, 0.0f );
 			ApplyVelocityImpulse_WS( vTemp );
+			_StartSiren();
 			PlaySound( m_BotInfo_Scout.pSoundGroupAlertChirp, 1.0f,1.0f, m_fDistToTarget + 30.0f );
 			m_uScoutState = SCOUT_STATE_SURPRISE_LAND;
 			break;
@@ -1177,6 +1229,11 @@ void CBotScout::ClassHierarchyWork( void )
 	// update transmission beam
 	_UpdateBeam();
 
+	if( m_pAudioEmitterSiren )
+	{
+		m_pAudioEmitterSiren->SetPosition( &m_MtxToWorld.m_vPos );
+	}
+
 	m_Antenna.Work();
 
 
@@ -1244,6 +1301,7 @@ void CBotScout::_ClearDataMembers( void )
 	m_pAudioEmitterScanning = NULL;
 	m_pAudioEmitterTreads = NULL;
 	m_pAudioEmitterBeam = NULL;
+	m_pAudioEmitterSiren = NULL;
 	m_fTickTimer = 0.0f;
 	m_fTickRate = 0.0f;
 	m_fPctSwitchPressComplete = 0.0f;
@@ -1475,6 +1533,10 @@ void CBotScout::_UpdateBeam( void )
 {
 	if( m_uScoutFlags & SCOUT_FLAG_DRAW_BEAM )
 	{
+		// XBE: the transmission-beam path owns pSoundGroupSiren
+		// (m_BotInfo_Scout + 0x38) and keeps one emitter alive while the beam
+		// is active.
+		_StartSiren();
 		m_uScoutFlags &= ~SCOUT_FLAG_DRAW_BEAM;
 
 		// animate transmission texture frame
@@ -1541,6 +1603,10 @@ void CBotScout::_UpdateBeam( void )
 				}
 			}
 		}
+	}
+	else
+	{
+		_StopSiren();
 	}
 }
 

@@ -3822,6 +3822,12 @@ void CBotEliteGuard::_EGTracerKilledCallbackPrimary( TracerDef_t *pTracerDef, Tr
 
 		fparticle_SpawnEmitter( pShooter->m_DefaultEliteInfoStaff.hLaserParticle, &(pImpact->ImpactPoint.v3), &(pImpact->UnitFaceNormal.v3), NULL, 0.1f );
 
+		// Retail b_eliteguard data carries a beam-impact sound group. It was
+		// parsed by the port but never played on a laser hit.
+		if( pShooter->m_DefaultEliteInfoStaff.pSoundGroupBeamImpact ) {
+			pShooter->PlaySound( pShooter->m_DefaultEliteInfoStaff.pSoundGroupBeamImpact );
+		}
+
 		vtmp.Mul( pImpact->UnitFaceNormal, 0.25f ).Add( pImpact->ImpactPoint );
 
 //		CMuzzleFlash::AddFlash_CardPosterXY( m_ahMuzzleFlashGroup[MUZZLEFLASH_TYPE_BALL_POSTER_XY_1], vtmp, 5.0f, 1.0f );

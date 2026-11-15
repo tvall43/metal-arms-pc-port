@@ -59,10 +59,10 @@ const FGameData_TableEntry_t CDifficulty::m_aGameDataVocab[] = {
 	// file has 20 fields for 4 levels, so this loader rejected it and every
 	// difficulty played the same - logged as "Invalid number of difficulty
 	// levels ... Must be 4"). Ranges are from the retail vocab at XBE offset
-	// 3400972 (RangerXT port, commit ae9d33d). This source has no code for
-	// the last three; they parse into CInfo and sit unused.
+	// 3400972 (RangerXT port, commit ae9d33d).
 
 	// m_fRetailField2 (retail data 2 / 1.5 / 1 / 0.25, easy -> insane):
+	// Minimum normalized health when a player-owned bot restores a checkpoint.
 	FGAMEDATA_VAR_TYPE_FLOAT|
 	FGAMEDATA_FLAGS_FLOAT_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( f32 ),
@@ -70,6 +70,7 @@ const FGameData_TableEntry_t CDifficulty::m_aGameDataVocab[] = {
 	F32_DATATABLE_6,
 
 	// m_fRetailField3 (retail data 120 / 60 / 40 / 20):
+	// AI dangling-limb auto-repair delay in seconds.
 	FGAMEDATA_VAR_TYPE_FLOAT|
 	FGAMEDATA_FLAGS_FLOAT_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( f32 ),
@@ -77,6 +78,7 @@ const FGameData_TableEntry_t CDifficulty::m_aGameDataVocab[] = {
 	F32_DATATABLE_10000,
 
 	// m_fRetailField4 (retail data 0 / 30 / 90 / 180):
+	// Save/profile value; not used by live gameplay (meaning unresolved).
 	FGAMEDATA_VAR_TYPE_FLOAT|
 	FGAMEDATA_FLAGS_FLOAT_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( f32 ),
