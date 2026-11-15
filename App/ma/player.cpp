@@ -1053,6 +1053,14 @@ void CPlayer::Resurrect( void )
 
 	m_pEntityOrig->EnableAutoWork( FALSE );
 	m_pEntityOrig->SetControls( &m_HumanControl );
+
+	// Resurrect() is used by both single-player respawn and multiplayer
+	// respawn. Make sure a previous cutscene did not leave the player flag
+	// cleared; the bot would respawn alive but ignore every movement input.
+	if( !CBot::m_bCutscenePlaying && !HasEntityControl() )
+	{
+		EnableEntityControl();
+	}
 }
 
 void CPlayer::HandleTogglingOfOnscreenText( void ) {

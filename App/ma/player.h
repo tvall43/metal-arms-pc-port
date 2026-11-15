@@ -225,6 +225,7 @@ public:
 	static s32 GetTeamScores(s32* pnKills, u32* pnDeaths);
 
 	FINLINE static void SetSaveInventory(CInventory *pInv) { m_pInvSave = pInv; }
+	FINLINE const CFVec3 &GetPosWhenLeavingGround( void ) const { return m_vPosWhenLeavingGround; }
 
 	void Work( void );
 	void HandleTogglingOfOnscreenText( void );

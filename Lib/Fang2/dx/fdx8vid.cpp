@@ -3160,10 +3160,21 @@ static LRESULT CALLBACK _WndProc( HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lP
 
 	case WM_SETFOCUS:
 		_bHaveFocus = TRUE;
+		// WM_NCACTIVATE can report inactive without a matching active edge
+		// around fullscreen/device-reset transitions. Clear the stale
+		// minimized flag when the window is genuinely restored, otherwise
+		// fdx8vid_HaveFocus() stays FALSE while the game is focused and all
+		// keyboard/pad input is silently gated off.
+		if( !IsIconic( hWnd ) )
+		{
+			_bMinimized = FALSE;
+		}
+		DEVPRINTF( "[ma] video: focus gained (iconic=%u).\n", IsIconic( hWnd ) ? 1u : 0u );
 		break;
 
 	case WM_KILLFOCUS:
 		_bHaveFocus = FALSE;
+		DEVPRINTF( "[ma] video: focus lost.\n" );
 		// Focus loss ends mouse look: drop anything accumulated so no delta or
 		// wheel notch from while we were focused leaks into another app's
 		// session (the keyboard side is gated in fdx8padio.cpp).

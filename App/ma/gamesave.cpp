@@ -79,8 +79,8 @@ static BOOL _bSaveCheckpoint;
 static BOOL _bRestoreCheckpoint;
 static s32 _nCheckpoint;
 static BOOL _bPrintText;
-static CFMtx43A _mtxCheckpointXform;
-static f32 _fCheckpointRadius;
+static CFMtx43A _aCheckpointXform[ FCHECKPOINT_MAX_CHECKPOINTS ];
+static f32 _afCheckpointRadius[ FCHECKPOINT_MAX_CHECKPOINTS ];
 
 static f32 _fTextTimeRemaining;								// time remaining to display checkpoint text
 static s32 _nTextMode;											// indicates which text phrase to print
@@ -91,7 +91,7 @@ static CFCheckPoint::ObjectDataHandle_t _hPlayerPossessHandle[ FCHECKPOINT_MAX_C
 
 extern BOOL ai_bUnarmedPlayerRuleDisabled;
 
-static void _checkpoint_ReOrientUser( void );
+static void _checkpoint_ReOrientUser( s32 nCheckpoint );
 
 //------------------------------------------------------------------------------
 // saves various global engine data
@@ -138,11 +138,23 @@ static void _SavePlayerPossession( s32 nCheckpoint )
 
 	_hPlayerPossessHandle[nCheckpoint] = CFCheckPoint::CreateObjectDataHandle();
 
+	// Retail saves all possession pointers/armor first, then the possessed
+	// bot's movement direction.  Keep the same order for save/restore parity.
 	for( nIndex = 0; nIndex < CPlayer::m_nPlayerCount; nIndex++ )
 	{
 		FASSERT( Player_aPlayer[ nIndex ].m_pEntityCurrent );
 		CFCheckPoint::SaveData( (u32&) Player_aPlayer[ nIndex ].m_pEntityCurrent );
 		CFCheckPoint::SaveData( Player_aPlayer[ nIndex ].m_pEntityCurrent->GetArmorModifier() );
+	}
+
+	for( nIndex = 0; nIndex < CPlayer::m_nPlayerCount; nIndex++ )
+	{
+		CEntity *pEntity = Player_aPlayer[ nIndex ].m_pEntityCurrent;
+
+		if( pEntity && (pEntity->TypeBits() & ENTITY_BIT_BOT) )
+		{
+			CFCheckPoint::SaveData( ((CBot*)pEntity)->m_XlatStickNormVecXZ_WS );
+		}
 	}
 }
 
@@ -184,6 +196,14 @@ static void _RestorePlayerPossession( s32 nCheckpoint )
 					pGlitchy->RespawnEffect_Kill();	// prevent respawn effect when operating a console
 				}
 			}
+		}
+
+		// Retail restores the possessed bot's movement direction after possession,
+		// so the first post-restore frame does not use stale input.
+		CEntity *pEntity = pPlayerEntityCurrent[ nIndex ];
+		if( pEntity && (pEntity->TypeBits() & ENTITY_BIT_BOT) )
+		{
+			CFCheckPoint::LoadData( ((CBot*)pEntity)->m_XlatStickNormVecXZ_WS );
 		}
 	}
 }
@@ -674,6 +694,23 @@ static BOOL _checkpoint_Restore( s32 nCheckpoint, BOOL bPrintText )
 
 	_RestorePlayerPossession( nCheckpoint );
 
+	// A checkpoint restore is also the last step of a death/respawn. If the
+	// player died while a cutscene had entity control, the restore must put
+	// the player back in control; otherwise the level resumes with movement
+	// silently disabled (the "respawn broke the game" report).
+	if( CBot::m_bCutscenePlaying )
+	{
+		game_EndCutScene( TRUE );
+	}
+
+	for( nPlayerNum = 0; nPlayerNum < CPlayer::m_nPlayerCount; nPlayerNum++ )
+	{
+		if( !Player_aPlayer[ nPlayerNum ].HasEntityControl() )
+		{
+			Player_aPlayer[ nPlayerNum ].EnableEntityControl();
+		}
+	}
+
 	if( bResult && bPrintText )
 	{
 		// cause checkpoint text message to be displayed
@@ -692,10 +729,11 @@ static BOOL _checkpoint_Restore( s32 nCheckpoint, BOOL bPrintText )
 //------------------------------------------------------------------------------
 // If we have been requested to do so, re-orient and position the user bot
 // after restoring from a checkpoint.
-static void _checkpoint_ReOrientUser( void )
+static void _checkpoint_ReOrientUser( s32 nCheckpoint )
 {
 	// Should never be able to get here in multiplayer
 	FASSERT( MultiplayerMgr.IsSinglePlayer() );
+	FASSERT( nCheckpoint >= 0 && nCheckpoint < FCHECKPOINT_MAX_CHECKPOINTS );
 
 	// Get the player bot
 	CBot* pBot = (CBot*)Player_aPlayer[0].m_pEntityCurrent;
@@ -706,7 +744,7 @@ static void _checkpoint_ReOrientUser( void )
 		return;
 
 	// OK, looks like we are OK. Now move the player
-	pBot->Relocate_RotXlatFromUnitMtx_WS( &_mtxCheckpointXform );
+	pBot->Relocate_RotXlatFromUnitMtx_WS( &_aCheckpointXform[ nCheckpoint ] );
 }
 
 
@@ -738,7 +776,10 @@ BOOL checkpoint_InitSystem( void ) {
 	_fTextTimeRemaining = 0.0f;
 	_nTextMode = _TEXT_MODE_SAVE;
 
-	_fCheckpointRadius = -1.0f;
+	for( s32 nIndex = 0; nIndex < FCHECKPOINT_MAX_CHECKPOINTS; nIndex++ )
+	{
+		_afCheckpointRadius[ nIndex ] = -1.0f;
+	}
 
 	return TRUE;
 }
@@ -759,11 +800,11 @@ BOOL checkpoint_LevelInit( void )
 	{
 		_bCheckpointSaved[ nIndex ] = FALSE;
 		_hSaveData[ nIndex ] = CFCheckPoint::NULL_HANDLE;
+		_afCheckpointRadius[ nIndex ] = -1.0f;
 	}
 
 	_bSaveCheckpoint = FALSE;
 	_bRestoreCheckpoint = FALSE;
-	_fCheckpointRadius = -1.0f;
 	return TRUE;
 }
 
@@ -802,12 +843,15 @@ void checkpoint_Work( void )
 		_bRestoreCheckpoint = FALSE;
 		_checkpoint_Restore( _nCheckpoint, _bPrintText );
 
-		////////////// If a radius has been specified, we need to reorient the user and 
-		////////////// place his buddies
-		////////////if( _fCheckpointRadius > 0.0f )
-		////////////{
-		////////////	_checkpoint_ReOrientUser();
-		////////////}
+		// If a radius has been specified, reorient the user.
+		// Retail does this after every restore; without it a checkpoint saved
+		// mid-fall restores the player into the same hole.
+		DEVPRINTF( "[ma] checkpoint %d restore radius %.2f\n", _nCheckpoint, _afCheckpointRadius[ _nCheckpoint ] );
+		if( _afCheckpointRadius[ _nCheckpoint ] > 0.0f )
+		{
+			DEVPRINTF( "[ma] checkpoint %d reorienting player\n", _nCheckpoint );
+			_checkpoint_ReOrientUser( _nCheckpoint );
+		}
 	}
 }
 
@@ -818,20 +862,49 @@ void checkpoint_Work( void )
 // Save will actually occur at end of current frame.
 BOOL checkpoint_Save( s32 nCheckpoint, BOOL bPrintText, CESphere* pESphere )
 {
+	// Retail refuses to queue a checkpoint while the current player bot is
+	// dead or dying (XBE 0x001f0b60: [entity+0x464] > 0).
+	CBot *pPlayerBot = (CBot*)Player_aPlayer[0].m_pEntityCurrent;
+	if( pPlayerBot && (pPlayerBot->TypeBits() & ENTITY_BIT_BOT) && pPlayerBot->IsDeadOrDying() )
+	{
+		return TRUE;
+	}
+
 	_bSaveCheckpoint = TRUE;
 	_nCheckpoint = nCheckpoint;
 	_bPrintText = bPrintText;
 
-	// Save off the starting transform and the radius.
+	// Save off the starting transform and the radius for this checkpoint.
 	if( pESphere )
 	{
-		_mtxCheckpointXform = *pESphere->MtxToWorld();
-		_fCheckpointRadius = pESphere->Sphere_WS()->m_fRadius;
+		_aCheckpointXform[ nCheckpoint ] = *pESphere->MtxToWorld();
+		_afCheckpointRadius[ nCheckpoint ] = pESphere->Sphere_WS()->m_fRadius;
+		DEVPRINTF( "[ma] checkpoint %d save with sphere radius %.2f\n", nCheckpoint, _afCheckpointRadius[ nCheckpoint ] );
 	}
 	else
 	{
+		// No sphere: if the player is currently airborne, use the position
+		// where he last left the ground.  A checkpoint saved during a scripted
+		// fall must not restore him into the same hole.
+		CPlayer *pPlayer = &Player_aPlayer[0];
+		CBot *pPlayerBot = (CBot*)pPlayer->m_pEntityCurrent;
+		if( pPlayerBot && (pPlayerBot->TypeBits() & ENTITY_BIT_BOT) &&
+		    !pPlayerBot->IsOnGroundInPieces() )
+		{
+			const CFVec3 &vSafe = pPlayer->GetPosWhenLeavingGround();
+			if( vSafe.Mag2() > 0.01f )
+			{
+				_aCheckpointXform[ nCheckpoint ] = *pPlayerBot->MtxToWorld();
+				_aCheckpointXform[ nCheckpoint ].m_vPos.v3 = vSafe;
+				_afCheckpointRadius[ nCheckpoint ] = 1.0f;
+				DEVPRINTF( "[ma] checkpoint %d save without sphere; using last-ground fallback\n", nCheckpoint );
+				return TRUE;
+			}
+		}
+
 		// Radius of -1 indicates no user position was specified
-		_fCheckpointRadius = -1.0f;
+		_afCheckpointRadius[ nCheckpoint ] = -1.0f;
+		DEVPRINTF( "[ma] checkpoint %d save without sphere\n", nCheckpoint );
 	}
 
 	return TRUE;
