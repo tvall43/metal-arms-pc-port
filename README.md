@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R153** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R156** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -126,7 +126,7 @@ launch dialog. Play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R153), and
+cannot be replied to. Name the build id printed in the log header (e.g. R156), and
 check what version you have first - fixes land continuously.
 
 If startup stops at `_GameInit: FAILED at gameloop.cpp:779`, include the line
@@ -290,7 +290,7 @@ stay intact. The work so far, in the order it mattered:
 - **Audio.** Music, 3D world SFX and streamed bot dialog rebuilt end to end;
   retail weapon sound groups (the flamer was completely silent before), the
   2D attenuation ladder, stream-tail repetition, and two ini mix knobs.
-- **Effects.** Retail laser colour/tracer, the FPR v8 particle keyframe layout
+- **Effects.** Retail laser colour/tracer and mining-laser grazing ricochet/wire continuation, the FPR v8 particle keyframe layout
   (impact sparks, dust and the old drifting glow blobs), jump-pad centring, the
   liquid-volume `EnableRender` suppression (the Wasteland drain plane), and the
   friendly Miner droids' authored death breakup instead of vanishing.

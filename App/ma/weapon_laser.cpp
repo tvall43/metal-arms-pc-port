@@ -738,6 +738,64 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 
 		const CGCollMaterial *pCollMaterial = CGColl::GetMaterial( pImpact->nUserType );
 
+		// Retail has a second-stage tracer kill callback (XBE 0x00142660)
+		// that lets the mining laser ricochet off grazing surfaces.  The
+		// callback uses TracerDef_t::nUser as the ricochet counter: normal
+		// surfaces bounce at most four times when the incoming direction is
+		// within the 0.3 dot-product threshold; RICOCHET/SHIELD materials
+		// bounce regardless of that angle test.
+		if( pImpact )
+		{
+			if( CGColl::ExtractWire( pImpact ) )
+			{
+				// Retail lets the tracer continue through wires rather than
+				// treating the wire as a solid surface.
+				TracerDef_t WireDef = *pTracerDef;
+				WireDef.TailPos_WS = pImpact->ImpactPoint;
+				tracer_NewTracer( pLaser->m_hTracerGroup, &WireDef, 0.0f, FALSE, FALSE, &CDamageForm::m_TempDamager );
+				return;
+			}
+		}
+
+		if( pImpact && (pLaser->m_nUpgradeLevel != 2) )
+		{
+			BOOL bRicochet = FALSE;
+
+			const u8 nProjReact = CGColl::ComputeProjectileReaction( pImpact );
+			if( (nProjReact == CEntity::PROJECTILE_REACTION_RICOCHET) ||
+			    (nProjReact == CEntity::PROJECTILE_REACTION_SHIELD) )
+			{
+				bRicochet = TRUE;
+			}
+			else if( pCollMaterial->IsBlastDecalEnabled() &&
+			         (pTracerDef->nUser < 4) )
+			{
+				const f32 fNormalDotDir = pTracerDef->UnitDir_WS.Dot( pImpact->UnitFaceNormal );
+
+				// Target 0x00142660 tests (-dot < 0.3f): grazing hits
+				// ricochet, head-on hits do not.
+				if( (-fNormalDotDir) < 0.3f )
+				{
+					bRicochet = TRUE;
+				}
+			}
+
+			if( bRicochet )
+			{
+				TracerDef_t RicochetDef = *pTracerDef;
+				RicochetDef.nUser = pTracerDef->nUser + 1;
+				RicochetDef.UnitDir_WS.ReceiveReflection( pTracerDef->UnitDir_WS, pImpact->UnitFaceNormal );
+				RicochetDef.TailPos_WS = pImpact->ImpactPoint;
+
+				// Retail starts the reflected tracer just off the surface.
+				CFVec3A vStartOffset = RicochetDef.UnitDir_WS;
+				vStartOffset.Mul( 0.1f );
+				RicochetDef.TailPos_WS.Add( vStartOffset );
+
+				tracer_NewTracer( pLaser->m_hTracerGroup, &RicochetDef, 0.0f, FALSE, FALSE, &CDamageForm::m_TempDamager );
+			}
+		}
+
 		// A laser hit is a brief flash, not a continuous spark shower: use the
 		// burst emitter so the sparks do not keep spawning and spreading far
 		// past the impact point.
@@ -1161,6 +1219,7 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 															  _aRetailTracerColor[m_nUpgradeLevel][3] );
 				m_aoTracerDef[m_nUpgradeLevel].UnitDir_WS = vFireUnitDir;
 				m_aoTracerDef[m_nUpgradeLevel].TailPos_WS = vecMuzzlePoint;
+				m_aoTracerDef[m_nUpgradeLevel].nUser = 0;		// retail ricochet counter
 //				m_aoTracerDef[m_nUpgradeLevel].ppCollSkipTrackers = &m_pOwnerBot->m_pWorldMesh;
 
 				CFCamera *pCamera = fcamera_GetCameraByIndex(CPlayer::m_pCurrent->m_nPlayerIndex);
@@ -1188,6 +1247,7 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 				{
 					m_aoTracerDef[m_nUpgradeLevel].UnitDir_WS = vFireUnitDir;
 					m_aoTracerDef[m_nUpgradeLevel].TailPos_WS = *m_pvecBuddyFirePos_WS;
+					m_aoTracerDef[m_nUpgradeLevel].nUser = 0;		// retail ricochet counter
 
 					ConstructDamagerData();
 					tracer_NewTracer(m_hTracerGroup, &m_aoTracerDef[m_nUpgradeLevel], 0.2f, FALSE, FALSE, &CDamageForm::m_TempDamager);
