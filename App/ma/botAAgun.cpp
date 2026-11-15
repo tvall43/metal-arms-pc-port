@@ -44,6 +44,7 @@
 #include "potmark.h"
 #include "eproj_mortar.h"
 #include "fxshockwave.h"
+#include "MultiplayerMgr.h"
 
 static cchar *_pszBotInfoFilename = "b_AAGun";
 static cchar *_apszAAGunMeshFilenames[] = {
@@ -1352,6 +1353,12 @@ void CBotAAGun::_DriverEnter( CBot *pDriverBot, cchar *pszAttachPointBoneName /*
 	pDriverBot->m_pWorldMesh->m_nFlags &= ~FMESHINST_FLAG_CAST_SHADOWS;
 	pDriverBot->SetInvincible( TRUE );	
 	pDriverBot->SetSpotLightOff( TRUE );
+
+	// Retail swaps the gun's armor profile to the authored gunner profile
+	// while it is manned.
+	if( m_BotInfo_AAGun.pGunnerArmorProfile ) {
+		SetArmorProfile( m_BotInfo_AAGun.pGunnerArmorProfile );
+	}
 }
 
 // remove driver bot from vehicle
@@ -1521,6 +1528,7 @@ void CBotAAGun::_SecondaryWeaponWork( BOOL bSecondaryFireDown ) {
 				pProj->Relocate_RotXlatFromUnitMtx_WS_NewScale_WS( &ProjMtx, 1.0f );
 				pProj->SetMaxLifeSecs( 20.0f );
 				pProj->SetMaxDistCanTravel( m_BotInfo_AAGun.fMaxRange );
+				pProj->SetDamageProfile( m_MortarInfo.pDetonateDamageProfile );
 				pProj->SetDetonateCallback( _ProjDetonateCallback );
 				pProj->Launch();
 				PlaySound( m_MortarInfo.pMortarFire );
@@ -1546,7 +1554,11 @@ void CBotAAGun::_SecondaryWeaponWork( BOOL bSecondaryFireDown ) {
 				}
 				
 				// reset our timer so that we don't fire too often
-				m_fSecsTillNextMortarFire = m_MortarInfo.fOORoundsPerSec;
+				// Retail uses the alternate mortar cadence in single-player and
+				// the normal one in multiplayer.
+				m_fSecsTillNextMortarFire = MultiplayerMgr.IsSinglePlayer()
+					? m_MortarInfo.fOORetailRate
+					: m_MortarInfo.fOORoundsPerSec;
 			} else {
 				m_fSecsTillNextMortarClick -= FLoop_fPreviousLoopSecs;
 				if( m_fSecsTillNextMortarClick <= 0.0f ) {
@@ -1659,6 +1671,11 @@ void CBotAAGun::_PrimaryWeaponWork( BOOL bPrimaryFireDown ) {
 		vSmokePos.Add( pMtx->m_vPos );
 		fparticle_SpawnEmitter( m_BotInfo_AAGun.hSmokePartDef, vSmokePos.v3, &vNegFireDir.v3, 1.0f );
 
+		// Retail adds a separate back-smoke emitter behind each barrel.
+		if( m_BotInfo_AAGun.hBackSmokePartDef ) {
+			fparticle_SpawnEmitter( m_BotInfo_AAGun.hBackSmokePartDef, vSmokePos.v3, &vNegFireDir.v3, 1.0f );
+		}
+
 		// emit some muzzle flash
 		CMuzzleFlash::MuzzleLight( &vMuzzlePoint, m_BotInfo_AAGun.fMuzzleLightRadius );
 #endif
@@ -1691,6 +1708,16 @@ void CBotAAGun::_PrimaryWeaponWork( BOOL bPrimaryFireDown ) {
 													 fmath_RandomFloatRange( 0.25f, 0.6f ),
 													 fmath_RandomFloatRange( 0.5f, 1.0f ),
 													 fmath_RandomFloatRange( 0.5f, 1.0f ) );
+
+			// Retail adds two authored impact particle groups: one for world
+			// geometry and one for entity hits.
+			FParticle_DefHandle_t hImpact = (CollImpact.pTag == NULL)
+				? m_BotInfo_AAGun.hImpact1PartDef
+				: m_BotInfo_AAGun.hImpact2PartDef;
+			if( hImpact ) {
+				fparticle_SpawnEmitter( hImpact, CollImpact.ImpactPoint.v3,
+										&CollImpact.UnitFaceNormal.v3, 1.0f );
+			}
 
 			// Spawn some chunks (every other barrel and only if close to us)...
 			if( (m_nNextFireBarrelIndex & 0x1) && CollImpact.fImpactDistInfo < 0.5f ) {

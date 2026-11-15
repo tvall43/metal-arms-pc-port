@@ -1314,6 +1314,13 @@ void CFloorSentry::_HandleFireThisFrame(void)
 					m_pSpewProps->fMuzzleScale_Mesh * fRandomScale,
 					m_pSpewProps->fMuzzleRot_Mesh
 					);
+
+				if( m_pSpewProps->hSpewSmoke ) {
+					f32 fIntensity = (m_pSpewProps->fRetailPercent25 > 0.0f)
+						? m_pSpewProps->fRetailPercent25 : 1.0f;
+					fparticle_SpawnEmitter( m_pSpewProps->hSpewSmoke, MuzzlePoint.v3,
+											&vFireUnitDir.v3, fIntensity );
+				}
 			}
 			else
 			{
