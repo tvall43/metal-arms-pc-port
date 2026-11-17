@@ -616,7 +616,8 @@ BOOL pcmods_ResolveMedia( const char *requested, char *output, unsigned capacity
     if( !name[0] || strlen( name ) > 79 || !strcmp( name, "." ) || !strcmp( name, ".." ) ) return FALSE;
     for( const char *p = name; *p; ++p ) {
         if( !( ( *p >= 'a' && *p <= 'z' ) || ( *p >= 'A' && *p <= 'Z' ) ||
-               ( *p >= '0' && *p <= '9' ) || *p == '_' || *p == '.' || *p == '-' ) ) {
+               ( *p >= '0' && *p <= '9' ) || *p == '_' || *p == '.' || *p == '-' ||
+               *p == '$' || *p == '&' ) ) {
             return FALSE;
         }
     }
