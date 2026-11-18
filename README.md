@@ -6,7 +6,7 @@ rebuilt from the original 1.19.1 source drop (`App`, `Lib`, `Exp`, `Plug`,
 widescreen, portable saves, and a number of gameplay/parity repairs verified
 against the retail Xbox build (`default.xbe`).
 
-Current port round: **R158** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
+Current port round: **R160** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
 
 ## What this is (and is not)
 
@@ -27,6 +27,32 @@ Current port round: **R158** (`app/ma/win/main_win.cpp`, `MA_PORT_ROUND`).
   the game's original authors and publisher. This port exists for personal and
   research use. Do not redistribute the tree or a build that includes the
   leaked source; keep any hosting private.
+
+## Thanks
+
+This port borrows heavily from work other people published. In particular:
+
+- **[Cobblecorn](https://github.com/cobblecorn/metal-arms-pc-port)** - their
+  *Metal Arms* PC port was the main cross-port reference. Much of the arena
+  handling, checkpoint and collectible repair, retail door/damage property
+  work, and HUD/weapon fixes came from their tree, as did the
+  `MA_PORT_MOD_API_V1` runtime-profile format; individual commits are named in
+  the git log.
+- **[RangerXT](https://github.com/RangerXT/metal-arms-pc)** - their parallel
+  port supplied the retail-mode/dev gating scheme, the Quit Game row, the
+  draw-list pool fix, fog and shader work, retail table layouts, and several
+  XBE vocabulary checks.
+- **[unbikit](https://github.com/blennies/unbikit)** by **David Hart
+  (blennies)** - the MIT/Apache-2.0 Bink 1 decoder that the in-tree movie
+  decoder is ported from. Its license ships as `LICENSE-unbikit.txt`.
+- **[DJ's Metal Arms Tools](https://github.com/dj0wns/DJs_MA_TOOLs)** by
+  **dj0wns**, including the `mst_extract` tool based on original code by
+  **Romet** - MST extraction and data inspection used throughout the port.
+  **Exavolt**, also by dj0wns, was the reference for the community mod-loader
+  and manifest work.
+- **Swingin' Ape Studios** and **Vivendi Universal Games** - created and
+  published the original game. All game code, data, names and trademarks
+  remain theirs.
 
 ## Running the game
 
@@ -126,7 +152,7 @@ launch dialog. Play until it happens again in one session if you can, then
 quit and attach `ma_win_log.txt` from the game folder. Crashes write their own
 backtrace next to the exe with no flags. File a GitHub issue rather than a
 comment on a download page: issues allow replies and detail, page comments
-cannot be replied to. Name the build id printed in the log header (e.g. R158), and
+cannot be replied to. Name the build id printed in the log header (e.g. R160), and
 check what version you have first - fixes land continuously.
 
 If startup stops at `_GameInit: FAILED at gameloop.cpp:779`, include the line
@@ -199,8 +225,8 @@ cmake --build build -j8
 - CMake >= 3.20, a 32-bit mingw-w64 toolchain (i686-w64-mingw32), C++11.
 - `MA_BINK_BACKEND=internal` (the default) compiles the permissively licensed
   in-tree decoder from `Lib/Bink/internal` into the exe and removes the
-  `binkw32.dll` import. `-DMA_BINK_BACKEND=external` keeps the RAD/FFmpeg
-  `binkw32.dll` drop-in as a fallback build. See
+  `binkw32.dll` import. `-DMA_BINK_BACKEND=external` keeps the RAD
+  `binkw32.dll` fallback build. See
   `Lib/Bink/internal/README.md` for validation and known gaps.
 - The original `*.vcproj`/`make_ma*.bat` Visual Studio .NET 2003 projects are
   kept for reference; the MFC debug shell (`MA_BUILD_SHELL`) is not buildable
@@ -312,7 +338,7 @@ Known gaps:
   The internal path has been exercised on both Wine and native Windows
   (loading screens, 44.1 kHz campaign intros and 22.05 kHz logos); edge-case
   reports are still welcome. The build-time fallback is
-  `-DMA_BINK_BACKEND=external` (RAD or FFmpeg DLL).
+  `-DMA_BINK_BACKEND=external` (RAD `binkw32.dll`).
 - PAL/European Xbox data is not supported yet. The port is developed against
   the USA release; a PAL image can extract but may stop during
   `_InitGameSystems()` because its data tables and localized resources differ.
