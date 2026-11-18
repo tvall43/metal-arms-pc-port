@@ -3597,6 +3597,21 @@ void CBotGlitch::_HandleWeaponFiring( void ) {
 		nFireBitsPrimary = m_apWeapon[0]->TriggerWork( fTrig1, fTrig2, &m_TargetedPoint_WS );
 	}
 
+	// Retail keeps the firing stance while the mining laser is charging, even
+	// though TriggerWork returns no fire bit until release. Without this the
+	// weapon stays in its low idle pose and the charge effect hangs at the
+	// ground beside Glitch.
+	if( m_apWeapon[0]->IsCharging() ) {
+		// Aim without forcing the one-shot fire animation flag. The fire flag
+		// can drive the arm through the firing/stow transform; charging needs
+		// the aim pose held continuously instead.
+		m_fUnitFireCtlUpper = 1.0f;
+		SetControlValue( ANIMCONTROL_FIRE_1_UPPER, 1.0f );
+		if( m_apWeapon[0]->m_pInfo->nStanceType == CWeapon::STANCE_TYPE_STANDARD ) {
+			m_fUnitAim = 1.0f;
+		}
+	}
+
 	if( nFireBitsPrimary ) {
 		// We fired the primary weapon...
 		JustFired();

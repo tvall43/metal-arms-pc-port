@@ -452,6 +452,7 @@ public:
 	virtual FINLINE void ComputeMuzzleUnitDir_WS( CFVec3A *pMuzzleUnitDir_WS ) const { *pMuzzleUnitDir_WS = m_MtxToWorld.m_vFront; }
 
 	virtual u32 TriggerWork( f32 fUnitTriggerVal1, f32 fUnitTriggerVal2, const CFVec3A *pvTargetPos_WS, const CFVec3A *pBuddyFirePos_WS = NULL ) { FASSERT( IsCreated() ); return 0; }
+	virtual BOOL IsCharging( void ) const { return FALSE; }
 
 	virtual FINLINE void Trigger_AttachRoundToOwnerBotBone( cchar *pszBoneName ) { FASSERT( IsCreated() ); }
 	virtual FINLINE void Trigger_AttachRoundToWeapon( void ) { FASSERT( IsCreated() ); }

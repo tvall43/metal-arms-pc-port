@@ -29,11 +29,13 @@
 #include "fforce.h"
 #include "MuzzleFlash.h"
 #include "fdecal.h"
+#include "fparticle.h"
 
 
 class CBot;
 class CLaserBeam;
 class CDamageProfile;
+class CFWorldLightItem;
 
 
 
@@ -117,13 +119,41 @@ private:
 
 		cchar *pszDamageProfile;			// Damage profile string (references a damage profile in damage.csv)
 
+		// Retail charged-shot damage tiers: entries 60-62 (LaserL*x).
+		CDamageProfile *apChargedDamageProfile[3];
+
 		// Sound group - retail's vocab flags are 0x81000 =
 		// STRING_TO_SOUND_GROUP|NONE_TO_NULL; w_laser.csv field 65 holds the
 		// group name 'LaserFire' (snd_wpn.csv -> SFX 'Fire Laser EUK1'), not
 		// a raw bank SFX name.
 		CFSoundGroup *pSoundGroupFire;		// The sound made when firing
 
+		// Retail additions for the L2 charge/burst path (w_laser.csv fields
+		// 68-72). The source drop predates them; they are parsed and used by
+		// the charged-shot path below.
+		CFSoundGroup *pSoundGroupCharge;	// 'LaserCharge'
+		CFSoundGroup *pSoundGroupBurst1;	// 'LaserBurst1'
+		CFSoundGroup *pSoundGroupBurst2;	// 'LaserBurst2'
+		CFSoundGroup *pSoundGroupBurstBeep;	// 'LaserBrstBeep'
+
 		FDecalDefHandle_t hDecalDef;		// decal def
+
+		// Retail L2 charge/burst particles (w_laser.csv entries 48-50).
+		FParticle_DefHandle_t hRetailChargeParticle;
+		FParticle_DefHandle_t hRetailBurstParticle;
+		FParticle_DefHandle_t hRetailEndParticle;
+
+		// Retail L2 charge/burst timing, energy and burst tracer shape.
+		// Columns: 35 (cooldown), 36 (pre-charge delay), 37 (charge time),
+		// 39/40 (ready and post-burst energy), 22-24 (burst shape).
+		f32 fRetailBurstCooldown;
+		f32 fRetailChargeDelay;
+		f32 fRetailChargeTime;
+		f32 fRetailReadyEnergy;
+		f32 fRetailEnergyAfterBurst;
+		f32 fRetailBurstSpeed;
+		f32 fRetailBurstLength;
+		f32 fRetailBurstWidth;
 	} _UserProps_t;
 
 
@@ -146,6 +176,7 @@ private:
 	static const FGameDataMap_t m_aUserPropMapTable[];
 
 	static TracerDef_t m_aoTracerDef[EUK_COUNT_LASER];		// Tracer definition
+	static TracerDef_t m_aoBurstTracerDef[EUK_COUNT_LASER];	// L2 charged burst tracer
 
 	static CFTexInst m_aTracerTexInst[EUK_COUNT_LASER];
 
@@ -169,6 +200,25 @@ private:
 	BOOL m_bFireThisFrame;
 	BOOL m_bRechargeThisFrame;
 	BOOL m_bFiredLastFrame;
+
+	// Charged shot. XBE 0x00142d10 arms the charge on any partial analog
+	// trigger; a full 1.0 pull stays on the rapid-fire path. The keyboard's
+	// generic Ctrl+fire modifier supplies that partial value, and releasing
+	// it fires the burst tracer.
+	BOOL m_bCharging;
+	BOOL m_bBurstThisFrame;
+	u32 m_nBurstDamageTier;
+	BOOL m_bChargeSoundStarted;
+	BOOL m_bChargeReadySoundPlayed;
+	f32 m_fChargeDelayTimer;
+	f32 m_fChargeUnit;
+
+	CFAudioEmitter *m_pChargeSoundEmitter;
+	FParticle_EmitterHandle_t m_hChargeParticle;
+	CFWorldLightItem *m_pChargeLight;
+	CFVec3A m_vChargeMuzzle_WS;
+	u16 m_nChargeStartAmmo;
+	u16 m_nChargeCost;
 
 	//////////////////////////////////////////////////////////////////////
 	// Special things that are only used for the level 3 laser.
@@ -209,6 +259,7 @@ public:
 	// Firing:
 	virtual void ComputeMuzzlePoint_WS( CFVec3A *pMuzzlePoint_WS ) const;
 	virtual u32 TriggerWork( f32 fUnitTriggerVal1, f32 fUnitTriggerVal2, const CFVec3A *pTargetPos_WS, const CFVec3A *pBuddyFirePos_WS = NULL );
+	virtual BOOL IsCharging( void ) const { return m_bCharging; }
 
 
 	// Rumble:
@@ -252,6 +303,10 @@ protected:
 private:
 
 	void _ClearDataMembers( void );
+	void _StopChargeEffects( void );
+	void _UpdateChargeAmmo( void );
+	u32 _TriggerWorkNormal( f32 fUnitTriggerVal1, const CFVec3A *pvTargetPos_WS, const CFVec3A *pBuddyFirePos_WS );
+	u32 _TriggerWorkCharged( f32 fUnitTriggerVal1, const CFVec3A *pvTargetPos_WS, const CFVec3A *pBuddyFirePos_WS );
 	static void _TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillReason_e nKillReason, const FCollImpact_t *pImpact );
 
 	FCLASS_STACKMEM_ALIGN( CWeaponLaser );

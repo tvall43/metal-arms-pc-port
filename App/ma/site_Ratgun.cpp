@@ -902,8 +902,12 @@ void CRatGun::_HandleFireThisFrame(void)
 		if( m_pSpewProps->hSpewSmoke ) {
 			f32 fIntensity = (m_pSpewProps->fRetailPercent25 > 0.0f)
 				? m_pSpewProps->fRetailPercent25 : 1.0f;
-			fparticle_SpawnEmitter( m_pSpewProps->hSpewSmoke, MuzzlePoint.v3,
-									&vFireUnitDir.v3, fIntensity );
+			FParticle_EmitterHandle_t hSmoke =
+				fparticle_SpawnEmitter( m_pSpewProps->hSpewSmoke, MuzzlePoint.v3,
+										&vFireUnitDir.v3, fIntensity );
+			if( hSmoke ) {
+				fparticle_StopEmitter( hSmoke );
+			}
 		}
 
 		CMuzzleFlash::MuzzleLight( &MuzzlePoint, 20.0f );

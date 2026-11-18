@@ -814,7 +814,9 @@ u32 CWeaponStaff::TriggerWork( f32 fUnitTriggerVal1, f32 fUnitTriggerVal2, const
 	end.Add(begin);
 	fdraw_DevLine(&begin, &end, &red);
 	*/
-	m_bFireTriggerDown = (fUnitTriggerVal1 == 1.0f);
+	// Use the same partial/full trigger semantics as the rest of the PC
+	// controls; the keyboard's Ctrl+fire modifier is a partial pull.
+	m_bFireTriggerDown = (fUnitTriggerVal1 >= 0.25f);
 	m_bFireThisFrame = FALSE;
 
 	if (m_bFireTriggerDown)

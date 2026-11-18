@@ -2136,6 +2136,10 @@ void CBotMiner::_HandleWeaponFiring( void ) {
 			break;
 	}
 
+	// Match Glitch: hold the firing stance while the laser charges.
+	if( m_apWeapon[0]->IsCharging() ) {
+		FMATH_SETBITMASK( m_nBotFlags, BOTFLAG_PLAY_FIRE1_ANIM );
+	}
 
 	if( nFireBitsPrimary ) {
 		// We fired the primary weapon...

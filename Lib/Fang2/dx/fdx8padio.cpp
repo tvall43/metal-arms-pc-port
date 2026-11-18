@@ -294,6 +294,11 @@ static LONG _nWheelPulsePrimaryUntil   = 0;
 static LONG _nWheelPulseSecondaryUntil = 0;
 #define _WHEEL_PULSE_MS 60
 
+// Ctrl+fire latches the partial trigger for the whole press. This is generic
+// across weapons: the same 1.0 / 0.5 split the retail pad produces is what the
+// keyboard reports.
+static BOOL _bChargeModifierLatch = FALSE;
+
 // [KEYMAP] overrides (phase 2): virtual-key codes indexed by
 // (FPadio_InputID_e - 1); 0 keeps the default binding below. Populated by
 // fpadio_SetSynthKeyOverrides() from ma_win.ini before the game loop starts,
@@ -391,9 +396,22 @@ static void _KeyboardSyntheticSample( FPadio_Sample_t *poSample )
 		? _KeyBound( FPADIO_INPUT_START, 0 )
 		: ( _KeyDown( VK_RETURN ) || _KeyDown( 'P' ) || _KeyDown( VK_ESCAPE ) ) ) ? 1.0f : 0.0f;
 	paf[ FPADIO_INPUT_XB_DBUTTON_BACK       - 1 ] = _KeyBound( FPADIO_INPUT_XB_DBUTTON_BACK, VK_BACK ) ? 1.0f : 0.0f; // Back
-	paf[ FPADIO_INPUT_TRIGGER_RIGHT         - 1 ] = ( ( 0 != _auSynthKeyVK[ FPADIO_INPUT_TRIGGER_RIGHT - 1 ] )
-		? _KeyBound( FPADIO_INPUT_TRIGGER_RIGHT, 0 )
-		: ( _KeyDown( VK_LBUTTON ) || _KeyDown( VK_LCONTROL ) ) ) ? 1.0f : 0.0f; // RT: fire
+	//// RT: fire. LMB is the full 1.0 pull; Ctrl+LMB is the partial 0.5 pull.
+	//// XBE 0x00142d10 uses that same split: full = rapid fire, partial =
+	//// charge. Other weapons see exactly the same generic trigger values.
+	if( 0 != _auSynthKeyVK[ FPADIO_INPUT_TRIGGER_RIGHT - 1 ] ) {
+		paf[ FPADIO_INPUT_TRIGGER_RIGHT - 1 ] = _KeyBound( FPADIO_INPUT_TRIGGER_RIGHT, 0 ) ? 1.0f : 0.0f;
+	} else {
+		BOOL bFireDown = _KeyDown( VK_LBUTTON );
+		BOOL bChargeModifier = _KeyDown( VK_LCONTROL ) || _KeyDown( VK_RCONTROL );
+		if( bFireDown && bChargeModifier ) {
+			_bChargeModifierLatch = TRUE;
+		}
+		if( !bFireDown ) {
+			_bChargeModifierLatch = FALSE;
+		}
+		paf[ FPADIO_INPUT_TRIGGER_RIGHT - 1 ] = bFireDown ? ( _bChargeModifierLatch ? 0.5f : 1.0f ) : 0.0f;
+	}
 	paf[ FPADIO_INPUT_TRIGGER_LEFT          - 1 ] = ( ( 0 != _auSynthKeyVK[ FPADIO_INPUT_TRIGGER_LEFT - 1 ] )
 		? _KeyBound( FPADIO_INPUT_TRIGGER_LEFT, 0 )
 		: ( _KeyDown( VK_RBUTTON ) || _KeyDown( VK_LSHIFT ) ) ) ? 1.0f : 0.0f;    // LT: aim
