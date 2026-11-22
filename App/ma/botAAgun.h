@@ -253,6 +253,7 @@ private:
 
 	// operator related:
 	CBot *m_pDriverBot;											// pointer to bot currently operating the gun
+	CArmorProfile *m_pSavedDriverArmorProfile;					// retail: MP-only saved driver armor profile, restored on exit
 	CVehicle::StationStatus_e m_eStationStatus;	
 	f32 m_fEntryJumpTimer;
 	BOOL8 m_bAllowDriverMovement;

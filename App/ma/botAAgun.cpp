@@ -519,7 +519,9 @@ void CBotAAGun::_ResetToNeutral( void ) {
 		m_ahEmitters[i] = FPARTICLE_INVALID_HANDLE;
 	}
 
-	m_fSecsTillNextMortarFire = m_MortarInfo.fOORoundsPerSec;
+	m_fSecsTillNextMortarFire = MultiplayerMgr.IsSinglePlayer()
+		? m_MortarInfo.fOORoundsPerSec
+		: m_MortarInfo.fOORetailRate;
 	m_fSecsTillNextFlakFx = 0.0f;
 	m_fSecsTillNextMortarClick = 0.0f;
 
@@ -571,6 +573,7 @@ void CBotAAGun::_ClearDataMembers( void ) {
 
 	m_pCameraBot = NULL;
 	m_pDriverBot = NULL;
+	m_pSavedDriverArmorProfile = NULL;
 	m_fGunHeading = 0.0f;
 	m_fGunPitch = 0.0f;
 	m_bMorterAttachment = FALSE;
@@ -1354,10 +1357,12 @@ void CBotAAGun::_DriverEnter( CBot *pDriverBot, cchar *pszAttachPointBoneName /*
 	pDriverBot->SetInvincible( TRUE );	
 	pDriverBot->SetSpotLightOff( TRUE );
 
-	// Retail swaps the gun's armor profile to the authored gunner profile
-	// while it is manned.
-	if( m_BotInfo_AAGun.pGunnerArmorProfile ) {
-		SetArmorProfile( m_BotInfo_AAGun.pGunnerArmorProfile );
+	// Retail swaps the *driver's* armor profile to the authored gunner
+	// profile in multiplayer only, and restores it on exit.
+	m_pSavedDriverArmorProfile = NULL;
+	if( !MultiplayerMgr.IsSinglePlayer() && m_BotInfo_AAGun.pGunnerArmorProfile ) {
+		m_pSavedDriverArmorProfile = pDriverBot->GetArmorProfile();
+		pDriverBot->SetArmorProfile( m_BotInfo_AAGun.pGunnerArmorProfile );
 	}
 }
 
@@ -1372,6 +1377,12 @@ void CBotAAGun::_DriverExit( CBot *pDriverBot ) {
 	if( !pDriverBot->IsImmobilizePending() ) {
 		// don't mobilize if an immobilize is pending (EMP grenade for instance)
 		pDriverBot->MobilizeBot();
+	}
+
+	// Retail restores the driver's saved armor profile in multiplayer.
+	if( !MultiplayerMgr.IsSinglePlayer() && m_pSavedDriverArmorProfile ) {
+		pDriverBot->SetArmorProfile( m_pSavedDriverArmorProfile );
+		m_pSavedDriverArmorProfile = NULL;
 	}
 
 	// if driver's spotlight was on when entering vehicle, turn it back on now.
@@ -1528,7 +1539,6 @@ void CBotAAGun::_SecondaryWeaponWork( BOOL bSecondaryFireDown ) {
 				pProj->Relocate_RotXlatFromUnitMtx_WS_NewScale_WS( &ProjMtx, 1.0f );
 				pProj->SetMaxLifeSecs( 20.0f );
 				pProj->SetMaxDistCanTravel( m_BotInfo_AAGun.fMaxRange );
-				pProj->SetDamageProfile( m_MortarInfo.pDetonateDamageProfile );
 				pProj->SetDetonateCallback( _ProjDetonateCallback );
 				pProj->Launch();
 				PlaySound( m_MortarInfo.pMortarFire );
@@ -1554,11 +1564,11 @@ void CBotAAGun::_SecondaryWeaponWork( BOOL bSecondaryFireDown ) {
 				}
 				
 				// reset our timer so that we don't fire too often
-				// Retail uses the alternate mortar cadence in single-player and
-				// the normal one in multiplayer.
+				// Retail uses the normal mortar cadence in single-player and
+				// the slower second rate pair in multiplayer.
 				m_fSecsTillNextMortarFire = MultiplayerMgr.IsSinglePlayer()
-					? m_MortarInfo.fOORetailRate
-					: m_MortarInfo.fOORoundsPerSec;
+					? m_MortarInfo.fOORoundsPerSec
+					: m_MortarInfo.fOORetailRate;
 			} else {
 				m_fSecsTillNextMortarClick -= FLoop_fPreviousLoopSecs;
 				if( m_fSecsTillNextMortarClick <= 0.0f ) {
@@ -1597,6 +1607,23 @@ BOOL CBotAAGun::_ProjDetonateCallback( CEProj *pProj, BOOL bMakeEffect, CEProj::
 				m_MortarInfo.fMinShockwaveImpulse );
 
 			CFSoundGroup::PlaySound( m_MortarInfo.pMortarExplode, FALSE, &pImpact->ImpactPoint );			
+
+			// Retail submits the authored detonate profile from the callback
+			// (XBE 0x0003f210) with fRetailTail as the lingering damage
+			// duration, not from the projectile's profile slot.
+			if( m_MortarInfo.pDetonateDamageProfile ) {
+				CDamageForm *pDamageForm = CDamage::GetEmptyDamageFormFromPool();
+				if( pDamageForm ) {
+					pDamageForm->m_nDamageLocale = CDamageForm::DAMAGE_LOCALE_BLAST;
+					pDamageForm->m_nDamageDelivery = CDamageForm::DAMAGE_DELIVERY_ALL_ENTITIES_WITHIN_PROFILE_RADIUS;
+					pDamageForm->m_pDamageProfile = m_MortarInfo.pDetonateDamageProfile;
+					pDamageForm->m_Epicenter_WS = pImpact->ImpactPoint;
+					pDamageForm->m_Damager = *pProj->GetDamager();
+					pDamageForm->m_fNormIntensity = 1.0f;
+
+					CDamage::SubmitDamageForm( pDamageForm, m_MortarInfo.fRetailTail );
+				}
+			}
 		}
 	}
 	return FALSE;
@@ -1704,19 +1731,25 @@ void CBotAAGun::_PrimaryWeaponWork( BOOL bPrimaryFireDown ) {
 			// draw impact effects
             pCollMaterial->DrawAllDrawableParticles( &CollImpact.ImpactPoint, 
 													 &CollImpact.UnitFaceNormal,
-													 (m_nNextFireBarrelIndex & 0x1),
-													 fmath_RandomFloatRange( 0.25f, 0.6f ),
+													 TRUE,
+													 fmath_RandomFloatRange( 0.5f, 1.0f ),
 													 fmath_RandomFloatRange( 0.5f, 1.0f ),
 													 fmath_RandomFloatRange( 0.5f, 1.0f ) );
 
-			// Retail adds two authored impact particle groups: one for world
-			// geometry and one for entity hits.
-			FParticle_DefHandle_t hImpact = (CollImpact.pTag == NULL)
+			// Retail picks the authored impact particle by collision material
+			// (XBE 0x00041840): Impact1 on material id 5 with authored dust;
+			// Impact2 everywhere else.
+			BOOL bImpact1 = (pCollMaterial->m_nMtlID == 5)
+				&& pCollMaterial->CanDrawParticle( CGCollMaterial::PARTICLE_TYPE_DUST );
+			FParticle_DefHandle_t hImpact = bImpact1
 				? m_BotInfo_AAGun.hImpact1PartDef
 				: m_BotInfo_AAGun.hImpact2PartDef;
 			if( hImpact ) {
+				f32 fImpactScale = bImpact1
+					? fmath_RandomFloatRange( 0.65f, 1.0f )
+					: fmath_RandomFloatRange( 0.5f, 1.0f );
 				fparticle_SpawnEmitter( hImpact, CollImpact.ImpactPoint.v3,
-										&CollImpact.UnitFaceNormal.v3, 1.0f );
+										&CollImpact.UnitFaceNormal.v3, fImpactScale );
 			}
 
 			// Spawn some chunks (every other barrel and only if close to us)...
@@ -1728,11 +1761,11 @@ void CBotAAGun::_PrimaryWeaponWork( BOOL bPrimaryFireDown ) {
 				DebrisSpawner.m_Mtx.m_vZ = CollImpact.UnitFaceNormal;
 				DebrisSpawner.m_nEmitterType = CFDebrisSpawner::EMITTER_TYPE_POINT;
 				DebrisSpawner.m_pDebrisGroup = pCollMaterial->m_apDebrisGroup[ CGCollMaterial::DEBRIS_GROUP_MEDIUM ];
-				DebrisSpawner.m_fMinSpeed = 10.0f;
-				DebrisSpawner.m_fMaxSpeed = 20.0f;
-				DebrisSpawner.m_fUnitDirSpread = 0.2f;
-				DebrisSpawner.m_nMinDebrisCount = 1;
-				DebrisSpawner.m_nMaxDebrisCount = 3;
+				DebrisSpawner.m_fMinSpeed = 15.0f;
+				DebrisSpawner.m_fMaxSpeed = 30.0f;
+				DebrisSpawner.m_fUnitDirSpread = 0.3f;
+				DebrisSpawner.m_nMinDebrisCount = 2;
+				DebrisSpawner.m_nMaxDebrisCount = 6;
 
 				CGColl::SpawnDebris( &DebrisSpawner );
 			}
@@ -1794,7 +1827,7 @@ void CBotAAGun::_PrimaryWeaponWork( BOOL bPrimaryFireDown ) {
 				vSmokePos.Add( vSpread );
 
 				fparticle_SpawnEmitter( m_BotInfo_AAGun.hFlakPartDef, vSmokePos.v3, NULL, fmath_RandomFloatRange( 0.5f, 1.0f ) );
-				m_fSecsTillNextFlakFx = (1.0f/2.0f);
+				m_fSecsTillNextFlakFx = 0.2f;
 			}
 		}
 
