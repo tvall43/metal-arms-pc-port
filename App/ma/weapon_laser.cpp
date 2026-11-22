@@ -875,7 +875,9 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 		// callback uses TracerDef_t::nUser as the ricochet counter: normal
 		// surfaces bounce at most four times when the incoming direction is
 		// within the 0.3 dot-product threshold; RICOCHET/SHIELD materials
-		// bounce regardless of that angle test.
+		// bounce regardless of that angle test. Charged bursts only bounce
+		// off RICOCHET/SHIELD materials and always detonate on normal
+		// surfaces; L3 bolts ricochet exactly like L1/L2.
 		if( pImpact )
 		{
 			if( CGColl::ExtractWire( pImpact ) )
@@ -889,7 +891,9 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 			}
 		}
 
-		if( pImpact && (pLaser->m_nUpgradeLevel != 2) )
+		const BOOL bBurst = !!( pTracerDef->nUser & _LASER_NUSER_BURST );
+
+		if( pImpact )
 		{
 			BOOL bRicochet = FALSE;
 
@@ -899,7 +903,8 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 			{
 				bRicochet = TRUE;
 			}
-			else if( pCollMaterial->IsBlastDecalEnabled() &&
+			else if( !bBurst &&
+			         pCollMaterial->IsBlastDecalEnabled() &&
 			         ( ( pTracerDef->nUser & _LASER_NUSER_RICOCHET_MASK ) < 4 ) )
 			{
 				const f32 fNormalDotDir = pTracerDef->UnitDir_WS.Dot( pImpact->UnitFaceNormal );
