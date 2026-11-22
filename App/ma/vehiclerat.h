@@ -577,6 +577,7 @@ private:
 	void _BigExplosion( void );
 	void _StartDriverEnterWork( BOOL bImmediately );
 	void _StartGunnerEnterWork( BOOL bImmediately );
+	void _ApplyRacingLevelArmorProfile( void );
 	void _AbortDriverEntry( void );
 	void _SquishBots( void );
 	void _UpdateRatState( void );

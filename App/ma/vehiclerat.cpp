@@ -36,6 +36,7 @@
 #include "Ai/AIMover.h"
 #include "weapon.h"
 #include "MultiplayerMgr.h"
+#include "difficulty.h"
 #include "meshentity.h"
 #include "site_RatGun.h"
 #include "eboomer.h"
@@ -2173,6 +2174,7 @@ void CVehicleRat::_StartGunnerEnterWork( BOOL bImmediately )
 				if( level_IsRacingLevel() )
 				{
 					m_pGunnerBot->SetArmorProfile( m_pBotInfo_Vehicle->pOccupantRacingArmorProfile );
+					_ApplyRacingLevelArmorProfile();
 				}
 				else
 				{
@@ -3071,6 +3073,29 @@ PROTRACK_ENDBLOCK();
 
 
 //-----------------------------------------------------------------------------
+// retail: while a player occupies the Rat on a true racing level, the vehicle
+// itself takes a level-specific armor profile (XBE 0x001248f0 / 0x001244e0)
+void CVehicleRat::_ApplyRacingLevelArmorProfile( void )
+{
+	Level_e eLevel = Level_aInfo[ Level_nLoadedIndex ].nLevel;
+
+	if( eLevel == LEVEL_RAT_RACE )
+	{
+		SetArmorProfile( m_BotInfo_Rat.apRetailArmorProfile[ 0 ] );		// VRatRR
+	}
+	else if( eLevel == LEVEL_WASTELAND_CHASE )
+	{
+		SetArmorProfile( m_BotInfo_Rat.apRetailArmorProfile[ 1 + CDifficulty::GetLevel() ] );	// VRatWC0..3
+	}
+	else if( eLevel == LEVEL_RACE_TO_THE_ROCKET )
+	{
+		SetArmorProfile( m_BotInfo_Rat.apRetailArmorProfile[ 5 ] );		// VRatR2R
+	}
+	// LEVEL_HOLD_YOUR_GROUND is a racing level, but retail deliberately falls
+	// through here and keeps the default 'VRat' profile.
+}
+
+//-----------------------------------------------------------------------------
 // put driver bot into vehicle
 void CVehicleRat::DriverEnter( CBot *pDriverBot, cchar *pszAttachPointBoneName /* = NULL */, BOOL bImmediately /* = FALSE */ )
 {
@@ -3100,6 +3125,7 @@ void CVehicleRat::DriverEnter( CBot *pDriverBot, cchar *pszAttachPointBoneName /
 	{
 		SetHealthContainerCount( pDriverBot->HealthContainerCount() );
 		SetNormHealth( pDriverBot->NormHealth() );
+		_ApplyRacingLevelArmorProfile();
 	}
 
 	// enable dirt emitters 
