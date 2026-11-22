@@ -52,7 +52,7 @@ public:
 		f32 m_fDeltaUnitSusceptabilityNPC;			// The delta to apply to the NPC's hitpoint susceptability during damage result computation
 		f32 m_fRetailField2;						// Minimum normalized health when a player-owned bot restores a checkpoint
 		f32 m_fRetailField3;						// AI dangling-limb auto-repair delay in seconds
-		f32 m_fRetailField4;						// Save/profile value; not used by live gameplay (meaning unresolved)
+		f32 m_fSpeedChipTimeBonusSecs;				// Per-difficulty Speed Chip time-to-beat bonus in seconds (retail data 0 / 30 / 90 / 180)
 	};
 
 
@@ -86,6 +86,7 @@ public:
 	static void SetLevel( u32 nDifficultyLevel );
 	static FINLINE u32 GetLevel( void ) { return m_nDifficultyLevel; }
 	static FINLINE const CInfo *GetInfo( void ) { return m_pInfo; }
+	static FINLINE const CInfo *GetInfoForLevel( u32 nDifficultyLevel ) { FASSERT( nDifficultyLevel < DIFFICULTY_COUNT ); return &m_aInfo[nDifficultyLevel]; }
 
 	#if !FANG_PRODUCTION_BUILD
 		static cchar *DevMode_GetEnglishNameForLevel( u32 nDifficultyLevel ) { FASSERT( nDifficultyLevel < DIFFICULTY_COUNT ); return m_apszDevModeEnglishName[nDifficultyLevel]; }

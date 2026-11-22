@@ -77,8 +77,10 @@ const FGameData_TableEntry_t CDifficulty::m_aGameDataVocab[] = {
 	F32_DATATABLE_0,
 	F32_DATATABLE_10000,
 
-	// m_fRetailField4 (retail data 0 / 30 / 90 / 180):
-	// Save/profile value; not used by live gameplay (meaning unresolved).
+	// m_fSpeedChipTimeBonusSecs (retail data 0 / 30 / 90 / 180):
+	// Per-difficulty Speed Chip time-to-beat bonus in seconds. Retail adds this
+	// to the level's base time-to-beat when deciding whether a Speed Chip is
+	// earned (XBE 0x0020d940).
 	FGAMEDATA_VAR_TYPE_FLOAT|
 	FGAMEDATA_FLAGS_FLOAT_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( f32 ),

@@ -4517,7 +4517,7 @@ void CGroundCombat::DoLeadAimWithError(f32 fMaxErrorDist, f32 fBaseAccuracy, con
 	{
 		m_BadShotBonusUnit.x = fmath_RandomBipolarUnitFloat();
 		m_BadShotBonusUnit.z = fmath_RandomBipolarUnitFloat();
-		m_BadShotBonusUnit.y = fmath_RandomFloat(); // missing low,sucks//fmath_RandomBipolarUnitFloat();
+		m_BadShotBonusUnit.y = fmath_RandomFloat() * 1.5f - 0.5f;
 		m_fUpdateBadShotBonusVecTime = aiutils_FTotalLoopSecs() + 0.2f+ fmath_RandomFloat();
 	}
 
@@ -4553,7 +4553,7 @@ void CGroundCombat::DoLeadAimWithError(f32 fMaxErrorDist, f32 fBaseAccuracy, con
 	}
 	else if (((CBot*) s_pWD->pMover->GetEntity())->m_apWeapon[0])
 	{
-		f32 fProjSpeed = ((CBot*) s_pWD->pMover->GetEntity())->m_apWeapon[0]->GetProjectileSpeed();
+		fProjSpeed = ((CBot*) s_pWD->pMover->GetEntity())->m_apWeapon[0]->GetProjectileSpeed();
 	}
 
 	if (fProjSpeed > 0.0f)

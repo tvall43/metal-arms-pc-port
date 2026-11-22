@@ -22,6 +22,7 @@
 #include "gameloop.h"
 #include "player.h"
 #include "game.h"
+#include "difficulty.h"
 #include "fresload.h"
 #include "floop.h"
 #include "wpr_datatypes.h"
@@ -269,8 +270,21 @@ static BOOL _LoadCompletionData( Level_e nLevel ) {
 	return TRUE;
 }
 
+static f32 _SpeedChipTimeBonus( const CPlayerProfile *pProfile ) {
+	if( !pProfile ) {
+		return 0.0f;
+	}
+
+	u32 nDifficulty = pProfile->m_Data.nDifficulty;
+	if( nDifficulty >= CDifficulty::DIFFICULTY_COUNT ) {
+		nDifficulty = CDifficulty::DEFAULT_DIFFICULTY_LEVEL;
+	}
+	return CDifficulty::GetInfoForLevel( nDifficulty )->m_fSpeedChipTimeBonusSecs;
+}
+
 static void _ProcessCompletionRewards( CPlayerProfile *pProfile, Level_e nLevel, f32 fRunSecs ) {
 	u32 nEarned;
+	f32 fTimeToBeat = _fTimeToBeat + _SpeedChipTimeBonus( pProfile );
 
 	_bNewMPUnlock = FALSE;
 	_bNewSpeedChip = FALSE;
@@ -280,8 +294,8 @@ static void _ProcessCompletionRewards( CPlayerProfile *pProfile, Level_e nLevel,
 
 	// Award the Speed Chip first so it also counts toward unlock thresholds.
 	if( (u32)nLevel < LEVEL_SINGLE_PLAYER_COUNT
-		&& _fTimeToBeat > 0.0f
-		&& fRunSecs <= _fTimeToBeat
+		&& fTimeToBeat > 0.0f
+		&& fRunSecs <= fTimeToBeat
 		&& !pProfile->m_Data.aLevelProgress[nLevel].nBonusSecretChipEarned ) {
 		pProfile->m_Data.aLevelProgress[nLevel].nBonusSecretChipEarned = 1;
 		_bNewSpeedChip = TRUE;
@@ -379,6 +393,7 @@ static void _ComposeCompletionMessages( void ) {
 	u32 h, m, s;
 	wchar wszNum[_STRING_LEN];
 	u32 nEarned, nUnlocked, nNext;
+	f32 fTimeToBeat = _fTimeToBeat + _SpeedChipTimeBonus( _pPlayerProfile );
 
 	_awszSpeedChipLine[0] = 0;
 	_awszUnlockStatusLine[0] = 0;
@@ -391,13 +406,13 @@ static void _ComposeCompletionMessages( void ) {
 		(u32)_bNewSpeedChip, (u32)_bNewMPUnlock );
 
 	// Speed Chip status: made it this run, already earned, or how much time we lost
-	if( _fTimeToBeat > 0.0f ) {
+	if( fTimeToBeat > 0.0f ) {
 		if( _bNewSpeedChip ) {
 			fclib_wcscat( _awszSpeedChipLine, _awszLCPhrases[7] );
 		} else if( _pPlayerProfile->m_Data.aLevelProgress[_nCompletedLevel].nBonusSecretChipEarned ) {
 			fclib_wcscat( _awszSpeedChipLine, _awszLCPhrases[8] );
 		} else {
-			wpr_datatypes_BreakDownTimeUnits( _fTimeToBeat, h, m, s );
+			wpr_datatypes_BreakDownTimeUnits( fTimeToBeat, h, m, s );
 			fclib_wcscat( _awszSpeedChipLine, _awszLCPhrases[1] );
 			_snwprintf( wszNum, _STRING_LEN, L" %02d:%02d:%02d ", h, m, s );
 			fclib_wcscat( _awszSpeedChipLine, wszNum );
