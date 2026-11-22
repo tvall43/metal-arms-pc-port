@@ -239,6 +239,8 @@ private:
 	f32 m_afBarrelTimer[NUM_BARRELS];
 	f32 m_afOuterBarrelRecoilZ[NUM_BARRELS];
 	FParticle_EmitterHandle_t m_ahEmitters[NUM_BARRELS];
+	f32 m_fBackSmokeUnit;
+	FParticle_EmitterHandle_t m_ahBackSmokeEmitters[NUM_BARRELS][2];
 	f32 m_fGunUnitShotSpread;
 	f32 m_fGunAISoundTimer;
 	f32 m_fGunTracerTimer;
@@ -367,6 +369,7 @@ private:
 
 	void _YawPitchWork( f32 fControllerX, f32 fControllerY );
 	void _BarrelWork( void );
+	void _BackSmokeWork( BOOL bFiring );
 	void _PrimaryWeaponWork( BOOL bPrimaryFireDown );
 	void _SecondaryWeaponWork( BOOL bSecondaryFireDown );
 	void _UpdateReticle( void );

@@ -519,6 +519,12 @@ void CBotAAGun::_ResetToNeutral( void ) {
 		m_ahEmitters[i] = FPARTICLE_INVALID_HANDLE;
 	}
 
+	m_fBackSmokeUnit = 0.0f;
+	for( i=0; i < NUM_BARRELS; i++ ) {
+		m_ahBackSmokeEmitters[i][0] = FPARTICLE_INVALID_HANDLE;
+		m_ahBackSmokeEmitters[i][1] = FPARTICLE_INVALID_HANDLE;
+	}
+
 	m_fSecsTillNextMortarFire = MultiplayerMgr.IsSinglePlayer()
 		? m_MortarInfo.fOORoundsPerSec
 		: m_MortarInfo.fOORetailRate;
@@ -614,6 +620,16 @@ void CBotAAGun::ClassHierarchyRemoveFromWorld( void ) {
 		m_pRotSoundEmitter->Destroy();
 		m_pRotSoundEmitter = NULL;
 		m_fRotVolume = 0.0f;
+	}
+
+	m_fBackSmokeUnit = 0.0f;
+	for( i=0; i < NUM_BARRELS; i++ ) {
+		for( u32 j=0; j<2; j++ ) {
+			if( m_ahBackSmokeEmitters[i][j] != FPARTICLE_INVALID_HANDLE ) {
+				fparticle_KillEmitter( m_ahBackSmokeEmitters[i][j] );
+				m_ahBackSmokeEmitters[i][j] = FPARTICLE_INVALID_HANDLE;
+			}
+		}
 	}
 
 	m_pWorldMesh->RemoveFromWorld();
@@ -1629,7 +1645,55 @@ BOOL CBotAAGun::_ProjDetonateCallback( CEProj *pProj, BOOL bMakeEffect, CEProj::
 	return FALSE;
 }
 
+void CBotAAGun::_BackSmokeWork( BOOL bFiring ) {
+	if( bFiring ) {
+		m_fBackSmokeUnit += FLoop_fPreviousLoopSecs * 0.07f;
+		FMATH_CLAMPMAX( m_fBackSmokeUnit, 1.0f );
+	} else {
+		m_fBackSmokeUnit -= FLoop_fPreviousLoopSecs * 0.11f;
+		FMATH_CLAMPMIN( m_fBackSmokeUnit, 0.0f );
+	}
+
+	if( ( m_BotInfo_AAGun.hBackSmokePartDef == FPARTICLE_INVALID_HANDLE ) ||
+		( m_fBackSmokeUnit <= 0.25f ) ||
+		IsDeadOrDying() ) {
+		for( u32 i=0; i<NUM_BARRELS; i++ ) {
+			for( u32 j=0; j<2; j++ ) {
+				if( m_ahBackSmokeEmitters[i][j] != FPARTICLE_INVALID_HANDLE ) {
+					fparticle_KillEmitter( m_ahBackSmokeEmitters[i][j] );
+					m_ahBackSmokeEmitters[i][j] = FPARTICLE_INVALID_HANDLE;
+				}
+			}
+		}
+		return;
+	}
+
+	const f32 fTipIntensity = ( m_fBackSmokeUnit - 0.25f ) * ( 4.0f / 3.0f );
+	const f32 fSheathIntensity = fTipIntensity * 0.8f;
+
+	for( u32 i=0; i<NUM_BARRELS; i++ ) {
+		CFMtx43A *pTipMtx = m_pWorldMesh->GetBoneMtxPalette()[ m_anBoneIndices[ i + BARREL_TO_TIP_BONE_OFFSET ] ];
+		CFMtx43A *pSheathMtx = m_pWorldMesh->GetBoneMtxPalette()[ m_anBoneIndices[ i + BARREL_TO_SHEATH_BONE_OFFSET ] ];
+
+		if( m_ahBackSmokeEmitters[i][0] == FPARTICLE_INVALID_HANDLE ) {
+			m_ahBackSmokeEmitters[i][0] = fparticle_SpawnEmitter( m_BotInfo_AAGun.hBackSmokePartDef,
+				&pTipMtx->m_vPos.v3, &pTipMtx->m_vUp.v3, NULL, fTipIntensity );
+		} else {
+			fparticle_SetIntensity( m_ahBackSmokeEmitters[i][0], fTipIntensity );
+		}
+
+		if( m_ahBackSmokeEmitters[i][1] == FPARTICLE_INVALID_HANDLE ) {
+			m_ahBackSmokeEmitters[i][1] = fparticle_SpawnEmitter( m_BotInfo_AAGun.hBackSmokePartDef,
+				&pSheathMtx->m_vPos.v3, &pSheathMtx->m_vFront.v3, NULL, fSheathIntensity );
+		} else {
+			fparticle_SetIntensity( m_ahBackSmokeEmitters[i][1], fSheathIntensity );
+		}
+	}
+}
+
 void CBotAAGun::_PrimaryWeaponWork( BOOL bPrimaryFireDown ) {
+
+	_BackSmokeWork( bPrimaryFireDown );
 
 	m_fSecsTillNextFire -= FLoop_fPreviousLoopSecs;
 	m_fGunAISoundTimer -= FLoop_fPreviousLoopSecs;
@@ -1697,11 +1761,6 @@ void CBotAAGun::_PrimaryWeaponWork( BOOL bPrimaryFireDown ) {
 		vSmokePos.Mul( vNegFireDir, m_BotInfo_AAGun.fRecoilBack * 0.5f );
 		vSmokePos.Add( pMtx->m_vPos );
 		fparticle_SpawnEmitter( m_BotInfo_AAGun.hSmokePartDef, vSmokePos.v3, &vNegFireDir.v3, 1.0f );
-
-		// Retail adds a separate back-smoke emitter behind each barrel.
-		if( m_BotInfo_AAGun.hBackSmokePartDef ) {
-			fparticle_SpawnEmitter( m_BotInfo_AAGun.hBackSmokePartDef, vSmokePos.v3, &vNegFireDir.v3, 1.0f );
-		}
 
 		// emit some muzzle flash
 		CMuzzleFlash::MuzzleLight( &vMuzzlePoint, m_BotInfo_AAGun.fMuzzleLightRadius );
