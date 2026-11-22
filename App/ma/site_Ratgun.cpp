@@ -405,6 +405,7 @@ CRatGun::~CRatGun()
 void CRatGun::Destroy(void)
 {
 	_KillAudioEmitters();
+	siteweapon_ResetMuzzleSmoke( m_fMuzzleSmokeCharge, m_ahMuzzleSmoke, 1 );
 	m_pOwnerBot->m_Anim.Destroy();
 	m_AliveMeshRestAnimSource.Destroy();
 	m_AliveAnimManMtxAim.Destroy();
@@ -568,6 +569,7 @@ BOOL CRatGun::Create( CBotSiteWeapon::SiteWeaponData_t* pData, void* pUser, cons
 	m_fSpewUnitShotSpread  = 0.0f;
     m_fSpewSecondsUntilNextTracer  = 0.0f;
 	m_fSpewSecondsCountdownTimer  = 0.0f;
+	siteweapon_ResetMuzzleSmoke( m_fMuzzleSmokeCharge, m_ahMuzzleSmoke, 1 );
 	
 	m_fSecsUntilNextSound = 0.0f;
 
@@ -693,6 +695,14 @@ u32	CRatGun::TriggerWorkPrimary( f32 fUnitTriggerVal1 )
 //	s32 nPlayerIndex;
 
 	m_bFirePrimaryThisFrame = FALSE;
+
+	siteweapon_UpdateMuzzleSmoke( m_pSpewProps->hSpewSmoke,
+								m_pSpewProps->fRetailOO23,
+								m_pSpewProps->fRetailOO24,
+								m_pSpewProps->fRetailPercent25,
+								m_pMuzzlePtArray, 1,
+								m_fMuzzleSmokeCharge, m_ahMuzzleSmoke,
+								(fUnitTriggerVal1 >= 0.25f), m_pOwnerBot );
 
 	if( fUnitTriggerVal1 < 0.25f )
 	{
@@ -898,17 +908,6 @@ void CRatGun::_HandleFireThisFrame(void)
 			m_pSpewProps->fMuzzleScale_Mesh * fRandomScale,
 			m_pSpewProps->fMuzzleRot_Mesh
 			);
-
-		if( m_pSpewProps->hSpewSmoke ) {
-			f32 fIntensity = (m_pSpewProps->fRetailPercent25 > 0.0f)
-				? m_pSpewProps->fRetailPercent25 : 1.0f;
-			FParticle_EmitterHandle_t hSmoke =
-				fparticle_SpawnEmitter( m_pSpewProps->hSpewSmoke, MuzzlePoint.v3,
-										&vFireUnitDir.v3, fIntensity );
-			if( hSmoke ) {
-				fparticle_StopEmitter( hSmoke );
-			}
-		}
 
 		CMuzzleFlash::MuzzleLight( &MuzzlePoint, 20.0f );
 		if( IsOwnedByPlayer() )
@@ -1538,6 +1537,7 @@ BOOL CRatGun::CheckpointSave( void )
 void CRatGun::CheckpointRestore( const CBotSiteWeapon::SiteWeaponData_t& rSiteData )
 {
 	_KillAudioEmitters();
+	siteweapon_ResetMuzzleSmoke( m_fMuzzleSmokeCharge, m_ahMuzzleSmoke, 1 );
 	m_AliveAnimManMtxAim.UpdateFrame(BONE_BALLTURRET,  rSiteData.m_MtxAimX_MS);
 	m_AliveAnimManMtxAim.UpdateFrame(BONE_BALLTURRETBASE,rSiteData.m_MtxAimY_MS);
 	m_AliveAnimManMtxAim.UpdateFrame(BONE_PRIMARY_FIRE, CFMtx43A::m_IdentityMtx);

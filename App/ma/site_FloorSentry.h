@@ -204,6 +204,8 @@ private:
 	CFAnimManMtx	m_DeadAnimManMtxAim;
 
 	BOOL m_bFirePrimaryThisFrame;
+	f32 m_fMuzzleSmokeCharge;
+	FParticle_EmitterHandle_t m_ahMuzzleSmoke[4];
 	f32 m_fLastFireTime;
 	Light_e m_eLightPage;
 	u16 m_nSpewClipAmmo;							// Number of rounds in the clip (if infinite clip ammo, this is INFINITE_AMMO)

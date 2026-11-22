@@ -188,6 +188,8 @@ private:
 	CFMtx43A* m_pMuzzlePtArray[1];
 	CFMtx43A* m_pSearchLightMtx;
 	BOOL m_bFirePrimaryThisFrame;
+	f32 m_fMuzzleSmokeCharge;
+	FParticle_EmitterHandle_t m_ahMuzzleSmoke[1];
 
 	u16 m_nSpewClipAmmo;							// Number of rounds in the clip (if infinite clip ammo, this is INFINITE_AMMO)
 	u16 m_nSpewReserveAmmo;							// Number of rounds outside the clip (if infinite reserve ammo, this is INFINITE_AMMO)

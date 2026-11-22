@@ -29,6 +29,7 @@
 #include "FCheckPoint.h"
 #include "weapon.h" 
 #include "MeshTypes.h"
+#include "fparticle.h"
 #include "gamepad.h"
 #include "fsound.h"
 #include "MultiplayerMgr.h"
@@ -45,6 +46,59 @@
 
 cchar _BOTINFO_FILENAME[] = 		"b_sentry";
 static BOOL _bDisableAudio = FALSE;
+
+void siteweapon_ResetMuzzleSmoke( f32 &rfCharge, FParticle_EmitterHandle_t *apEmitters, u32 nMuzzleCount ) {
+	rfCharge = 0.0f;
+
+	for( u32 i=0; i<nMuzzleCount; i++ ) {
+		if( apEmitters[i] != FPARTICLE_INVALID_HANDLE ) {
+			fparticle_KillEmitter( apEmitters[i] );
+			apEmitters[i] = FPARTICLE_INVALID_HANDLE;
+		}
+	}
+}
+
+void siteweapon_UpdateMuzzleSmoke( FParticle_DefHandle_t hSmokeDef,
+									f32 fChargeRate, f32 fDecayRate, f32 fPercent,
+									CFMtx43A **apMuzzleMtx, u32 nMuzzleCount,
+									f32 &rfCharge, FParticle_EmitterHandle_t *apEmitters,
+									BOOL bTriggerDown, CBot *pOwnerBot ) {
+	if( bTriggerDown ) {
+		rfCharge += FLoop_fPreviousLoopSecs * fChargeRate;
+		FMATH_CLAMPMAX( rfCharge, 1.0f );
+	} else {
+		rfCharge -= FLoop_fPreviousLoopSecs * fDecayRate;
+		FMATH_CLAMPMIN( rfCharge, 0.0f );
+	}
+
+	BOOL bKillSmoke = (hSmokeDef == FPARTICLE_INVALID_HANDLE)
+		|| (rfCharge < 0.25f)
+		|| (pOwnerBot == NULL)
+		|| pOwnerBot->IsDeadOrDying();
+
+	if( bKillSmoke ) {
+		siteweapon_ResetMuzzleSmoke( rfCharge, apEmitters, nMuzzleCount );
+		return;
+	}
+
+	f32 fIntensity = (rfCharge - 0.25f) * fPercent * (4.0f / 3.0f);
+	for( u32 i=0; i<nMuzzleCount; i++ ) {
+		CFMtx43A *pMuzzleMtx = apMuzzleMtx[i];
+		if( pMuzzleMtx == NULL ) {
+			continue;
+		}
+
+		if( apEmitters[i] == FPARTICLE_INVALID_HANDLE ) {
+			apEmitters[i] = fparticle_SpawnEmitter( hSmokeDef,
+													&pMuzzleMtx->m_vPos.v3,
+													&pMuzzleMtx->m_vFront.v3,
+													NULL,
+													fIntensity );
+		} else {
+			fparticle_SetIntensity( apEmitters[i], fIntensity );
+		}
+	}
+}
 
 //**********************************************************************************************************************************
 //--------------------------------------------------------------------------------------------------------

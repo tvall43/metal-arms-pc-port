@@ -597,4 +597,12 @@ public:
 	FCLASS_STACKMEM_ALIGN( CBotSiteWeaponBuilder );
 } FCLASS_ALIGN_SUFFIX;
 
+// Retail sentry muzzle-smoke helpers (R161).
+void siteweapon_ResetMuzzleSmoke( f32 &rfCharge, FParticle_EmitterHandle_t *apEmitters, u32 nMuzzleCount );
+void siteweapon_UpdateMuzzleSmoke( FParticle_DefHandle_t hSmokeDef,
+									f32 fChargeRate, f32 fDecayRate, f32 fPercent,
+									CFMtx43A **apMuzzleMtx, u32 nMuzzleCount,
+									f32 &rfCharge, FParticle_EmitterHandle_t *apEmitters,
+									BOOL bTriggerDown, CBot *pOwnerBot );
+
 #endif
