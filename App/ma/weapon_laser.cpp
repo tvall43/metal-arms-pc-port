@@ -1489,8 +1489,6 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 		return;
 	}
 
-	static const f32 _fPerturbFactor = 0.01f;
-
 	// At rest the laser meter is the lower half reserve. Clamp any item/pickup
 	// restore that put a full clip back into it; charging owns the upper half.
 	if( !m_bCharging && !m_bFireThisFrame && m_pInfo &&
@@ -1566,11 +1564,12 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 		ComputeMuzzlePoint_WS(&vecMuzzlePoint);
 		ComputeFireUnitDir( &vFireUnitDir, &vecMuzzlePoint, &m_MtxToWorld.m_vFront, &m_vTargetPos_WS, FALSE );
 
-		vecPerturb.Set(fmath_RandomFloatRange(-_fPerturbFactor, _fPerturbFactor), fmath_RandomFloatRange(-_fPerturbFactor, _fPerturbFactor), fmath_RandomFloatRange(-_fPerturbFactor, _fPerturbFactor));
+		const BOOL bBurst = m_bBurstThisFrame;
+		const f32 fPerturbFactor = bBurst ? 0.125f : ( ( m_nUpgradeLevel == 3 ) ? 0.0625f : 0.125f );
+		vecPerturb.Set(fmath_RandomFloatRange(-fPerturbFactor, fPerturbFactor), fmath_RandomFloatRange(-fPerturbFactor, fPerturbFactor), fmath_RandomFloatRange(-fPerturbFactor, fPerturbFactor));
 		vFireUnitDir.Add(vecPerturb);
 		vFireUnitDir.Unitize();
 
-		const BOOL bBurst = m_bBurstThisFrame;
 		TracerDef_t *pTracerDef = bBurst
 			? &m_aoBurstTracerDef[m_nUpgradeLevel]
 			: &m_aoTracerDef[m_nUpgradeLevel];
@@ -1584,6 +1583,11 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 
 		if( bBurst && m_aUserProps[m_nUpgradeLevel].hRetailBurstParticle && IsDrawEnabled() ) {
 			fparticle_SpawnEmitter( m_aUserProps[m_nUpgradeLevel].hRetailBurstParticle,
+				vecMuzzlePoint.v3, &vFireUnitDir.v3, 1.0f );
+		}
+
+		if( m_aUserProps[m_nUpgradeLevel].hRetailFiringSmokeParticle && IsDrawEnabled() ) {
+			fparticle_SpawnEmitter( m_aUserProps[m_nUpgradeLevel].hRetailFiringSmokeParticle,
 				vecMuzzlePoint.v3, &vFireUnitDir.v3, 1.0f );
 		}
 
