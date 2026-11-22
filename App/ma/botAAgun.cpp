@@ -27,6 +27,7 @@
 #include "ItemInst.h"
 #include "ItemRepository.h"
 #include "fforce.h"
+#include "fcamera.h"
 #include "MeshTypes.h"
 #include "weapons.h"
 #include "reticle.h"
@@ -1619,10 +1620,32 @@ BOOL CBotAAGun::_ProjDetonateCallback( CEProj *pProj, BOOL bMakeEffect, CEProj::
 				3.0f,
 				4.0f,
 				ENTITY_BIT_BOT,
-				m_MortarInfo.fMaxShockwaveImpulse,
+				MultiplayerMgr.IsSinglePlayer()
+					? m_MortarInfo.fMaxShockwaveImpulse
+					: m_MortarInfo.fMinShockwaveImpulse,
 				m_MortarInfo.fMinShockwaveImpulse );
 
 			CFSoundGroup::PlaySound( m_MortarInfo.pMortarExplode, FALSE, &pImpact->ImpactPoint );			
+
+			// Retail gives the manning player a small camera shake and a
+			// distance-scaled rocket-thrust force effect from the detonation.
+			CBotAAGun *pGun = (CBotAAGun *)pProj->GetDamager()->pBot;
+			if( pGun && pGun->m_pDriverBot && ( pGun->m_pDriverBot->m_nPossessionPlayerIndex >= 0 ) ) {
+				CFCamera *pCamera = fcamera_GetCameraByIndex( pGun->m_pDriverBot->m_nPossessionPlayerIndex );
+				if( pCamera ) {
+					pCamera->ShakeCamera( 0.015f, 0.015f );
+				}
+
+				CFVec3A vOwnerToImpact;
+				vOwnerToImpact.Sub( pImpact->ImpactPoint, pGun->MtxToWorld()->m_vPos );
+				const f32 fHalfRange = m_MortarInfo.fMaxRangeXZ * 0.5f;
+				const FForce_Effect_e eForce =
+					( vOwnerToImpact.MagSq() < ( fHalfRange * fHalfRange ) )
+					? FFORCE_EFFECT_ROCKET_THRUST_HEAVY
+					: FFORCE_EFFECT_ROCKET_THRUST_LIGHT;
+				fforce_Play( Player_aPlayer[ pGun->m_pDriverBot->m_nPossessionPlayerIndex ].m_nControllerIndex,
+					eForce, &pGun->m_hForce );
+			}
 
 			// Retail submits the authored detonate profile from the callback
 			// (XBE 0x0003f210) with fRetailTail as the lingering damage
@@ -1872,7 +1895,9 @@ void CBotAAGun::_PrimaryWeaponWork( BOOL bPrimaryFireDown ) {
 					}
 
 					// Make an AI impact sound in case any AI are listening...
-					if( (m_nPossessionPlayerIndex > -1) && (m_fGunAISoundTimer <= 0.0f) ) {
+					// Retail only issues this sound in multiplayer.
+					if( !MultiplayerMgr.IsSinglePlayer() &&
+						(m_nPossessionPlayerIndex > -1) && (m_fGunAISoundTimer <= 0.0f) ) {
 						AIEnviro_AddSound( CollImpact.ImpactPoint, AIEnviro_fLaserImpactAudibleRange, 0.3f, AISOUNDTYPE_WEAPON, 0, this );
 						m_fGunAISoundTimer = 0.5f;
 					}
