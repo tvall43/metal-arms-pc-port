@@ -53,6 +53,7 @@ public:
 		SHIELD_ENABLE_TINT		= 0x01,							// tint the shield
 		SHIELD_NOPROTECTION		= 0x02,
 		SHIELD_INVULNERABLE		= 0x04,
+		SHIELD_ENABLE_SOUNDS	= 0x08,							// retail: play Shield_Hit/Up/Down
 	};
 
 //----------------------------------------------------------------------------------------------------------------------------------
@@ -72,6 +73,10 @@ private:
 private:
 	static BOOL m_bSystemInitialized;
 	static BOOL m_bEffectsLoaded;
+
+	static CFSoundGroup *m_pSoundGroupHit;
+	static CFSoundGroup *m_pSoundGroupUp;
+	static CFSoundGroup *m_pSoundGroupDown;
 
 	CFWorldMesh *m_pWorldMesh;
 	static _ShieldSplash_t *m_aSplashes;

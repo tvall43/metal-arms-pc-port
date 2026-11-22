@@ -20,6 +20,7 @@
 
 
 #include "eshield.h"
+#include "fsound.h"
 #include "MeshTypes.h"
 #include "fworld.h"
 #include "floop.h"
@@ -131,6 +132,10 @@ FLinkRoot_t CEShield::m_FreeSplashList;
 CEShield*	CEShield::m_pCollThis			= NULL;
 const CFVec3A*	CEShield::m_pPosToDrawSplash	= NULL;
 
+CFSoundGroup *CEShield::m_pSoundGroupHit	= NULL;
+CFSoundGroup *CEShield::m_pSoundGroupUp	= NULL;
+CFSoundGroup *CEShield::m_pSoundGroupDown	= NULL;
+
 
 #if SAS_ACTIVE_USER == SAS_USER_ELLIOTT
 	u32  CEShield::uHighestSplashOverride = 0;
@@ -162,6 +167,10 @@ BOOL CEShield::InitSystem( void ) {
 			
 		flinklist_AddTail( &m_FreeSplashList, &m_aSplashes[i] );
 	}
+
+	m_pSoundGroupHit	= CFSoundGroup::RegisterGroup( "Shield_Hit" );
+	m_pSoundGroupUp		= CFSoundGroup::RegisterGroup( "Shield_Up" );
+	m_pSoundGroupDown	= CFSoundGroup::RegisterGroup( "Shield_Down" );
 
 	return TRUE;
 
@@ -568,6 +577,10 @@ void CEShield::AddSplashEffect( const CFVec3A &rvPos, f32 fMagnitude/*=1.0f*/ ) 
 	
 	flinklist_AddTail( &m_SplashList, pSplash );
 
+	if( (m_uFlags & SHIELD_ENABLE_SOUNDS) && m_pSoundGroupHit ) {
+		CFSoundGroup::PlaySound( m_pSoundGroupHit, FALSE, &rvPos );
+	}
+
 	// notify the bot that the shield is doing the splash thing
 	if( m_pOwnerBot ) {
 		m_pOwnerBot->NotifyShieldStatus( SHIELD_NOTIFY_IMPACT, rvPos );
@@ -822,6 +835,10 @@ void CEShield::_ShieldOff( BOOL bShowEffects/*=TRUE*/ ) {
 		m_fFlickerTimer = fmath_RandomFloatRange( _FLICKER_MIN_INTERVAL, _FLICKER_MAX_INTERVAL );
 		m_nFlickerCount	= fmath_RandomRange( _FLICKER_MIN_COUNT, _FLICKER_MAX_COUNT );
 
+		if( (m_uFlags & SHIELD_ENABLE_SOUNDS) && m_pSoundGroupDown ) {
+			CFSoundGroup::PlaySound( m_pSoundGroupDown, FALSE, &m_MtxToWorld.m_vPos );
+		}
+
 		if( m_pOwnerBot ) {
 			m_pOwnerBot->NotifyShieldStatus( SHIELD_NOTIFY_DOWN, m_MtxToWorld.m_vPos );
 		}
@@ -838,6 +855,10 @@ void CEShield::_ShieldOn( void ) {
 	if( !m_bShieldActive ) {
 		m_fShieldAlpha	= 0.0f;
 		m_bShieldActive = TRUE;
+
+		if( (m_uFlags & SHIELD_ENABLE_SOUNDS) && m_pSoundGroupUp ) {
+			CFSoundGroup::PlaySound( m_pSoundGroupUp, FALSE, &m_MtxToWorld.m_vPos );
+		}
 
 		//m_pWorldMesh->SetCollisionFlag( TRUE );
 		m_pWorldMesh->SetCollisionFlag( !(m_uFlags&SHIELD_NOPROTECTION) );

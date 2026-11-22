@@ -316,9 +316,9 @@ private:
 		CFSoundGroup *pSoundGroupGas;
 		f32 fGasTimeMin;
 		f32 fGasTimeMax;
-		CArmorProfile *pArmorProfileShield;		// PC port: retail addition (unused)
-		f32 fRetailShield1;						// PC port: retail addition (unused)
-		f32 fRetailShield2;						// PC port: retail addition (unused)
+		CArmorProfile *pArmorProfileShield;		// PC port: retail addition ('GruntShield')
+		f32 fShieldRechargeTime;				// PC port: retail addition (1 second)
+		f32 fShieldRechargeDelay;				// PC port: retail addition (120 seconds)
 	} BotInfo_Grunt_t;
 
 
@@ -567,6 +567,7 @@ FCLASS_ALIGN_PREFIX class CBotGruntBuilder : public CBotBuilder {
 public:
 	CFColorRGB m_MeshTintColor;
 	BOOL m_bAllowWeaponDrop;
+	BOOL m_bEnableShield;
 
 //----------------------------------------------------------------------------------------------------------------------------------
 // Public Functions:

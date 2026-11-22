@@ -19,6 +19,7 @@
  
 #include "fang.h"
 #include "botgrunt.h"
+#include "eshield.h"
 #include "fanim.h"
 #include "fresload.h"
 #include "floop.h"
@@ -130,6 +131,7 @@ void CBotGruntBuilder::SetDefaults( u64 nEntityTypeBits, u64 nEntityLeafTypeBit,
 	FMATH_SETBITMASK( m_uFlags, BOT_BUILDER_SHOWS_UP_ON_RADAR );
 
 	m_bAllowWeaponDrop = TRUE;
+	m_bEnableShield = FALSE;
 }
 
 
@@ -251,6 +253,20 @@ BOOL CBotGruntBuilder::InterpretTable( void ) {
 				CEntityParser::CompareBoolString( pszValue, &m_bAllowWeaponDrop );
 			}
 		}
+	}
+
+	if( !fclib_stricmp( CEntityParser::m_pszTableName, "Shield" ) ) {
+		if( CEntityParser::m_nFieldCount != 1 ) {
+			CEntityParser::Error_InvalidParameterCount();
+		} else {
+			cchar *pszValue;
+
+			if( CEntityParser::Interpret_String( &pszValue ) ) {
+				CEntityParser::CompareBoolString( pszValue, &m_bEnableShield );
+			}
+		}
+
+		return TRUE;
 	}
 
 	return CBotBuilder::InterpretTable();
@@ -454,6 +470,11 @@ void CBotGrunt::ClassHierarchyDestroy( void ) {
 
 	fdelete( m_apWeapon[1] );
 	m_apWeapon[1] = NULL;
+
+	if( m_pShield ) {
+		fdelete( m_pShield );
+		m_pShield = NULL;
+	}
 
 	m_Anim.Destroy();
 
@@ -705,6 +726,27 @@ BOOL CBotGrunt::ClassHierarchyBuild( void ) {
 
 	SetBotFlag_Enemy();
 
+	// Retail creates a GruntShield energy bubble for grunts whose entity
+	// table says Shield = On (XBE 0x0006fead-0x0006ff57).
+	if( pBuilder->m_bEnableShield ) {
+		m_pShield = fnew CEShield;
+		if( (m_pShield == NULL) || !m_pShield->Create( "GruntShield" ) ) {
+			DEVPRINTF( "CBotGrunt::ClassHierarchyBuild(): Error creating shield\n" );
+			goto _ExitWithError;
+		}
+
+		ShieldInit_t ShieldInit;
+		ShieldInit.uShieldFlags			= CEShield::SHIELD_ENABLE_SOUNDS;
+		ShieldInit.fShieldScale			= 0.4f;
+		ShieldInit.fShieldRechargeTime	= m_BotInfo_Grunt.fShieldRechargeTime;
+		ShieldInit.fShieldRechargeDelay	= m_BotInfo_Grunt.fShieldRechargeDelay;
+		ShieldInit.pArmorProfile			= m_BotInfo_Grunt.pArmorProfileShield;
+		ShieldInit.rgbTint.Set( 1.0f, 1.0f, 1.0f );
+
+		m_pShield->Init( this, &ShieldInit, TRUE );
+		m_pShield->RemoveFromWorld();
+	}
+
 	nLeftHandSecondaryFire = m_pWorldMesh->FindBone( "Secondary_Fire" );
 
 	if( nLeftHandSecondaryFire < 0 ) {
@@ -840,6 +882,13 @@ void CBotGrunt::ClassHierarchyAddToWorld( void ) {
 			m_apWeapon[i]->ResetToState( CWeapon::STATE_DEPLOYED );
 		}
 	}
+
+	if( m_pShield ) {
+		m_pShield->AddToWorld();
+		m_pShield->Attach_UnitMtxToParent_PS( this, m_apszBoneNameTable[BONE_GROIN] );
+		m_pShield->EnableShield( TRUE );
+		m_pShield->EnablePushOutBots( FALSE );
+	}
 }
 
 
@@ -853,6 +902,10 @@ void CBotGrunt::ClassHierarchyRemoveFromWorld( void ) {
 		if( m_apWeapon[i] ) {
 			m_apWeapon[i]->RemoveFromWorld();
 		}
+	}
+
+	if( m_pShield ) {
+		m_pShield->RemoveFromWorld();
 	}
 
 //	FreeAllParticleEmitterLocks(this);
@@ -871,6 +924,10 @@ void CBotGrunt::AppendTrackerSkipList(u32& nTrackerSkipListCount, CFWorldTracker
 
 	if( m_apWeapon[0] ) {
 		m_apWeapon[0]->AppendTrackerSkipList(nTrackerSkipListCount,apTrackerSkipList);
+	}
+
+	if( m_pShield ) {
+		m_pShield->AppendTrackerSkipList(nTrackerSkipListCount,apTrackerSkipList);
 	}
 
 	if( m_pDataPortMeshEntity ) {
@@ -1029,6 +1086,10 @@ void CBotGrunt::ClassHierarchyWork() {
 
 	// Call the work function for our botfx system...
 	_HandleParticles();
+
+	if( m_pShield ) {
+		m_pShield->Work();
+	}
 
 	if( m_pCableHook && m_pCableHook->m_bAttached ) {
 		m_pCableHook->m_Pos_Draw_WS = *m_pLeftHandSecondaryFireBonePos;
