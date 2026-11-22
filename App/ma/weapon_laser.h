@@ -30,6 +30,7 @@
 #include "MuzzleFlash.h"
 #include "fdecal.h"
 #include "fparticle.h"
+#include "explosion.h"
 
 
 class CBot;
@@ -154,6 +155,16 @@ private:
 		f32 fRetailBurstSpeed;
 		f32 fRetailBurstLength;
 		f32 fRetailBurstWidth;
+
+		// Retail charged-burst impact package (w_laser.csv columns 48,
+		// 52-53, 64-65, 70 and 73).
+		FParticle_DefHandle_t hRetailBurstAttachParticle1;		// 'Laser04'
+		FParticle_DefHandle_t hRetailFiringSmokeParticle;		// 'LsrSmoke3'/'LsrSmoke1'
+		FParticle_DefHandle_t hRetailBurstAttachParticle2;		// 'LsrSmoke4'/'LsrSmoke2'
+		FExplosion_GroupHandle_t hRetailBurstHitExplosion;		// 'LsrBrstHit'
+		FExplosion_GroupHandle_t hRetailBurstRicExplosion;		// 'LsrBrstRic'
+		CFSoundGroup *pSoundGroupRic;							// 'LaserRic'
+		FDecalDefHandle_t hRetailBurstDecal;					// 'LaserBurstL2'/'LaserBurstL3'
 	} _UserProps_t;
 
 
@@ -171,6 +182,7 @@ private:
 
 	static _UserProps_t m_aUserProps[EUK_COUNT_LASER];
 	static CDamageProfile *m_apDamageProfile[EUK_COUNT_LASER];
+	static CFSoundGroup *m_pSoundGroupImpactEnergy;			// retail material-class energy impact sound ('Energy')
 
 	static const FGameData_TableEntry_t m_aUserPropVocab[];
 	static const FGameDataMap_t m_aUserPropMapTable[];

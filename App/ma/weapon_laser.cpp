@@ -35,11 +35,13 @@
 #include "ItemInst.h"
 #include "LaserBeam.h"
 #include "fsndfx.h"
+#include "fsound.h"
 #include "Ai/AIEnviro.h"
 #include "eshield.h"
 #include "Damage.h"
 #include "gcoll.h"
 #include "fdecal.h"
+#include "fdebris.h"
 #include "LightPool.h"
 
 #include "sas_user.h"
@@ -97,6 +99,7 @@ BOOL CWeaponLaserBuilder::InterpretTable( void ) {
 
 CWeaponLaser::_UserProps_t CWeaponLaser::m_aUserProps[EUK_COUNT_LASER];
 CDamageProfile *CWeaponLaser::m_apDamageProfile[EUK_COUNT_LASER];
+CFSoundGroup *CWeaponLaser::m_pSoundGroupImpactEnergy = NULL;
 TracerDef_t CWeaponLaser::m_aoTracerDef[EUK_COUNT_LASER];
 TracerDef_t CWeaponLaser::m_aoBurstTracerDef[EUK_COUNT_LASER];
 CFTexInst CWeaponLaser::m_aTracerTexInst[EUK_COUNT_LASER];
@@ -318,6 +321,15 @@ const FGameData_TableEntry_t CWeaponLaser::m_aUserPropVocab[] = {
 	FGAMEDATA_FLAGS_FLOAT_X | FGAMEDATA_FLAGS_FLOAT_CLAMP_AND_GO,
 	sizeof( f32 ), F32_DATATABLE_0, F32_DATATABLE_100000,	// fRetailBurstWidth
 
+	// Retail charged-burst impact package:
+	FGAMEDATA_VOCAB_PARTICLE,		// hRetailBurstAttachParticle1 ('Laser04')
+	FGAMEDATA_VOCAB_PARTICLE,		// hRetailFiringSmokeParticle ('LsrSmoke3'/'LsrSmoke1')
+	FGAMEDATA_VOCAB_PARTICLE,		// hRetailBurstAttachParticle2 ('LsrSmoke4'/'LsrSmoke2')
+	FGAMEDATA_VOCAB_EXPLODE_GROUP,	// hRetailBurstHitExplosion ('LsrBrstHit')
+	FGAMEDATA_VOCAB_EXPLODE_GROUP,	// hRetailBurstRicExplosion ('LsrBrstRic')
+	FGAMEDATA_VOCAB_SOUND_GROUP,	// pSoundGroupRic ('LaserRic')
+	FGAMEDATA_VOCAB_DECAL_DEF,		// hRetailBurstDecal ('LaserBurstL2'/'LaserBurstL3')
+
 	// End of table:
 	FGAMEDATA_VAR_TYPE_COUNT| 0, 0, F32_DATATABLE_0, F32_DATATABLE_0
 };
@@ -327,6 +339,7 @@ static const u8 _aUserPropFieldMap[] = {
 	0, 7, 23, 8, 43, 56, 13, 44, 15, 26, 10, 11, 12, 34, 46, 14,
 	2, 1, 20, 21, 59, 60, 61, 62, 65, 66, 67, 68, 70, 71,
 	48, 49, 50, 33, 34, 35, 37, 39, 20, 21, 22,
+	47, 51, 52, 63, 64, 69, 72,
 };
 
 const FGameDataMap_t CWeaponLaser::m_aUserPropMapTable[] = {
@@ -423,6 +436,7 @@ BOOL CWeaponLaser::InitSystem( void ) {
 	// group (retail semantics - w_laser.csv field 65 is a group name), which
 	// replaces the old raw-SFX alias fallback that remapped the never-
 	// resolving 'LaserFire' bank name to 'Fire Laser EUK1' by hand.
+	m_pSoundGroupImpactEnergy = CFSoundGroup::RegisterGroup( "Energy" );
 
 	// Do this for each EUK level...
 	// The retail laser muzzle flash is a particle (fields 47-50); the source's
@@ -836,213 +850,285 @@ void CWeaponLaser::_TracerKilledCallback( TracerDef_t *pTracerDef, TracerKillRea
 		}
 	}
 
-	if( nKillReason == TRACER_KILLREASON_HIT_GEO ) {
-		FASSERT(pTracerDef->pUser != NULL);
-
-		// [ma] TEMP r17: HIT_GEO breakdown: tagless geo vs tag-not-entity vs entity.
-		{
-			static u32 s_nTEMPGeo = 0;
-			static u32 s_nTEMPNoTag = 0;
-			static u32 s_nTEMPTagOther = 0;
-			s_nTEMPGeo++;
-			if( pImpact->pTag == NULL ) { s_nTEMPNoTag++; }
-			else if( ((CFWorldMesh *)(pImpact->pTag))->m_nUser != MESHTYPES_ENTITY ) { s_nTEMPTagOther++; }
-			if( s_nTEMPGeo <= 16 || ( s_nTEMPGeo % 120 ) == 0 ) {
-				CFVec3A vTEMPd;
-				vTEMPd.Sub( pImpact->ImpactPoint, pTracerDef->TailPos_WS );
-				DEVPRINTF( "[ma] TEMP r17 laser geo f=%u cnt=%u noTag=%u tagOther=%u d2=%g\n",
-					(unsigned)FVid_nFrameCounter, s_nTEMPGeo, s_nTEMPNoTag, s_nTEMPTagOther, vTEMPd.MagSq() );
-			}
-		}
-		CWeaponLaser *pLaser = (CWeaponLaser *)(pTracerDef->pUser);
-
-		CDamageProfile *pLaserDamage = pLaser->m_apDamageProfile[pLaser->m_nUpgradeLevel];
-		if( pTracerDef->nUser & _LASER_NUSER_BURST ) {
+	if( nKillReason != TRACER_KILLREASON_HIT_GEO ) {
+		// Retail burst tracers leave an end puff when they fizzle at max range.
+		if( pTracerDef && ( pTracerDef->nUser & _LASER_NUSER_BURST ) && pTracerDef->pUser ) {
+			CWeaponLaser *pLaser = (CWeaponLaser *)(pTracerDef->pUser);
 			const u32 nLevel = ( pTracerDef->nUser >> _LASER_NUSER_LEVEL_SHIFT ) & 7;
-			const u32 nTier = ( pTracerDef->nUser >> _LASER_NUSER_TIER_SHIFT ) & 3;
-			if( ( nLevel < EUK_COUNT_LASER ) && ( nTier < 3 ) ) {
-				CDamageProfile *pBurstDamage = pLaser->m_aUserProps[nLevel].apChargedDamageProfile[nTier];
-				if( pBurstDamage ) {
-					pLaserDamage = pBurstDamage;
+			if( nLevel < EUK_COUNT_LASER ) {
+				const _UserProps_t &UserProps = pLaser->m_aUserProps[nLevel];
+				if( UserProps.hRetailBurstParticle ) {
+					CFVec3A vEndPos = pTracerDef->TailPos_WS;
+					CFVec3A vEndOffset = pTracerDef->UnitDir_WS;
+					vEndOffset.Mul( 1.0f );
+					vEndPos.Add( vEndOffset );
+					fparticle_SpawnEmitter( UserProps.hRetailBurstParticle, vEndPos.v3,
+											&pTracerDef->UnitDir_WS.v3, 1.0f );
+				}
+			}
+		}
+		return;
+	}
+
+	FASSERT( pTracerDef->pUser != NULL );
+
+	// [ma] TEMP r17: HIT_GEO breakdown: tagless geo vs tag-not-entity vs entity.
+	{
+		static u32 s_nTEMPGeo = 0;
+		static u32 s_nTEMPNoTag = 0;
+		static u32 s_nTEMPTagOther = 0;
+		s_nTEMPGeo++;
+		if( pImpact->pTag == NULL ) { s_nTEMPNoTag++; }
+		else if( ((CFWorldMesh *)(pImpact->pTag))->m_nUser != MESHTYPES_ENTITY ) { s_nTEMPTagOther++; }
+		if( s_nTEMPGeo <= 16 || ( s_nTEMPGeo % 120 ) == 0 ) {
+			CFVec3A vTEMPd;
+			vTEMPd.Sub( pImpact->ImpactPoint, pTracerDef->TailPos_WS );
+			DEVPRINTF( "[ma] TEMP r17 laser geo f=%u cnt=%u noTag=%u tagOther=%u d2=%g\n",
+				(unsigned)FVid_nFrameCounter, s_nTEMPGeo, s_nTEMPNoTag, s_nTEMPTagOther, vTEMPd.MagSq() );
+		}
+	}
+
+	CWeaponLaser *pLaser = (CWeaponLaser *)(pTracerDef->pUser);
+	u32 nLevel = ( pTracerDef->nUser >> _LASER_NUSER_LEVEL_SHIFT ) & 7;
+	u32 nTier = ( pTracerDef->nUser >> _LASER_NUSER_TIER_SHIFT ) & 3;
+	if( nLevel >= EUK_COUNT_LASER ) { nLevel = pLaser->m_nUpgradeLevel; }
+	if( nTier >= 3 ) { nTier = 2; }
+	const _UserProps_t &UserProps = pLaser->m_aUserProps[nLevel];
+
+	CDamageProfile *pLaserDamage = pLaser->m_apDamageProfile[nLevel];
+	if( pTracerDef->nUser & _LASER_NUSER_BURST ) {
+		CDamageProfile *pBurstDamage = UserProps.apChargedDamageProfile[nTier];
+		if( pBurstDamage ) { pLaserDamage = pBurstDamage; }
+	}
+
+	const CGCollMaterial *pCollMaterial = CGColl::GetMaterial( pImpact->nUserType );
+
+	// Retail lets the tracer continue through wires rather than treating the
+	// wire as a solid surface.
+	if( CGColl::ExtractWire( pImpact ) ) {
+		TracerDef_t WireDef = *pTracerDef;
+		WireDef.TailPos_WS = pImpact->ImpactPoint;
+		tracer_NewTracer( pLaser->m_hTracerGroup, &WireDef, 0.0f, FALSE, FALSE, &CDamageForm::m_TempDamager );
+		return;
+	}
+
+	const BOOL bBurst = !!( pTracerDef->nUser & _LASER_NUSER_BURST );
+	CFVec3A vReflection;
+	vReflection.ReceiveReflection( pTracerDef->UnitDir_WS, pImpact->UnitFaceNormal );
+
+	const u8 nProjReact = CGColl::ComputeProjectileReaction( pImpact );
+	BOOL bRicochet = ( nProjReact == CEntity::PROJECTILE_REACTION_RICOCHET ) ||
+		( nProjReact == CEntity::PROJECTILE_REACTION_SHIELD );
+	if( !bBurst && !bRicochet &&
+		pCollMaterial->IsBlastDecalEnabled() &&
+		( ( pTracerDef->nUser & _LASER_NUSER_RICOCHET_MASK ) < 4 ) ) {
+		const f32 fNormalDotDir = pTracerDef->UnitDir_WS.Dot( pImpact->UnitFaceNormal );
+		if( (-fNormalDotDir) < 0.3f ) { bRicochet = TRUE; }
+	}
+
+	if( bRicochet ) {
+		TracerDef_t RicochetDef = *pTracerDef;
+		RicochetDef.nUser = (u16)( ( pTracerDef->nUser & ~_LASER_NUSER_RICOCHET_MASK ) |
+			( ( pTracerDef->nUser & _LASER_NUSER_RICOCHET_MASK ) + 1 ) );
+		RicochetDef.UnitDir_WS = vReflection;
+		RicochetDef.TailPos_WS = pImpact->ImpactPoint;
+
+		CFVec3A vStartOffset = vReflection;
+		vStartOffset.Mul( 0.1f );
+		RicochetDef.TailPos_WS.Add( vStartOffset );
+
+		tracer_NewTracer( pLaser->m_hTracerGroup, &RicochetDef, 0.0f, FALSE, FALSE, &CDamageForm::m_TempDamager );
+
+		if( UserProps.pSoundGroupRic ) {
+			CFSoundGroup::PlaySound( UserProps.pSoundGroupRic, FALSE, &pImpact->ImpactPoint );
+		}
+
+		if( bBurst ) {
+			if( UserProps.hRetailBurstRicExplosion != FEXPLOSION_INVALID_HANDLE ) {
+				FExplosion_SpawnerHandle_t hSpawner = CExplosion2::GetExplosionSpawner();
+				if( hSpawner != FEXPLOSION_INVALID_HANDLE ) {
+					FExplosionSpawnParams_t SpawnParams;
+					SpawnParams.InitToDefaults();
+					SpawnParams.pDamager = &pTracerDef->Damager;
+					SpawnParams.Pos_WS = pImpact->ImpactPoint;
+					SpawnParams.UnitDir = pImpact->UnitFaceNormal;
+					SpawnParams.uSurfaceType = pImpact->nUserType;
+					CExplosion2::SpawnExplosion( hSpawner, UserProps.hRetailBurstRicExplosion, &SpawnParams );
+				}
+			}
+
+			if( UserProps.hRetailBurstParticle ) {
+				fparticle_SpawnEmitter( UserProps.hRetailBurstParticle, pImpact->ImpactPoint.v3,
+										&vReflection.v3, 1.0f );
+			}
+
+			if( pImpact->pTag ) {
+				CFWorldMesh *pHitWorldMesh = (CFWorldMesh *)(pImpact->pTag);
+				if( pHitWorldMesh->m_nUser == MESHTYPES_ENTITY ) {
+					CEntity *pEDamagee = (CEntity *)(pHitWorldMesh->m_pUser);
+					CDamageForm *pDamageForm = CDamage::GetEmptyDamageFormFromPool();
+					if( pDamageForm ) {
+						pDamageForm->m_nDamageLocale = CDamageForm::DAMAGE_LOCALE_IMPACT;
+						pDamageForm->m_nDamageDelivery = CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY;
+						pDamageForm->m_pDamageProfile = pLaserDamage;
+						pDamageForm->m_Damager.pWeapon = pLaser;
+						pDamageForm->m_Damager.pBot = pLaser->GetOwner();
+						pDamageForm->m_Damager.nDamagerPlayerIndex = pLaser->GetOwner() ? pLaser->GetOwner()->m_nPossessionPlayerIndex : -1;
+						pDamageForm->m_pDamageeEntity = pEDamagee;
+						pDamageForm->InitTriDataFromCollImpact( pHitWorldMesh, pImpact, &pTracerDef->UnitDir_WS );
+						CDamage::SubmitDamageForm( pDamageForm );
+					}
+				}
+			}
+		} else {
+			pCollMaterial->DrawParticle( CGCollMaterial::PARTICLE_TYPE_BITS,
+				&pImpact->ImpactPoint, &vReflection, 1.0f );
+			pCollMaterial->DrawParticle( CGCollMaterial::PARTICLE_TYPE_DUST,
+				&pImpact->ImpactPoint, &vReflection, 0.5f );
+		}
+
+		return;
+	}
+
+	// Retail plays the material-class energy impact sound on every surface hit.
+	if( m_pSoundGroupImpactEnergy ) {
+		CFSoundGroup::PlaySound( m_pSoundGroupImpactEnergy, FALSE, &pImpact->ImpactPoint );
+	}
+
+	if( bBurst ) {
+		if( UserProps.hRetailBurstHitExplosion != FEXPLOSION_INVALID_HANDLE ) {
+			FExplosion_SpawnerHandle_t hSpawner = CExplosion2::GetExplosionSpawner();
+			if( hSpawner != FEXPLOSION_INVALID_HANDLE ) {
+				FExplosionSpawnParams_t SpawnParams;
+				SpawnParams.InitToDefaults();
+				SpawnParams.pDamager = &pTracerDef->Damager;
+				SpawnParams.Pos_WS = pImpact->ImpactPoint;
+				SpawnParams.UnitDir = pImpact->UnitFaceNormal;
+				SpawnParams.uSurfaceType = pImpact->nUserType;
+				CExplosion2::SpawnExplosion( hSpawner, UserProps.hRetailBurstHitExplosion, &SpawnParams );
+			}
+		}
+
+		pCollMaterial->DrawAllDrawableParticles(
+			&pImpact->ImpactPoint,
+			&pImpact->UnitFaceNormal,
+			TRUE,
+			1.0f,
+			1.0f,
+			1.0f
+		);
+
+		CFDebrisSpawner DebrisSpawner;
+		DebrisSpawner.InitToDefaults();
+		DebrisSpawner.m_Mtx.m_vPos = pImpact->ImpactPoint;
+		DebrisSpawner.m_Mtx.m_vZ = vReflection;
+		DebrisSpawner.m_nEmitterType = CFDebrisSpawner::EMITTER_TYPE_POINT;
+		DebrisSpawner.m_pDebrisGroup = pCollMaterial->m_apDebrisGroup[ CGCollMaterial::DEBRIS_GROUP_MEDIUM ];
+		DebrisSpawner.m_fMinSpeed = 10.0f;
+		DebrisSpawner.m_fMaxSpeed = 20.0f;
+		DebrisSpawner.m_fUnitDirSpread = 1.0f;
+		DebrisSpawner.m_nMinDebrisCount = 10;
+		DebrisSpawner.m_nMaxDebrisCount = 14;
+		CGColl::SpawnDebris( &DebrisSpawner );
+
+		const f32 afTierIntensity[3] = { 0.0f, 0.5f, 1.0f };
+		const f32 fTierIntensity = afTierIntensity[nTier];
+		if( UserProps.hRetailBurstParticle ) {
+			fparticle_SpawnEmitter( UserProps.hRetailBurstParticle, pImpact->ImpactPoint.v3,
+									&vReflection.v3, fTierIntensity );
+		}
+
+		if( UserProps.hRetailBurstDecal ) {
+			CFDecal::Create( UserProps.hRetailBurstDecal, pImpact, &pTracerDef->UnitDir_WS );
+		}
+
+		if( pCollMaterial->IsBlastDecalEnabled() ) {
+			if( UserProps.hRetailBurstAttachParticle1 ) {
+				FParticle_EmitterHandle_t hAttach = fparticle_SpawnEmitter(
+					UserProps.hRetailBurstAttachParticle1, pImpact->ImpactPoint.v3,
+					&pImpact->UnitFaceNormal.v3, 1.0f );
+				if( hAttach ) {
+					fparticle_SetDurationMultiplier( hAttach, 1.0f + 2.0f * (f32)nTier );
+				}
+			}
+			if( UserProps.hRetailBurstAttachParticle2 ) {
+				FParticle_EmitterHandle_t hAttach = fparticle_SpawnEmitter(
+					UserProps.hRetailBurstAttachParticle2, pImpact->ImpactPoint.v3,
+					&pImpact->UnitFaceNormal.v3, 1.0f );
+				if( hAttach ) {
+					fparticle_SetDurationMultiplier( hAttach, 1.0f + 4.0f * (f32)nTier );
 				}
 			}
 		}
 
-		const CGCollMaterial *pCollMaterial = CGColl::GetMaterial( pImpact->nUserType );
-
-		// Retail has a second-stage tracer kill callback (XBE 0x00142660)
-		// that lets the mining laser ricochet off grazing surfaces.  The
-		// callback uses TracerDef_t::nUser as the ricochet counter: normal
-		// surfaces bounce at most four times when the incoming direction is
-		// within the 0.3 dot-product threshold; RICOCHET/SHIELD materials
-		// bounce regardless of that angle test. Charged bursts only bounce
-		// off RICOCHET/SHIELD materials and always detonate on normal
-		// surfaces; L3 bolts ricochet exactly like L1/L2.
-		if( pImpact )
-		{
-			if( CGColl::ExtractWire( pImpact ) )
-			{
-				// Retail lets the tracer continue through wires rather than
-				// treating the wire as a solid surface.
-				TracerDef_t WireDef = *pTracerDef;
-				WireDef.TailPos_WS = pImpact->ImpactPoint;
-				tracer_NewTracer( pLaser->m_hTracerGroup, &WireDef, 0.0f, FALSE, FALSE, &CDamageForm::m_TempDamager );
-				return;
-			}
+		if( UserProps.hRetailEndParticle ) {
+			CFVec3A vSecondaryPos = pImpact->UnitFaceNormal;
+			vSecondaryPos.Mul( 0.75f );
+			vSecondaryPos.Add( pImpact->ImpactPoint );
+			fparticle_SpawnEmitter( UserProps.hRetailEndParticle, vSecondaryPos.v3,
+									&pImpact->UnitFaceNormal.v3, fTierIntensity );
 		}
-
-		const BOOL bBurst = !!( pTracerDef->nUser & _LASER_NUSER_BURST );
-
-		if( pImpact )
-		{
-			BOOL bRicochet = FALSE;
-
-			const u8 nProjReact = CGColl::ComputeProjectileReaction( pImpact );
-			if( (nProjReact == CEntity::PROJECTILE_REACTION_RICOCHET) ||
-			    (nProjReact == CEntity::PROJECTILE_REACTION_SHIELD) )
-			{
-				bRicochet = TRUE;
-			}
-			else if( !bBurst &&
-			         pCollMaterial->IsBlastDecalEnabled() &&
-			         ( ( pTracerDef->nUser & _LASER_NUSER_RICOCHET_MASK ) < 4 ) )
-			{
-				const f32 fNormalDotDir = pTracerDef->UnitDir_WS.Dot( pImpact->UnitFaceNormal );
-
-				// Target 0x00142660 tests (-dot < 0.3f): grazing hits
-				// ricochet, head-on hits do not.
-				if( (-fNormalDotDir) < 0.3f )
-				{
-					bRicochet = TRUE;
-				}
-			}
-
-			if( bRicochet )
-			{
-				TracerDef_t RicochetDef = *pTracerDef;
-				RicochetDef.nUser = (u16)( ( pTracerDef->nUser & ~_LASER_NUSER_RICOCHET_MASK ) |
-					( ( pTracerDef->nUser & _LASER_NUSER_RICOCHET_MASK ) + 1 ) );
-				RicochetDef.UnitDir_WS.ReceiveReflection( pTracerDef->UnitDir_WS, pImpact->UnitFaceNormal );
-				RicochetDef.TailPos_WS = pImpact->ImpactPoint;
-
-				// Retail starts the reflected tracer just off the surface.
-				CFVec3A vStartOffset = RicochetDef.UnitDir_WS;
-				vStartOffset.Mul( 0.1f );
-				RicochetDef.TailPos_WS.Add( vStartOffset );
-
-				tracer_NewTracer( pLaser->m_hTracerGroup, &RicochetDef, 0.0f, FALSE, FALSE, &CDamageForm::m_TempDamager );
-			}
-		}
-
-		// A laser hit is a brief flash, not a continuous spark shower: use the
-		// burst emitter so the sparks do not keep spawning and spreading far
-		// past the impact point.
+	} else {
 		pCollMaterial->DrawAllDrawableParticles(
 			&pImpact->ImpactPoint,
 			&pImpact->UnitFaceNormal,
 			TRUE,
 			fmath_RandomFloatRange( 0.0f, 0.0f ),
 			fmath_RandomFloatRange( 0.0f, 0.1f ),
-			fmath_RandomFloatRange( 0.0f, 0.1f )
+			fmath_RandomFloatRange( 0.4f, 0.5f )
 		);
 
-//#if SAS_ACTIVE_USER == SAS_USER_ELLIOTT
-//	fforce_Kill( &pLaser->m_hForce );
-//
-//	FDecalDefHandle_t hDecalDef;
-//	hDecalDef = CFDecal::GetDefByName( "explosion" );
-//	CFDecalDef decaldef = *(CFDecalDef*)hDecalDef;
-//	decaldef.fMinRadius = decaldef.fMaxRadius = 20.0f;
-//	CFDecal::Create( &decaldef, pImpact, &pTracerDef->UnitDir_WS );
-//
-//#endif
-
-		//FDecalDefHandle_t hDecal = CFDecal::GetDefByName( "rocket" );
-
-		CFDecal::Create( m_aUserProps[pLaser->m_nUpgradeLevel].hDecalDef, pImpact, &pTracerDef->UnitDir_WS );
-		//CFDecal::Create( hDecal, pImpact );
-
-		if(pImpact->pTag == NULL)
-		{
-//#if !SAS_ACTIVE_USER == SAS_USER_ELLIOTT
-//			if( pCollMaterial->IsPockMarkEnabled( pImpact ) )
-//			{
-//				potmark_NewPotmark(&pImpact->ImpactPoint, &pImpact->UnitFaceNormal);
-//			}
-//#endif
-		
+		if( UserProps.hDecalDef ) {
+			CFDecal::Create( UserProps.hDecalDef, pImpact, &pTracerDef->UnitDir_WS );
 		}
+	}
 
+	if( pImpact->pTag ) {
+		CFWorldMesh *pHitWorldMesh = (CFWorldMesh *)(pImpact->pTag);
+		if( pHitWorldMesh->m_nUser == MESHTYPES_ENTITY ) {
+			CEntity *pEDamagee = (CEntity *)(pHitWorldMesh->m_pUser);
 
-		else
-		{
-			CFWorldMesh *pHitWorldMesh = (CFWorldMesh *)(pImpact->pTag);
-
-			// See if the world mesh that we found is an entity...
-			if(pHitWorldMesh->m_nUser == MESHTYPES_ENTITY)
+			// [ma] TEMP r17: entity-branch entries (form submission gate passed).
 			{
-				// It's an Entity!
-				CEntity *pEDamagee = (CEntity *)(pHitWorldMesh->m_pUser);
-
-				// [ma] TEMP r17: entity-branch entries (form submission gate passed).
-				{
-					static u32 s_nTEMPHitEnt = 0;
-					s_nTEMPHitEnt++;
-					if( s_nTEMPHitEnt <= 16 || ( s_nTEMPHitEnt % 120 ) == 0 ) {
-						DEVPRINTF( "[ma] TEMP r17 laser hitEntity f=%u cnt=%u damagee=%p profile=%p upg=%u owner=%p self=%d\n",
-							(unsigned)FVid_nFrameCounter, s_nTEMPHitEnt, pEDamagee,
-							pLaserDamage, (unsigned)pLaser->m_nUpgradeLevel,
-							pLaser->GetOwner(),
-							(int)( (void *)pEDamagee == (void *)pLaser->GetOwner() ) );
-					}
+				static u32 s_nTEMPHitEnt = 0;
+				s_nTEMPHitEnt++;
+				if( s_nTEMPHitEnt <= 16 || ( s_nTEMPHitEnt % 120 ) == 0 ) {
+					DEVPRINTF( "[ma] TEMP r17 laser hitEntity f=%u cnt=%u damagee=%p profile=%p upg=%u owner=%p self=%d\n",
+						(unsigned)FVid_nFrameCounter, s_nTEMPHitEnt, pEDamagee,
+						pLaserDamage, (unsigned)pLaser->m_nUpgradeLevel,
+						pLaser->GetOwner(),
+						(int)( (void *)pEDamagee == (void *)pLaser->GetOwner() ) );
 				}
+			}
 
-				//if( pCollMaterial->IsPockMarkEnabled( pImpact ) )
-				//{
-				//	if( !(pEDamagee->TypeBits() & ENTITY_BIT_BOT) && !(pEDamagee->TypeBits() & ENTITY_BIT_SHIELD) && !(pEDamagee->TypeBits() & ENTITY_BIT_PROJECTILE)) {
-				//		potmark_NewPotmark( &pImpact->ImpactPoint, &pImpact->UnitFaceNormal );
-				//	}
-				//}
-
-				// Get an empty damage form...
-				CDamageForm *pDamageForm = CDamage::GetEmptyDamageFormFromPool();
-
-				if( pDamageForm )
-				{
-					// Fill out the form...
-
-					pDamageForm->m_nDamageLocale = CDamageForm::DAMAGE_LOCALE_IMPACT;
-					pDamageForm->m_nDamageDelivery = CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY;
-					pDamageForm->m_pDamageProfile = pLaserDamage;
-					pDamageForm->m_Damager.pWeapon = pLaser;
-					pDamageForm->m_Damager.pBot = pLaser->GetOwner();
-					pDamageForm->m_Damager.nDamagerPlayerIndex = pLaser->GetOwner() ? pLaser->GetOwner()->m_nPossessionPlayerIndex : -1;
-					pDamageForm->m_pDamageeEntity = pEDamagee;
-					pDamageForm->InitTriDataFromCollImpact( pHitWorldMesh, pImpact, &pTracerDef->UnitDir_WS );
-
-					CDamage::SubmitDamageForm( pDamageForm );
-				}
-				else
-				{
-					static u32 s_nTEMPPool19 = 0;
-					s_nTEMPPool19++;
-					if( s_nTEMPPool19 <= 16 || ( s_nTEMPPool19 % 120 ) == 0 ) {
-						DEVPRINTF( "[ma] TEMP r19 laser pool EMPTY f=%u cnt=%u\n",
-							(unsigned)FVid_nFrameCounter, s_nTEMPPool19 );
-					}
+			CDamageForm *pDamageForm = CDamage::GetEmptyDamageFormFromPool();
+			if( pDamageForm ) {
+				pDamageForm->m_nDamageLocale = CDamageForm::DAMAGE_LOCALE_IMPACT;
+				pDamageForm->m_nDamageDelivery = CDamageForm::DAMAGE_DELIVERY_ONE_SPECIFIC_ENTITY;
+				pDamageForm->m_pDamageProfile = pLaserDamage;
+				pDamageForm->m_Damager.pWeapon = pLaser;
+				pDamageForm->m_Damager.pBot = pLaser->GetOwner();
+				pDamageForm->m_Damager.nDamagerPlayerIndex = pLaser->GetOwner() ? pLaser->GetOwner()->m_nPossessionPlayerIndex : -1;
+				pDamageForm->m_pDamageeEntity = pEDamagee;
+				pDamageForm->InitTriDataFromCollImpact( pHitWorldMesh, pImpact, &pTracerDef->UnitDir_WS );
+				CDamage::SubmitDamageForm( pDamageForm );
+			} else {
+				static u32 s_nTEMPPool19 = 0;
+				s_nTEMPPool19++;
+				if( s_nTEMPPool19 <= 16 || ( s_nTEMPPool19 % 120 ) == 0 ) {
+					DEVPRINTF( "[ma] TEMP r19 laser pool EMPTY f=%u cnt=%u\n",
+						(unsigned)FVid_nFrameCounter, s_nTEMPPool19 );
 				}
 			}
 		}
+	}
 
-		//make an AI impact sound in case any AI are listening
-		if( pLaser->m_pOwnerBot->m_nPossessionPlayerIndex > -1 && pLaser->m_fSecsUntilNextSound <= 0.0f)
-		{
-			AIEnviro_AddSound( pImpact->ImpactPoint, AIEnviro_fLaserImpactAudibleRange, 0.3f, AISOUNDTYPE_WEAPON, 0, pLaser );
-			pLaser->m_fSecsUntilNextSound = 0.5f;
-		}
+	//make an AI impact sound in case any AI are listening
+	if( pLaser->m_pOwnerBot->m_nPossessionPlayerIndex > -1 && pLaser->m_fSecsUntilNextSound <= 0.0f) {
+		AIEnviro_AddSound( pImpact->ImpactPoint, AIEnviro_fLaserImpactAudibleRange, 0.3f, AISOUNDTYPE_WEAPON, 0, pLaser );
+		pLaser->m_fSecsUntilNextSound = 0.5f;
 	}
 }
-
 
 
 void CWeaponLaser::KillRumble( void ) {
@@ -1501,6 +1587,13 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 				vecMuzzlePoint.v3, &vFireUnitDir.v3, 1.0f );
 		}
 
+		if( bBurst && m_pOwnerBot && ( m_pOwnerBot->m_nPossessionPlayerIndex >= 0 ) ) {
+			CFCamera *pCamera = fcamera_GetCameraByIndex( m_pOwnerBot->m_nPossessionPlayerIndex );
+			if( pCamera ) {
+				pCamera->ShakeCamera( 0.2f, 0.15f );
+			}
+		}
+
 		switch( bBurst ? 0 : m_nUpgradeLevel )
 		{
 			case 2:
@@ -1656,9 +1749,20 @@ void CWeaponLaser::ClassHierarchyWork( void ) {
 		if(bPlayForce && IsOwnedByPlayer())
 		{
 			// Human player...
+			FForce_Effect_e eForce;
+			if( bBurst ) {
+				eForce = FFORCE_EFFECT_ENERGY_PULSE;
+			} else if( m_nUpgradeLevel == 0 ) {
+				eForce = FFORCE_EFFECT_ROUGH_RUMBLE_MED;
+			} else if( m_nUpgradeLevel == 1 ) {
+				eForce = FFORCE_EFFECT_ROUGH_RUMBLE_HIGH;
+			} else {
+				eForce = FFORCE_EFFECT_ROUGH_RUMBLE_MAX;
+			}
+
 			fforce_Kill(&m_hForce);
 			fforce_Play(Player_aPlayer[GetOwner()->m_nPossessionPlayerIndex].m_nControllerIndex,
-				bBurst ? FFORCE_EFFECT_ENERGY_PULSE : FFORCE_EFFECT_LIGHT_PULSE, &m_hForce);
+				eForce, &m_hForce);
 		}
 		//
 		//////////////////////////////////////////////////////////////////////
